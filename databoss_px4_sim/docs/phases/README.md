@@ -19,6 +19,10 @@
 - Phase 8A — Ideal external-odometry aiding upper-bound proof.
 - Phase 8B — Physical world generation and generated-world PX4 flight proof.
 - Phase 8C — Downward monocular camera proof in generated worlds.
+- Phase 14A — Altitude step 1 at 15 m, accepted.
+- Phase 14B — Altitude step 2 at 35 m, rejected as a matrix; SIFT GNSS-loss
+  accepted in two observed runs, LK/stock/no-aid rejected or flaky. Details:
+  `phase_14b_altitude_35m.md`.
 
 ## Proven / trustworthy building blocks (added 2026-07-20)
 

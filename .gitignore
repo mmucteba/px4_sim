@@ -32,3 +32,5 @@ databoss_px4_sim/generated_worlds/
 # Large binary artifacts (safety net)
 *.ulg
 *.ulg.gz
+*.deb.*
+.claude/*.tmp.*

@@ -478,6 +478,14 @@ def wait_for_airborne_duration(
             )
             return True, samples, final_sample
 
+        if sample["landed"] is True and airborne_start_px4_s is not None:
+            notes.append(
+                "airborne duration wait stopped after early landing: "
+                f"target_s={target_airborne_s:.3f}, "
+                f"last_px4_s={px4_s}, wall_s={sample['elapsed_wall_s']:.3f}"
+            )
+            return False, samples, final_sample
+
         time.sleep(interval_wall_s)
 
     notes.append(

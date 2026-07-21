@@ -4138,6 +4138,132 @@ lossless, md5-verified) since raw ULogs are the biggest disk cost.
 Next action: Phase 14b (35 m) — same six-case matrix, altitude 35 m; the
 altitude gate and HMAX=80 already cover it with no new tuning.
 
+## 2026-07-21 — Phase 14b 35 m batch executed; matrix rejected, SIFT accepted
+
+User found the first Phase 14b attempt was launched through the raw runner
+without the full timing contract (`--hover-s 90 --post-loss-hover-s 50`), so it
+ended too early and only recorded 91 flow frames. Added the missing rerunnable
+batch YAML:
+
+`experiments/configs/mvp/batches/phase14b_altitude_35m.yaml`
+
+Dry-run confirmed all six cases now expand with `--hover-s 90` and
+`--post-loss-hover-s 50`; stock uses scenario timing
+`--gnss-loss-after-takeoff-s 19.0`, while LK/SIFT/no-aid use the scenario
+10 s trigger. The real batch ran here:
+
+`experiments/batches/20260721_151916_phase14b_altitude_35m`
+
+Local runtime repairs before/during the run:
+- Freed disk by removing regenerated `extracted_csv` directories plus old
+  system crash/journal files. Raw ULogs, truth logs, reports, and run folders
+  were preserved.
+- Fixed PX4 SITL logger permissions. A root-owned
+  `/opt/sim_px4/PX4-Autopilot/build/px4_sitl_default/rootfs/log/2026-07-21`
+  directory caused `ERROR [logger] Can't open log file` when running as user
+  `px4`; restored the log tree to `px4:px4`.
+- Stopped one already-landed GNSS-on run's PX4 process so the runner would not
+  wait out the long no-loss hover timeout after early landing. The ULog was
+  already closed and copied; the case remains rejected. Then patched
+  `wait_for_airborne_duration()` in
+  `scripts/runner/auto_takeoff_land_pxh_truth.py` so future runs stop the wait
+  immediately when early landing is observed after the vehicle has been
+  airborne.
+
+Batch result: **Rejected** (`accepted_count=1`, `failed_count=5`). Evidence:
+
+`experiments/batches/20260721_151916_phase14b_altitude_35m/batch_metrics.md`
+
+Key full-window Gazebo-truth metrics:
+- LK GNSS-loss: `gnss_loss_verified=True`, 50 s post-loss achieved, rejected;
+  max horizontal error `20.84 m`, max height error `13.47 m`, truth drift end
+  `64.30 m`.
+- SIFT GNSS-loss: **accepted**; max horizontal error `1.71 m`, max height
+  error `0.90 m`, truth drift end `10.64 m`.
+- Stock GNSS-loss rep1: `gnss_loss_verified=True`, rejected; max horizontal
+  error `55.97 m`, max height error `7.32 m`, truth drift end `60.64 m`.
+- Stock GNSS-loss rep2: rejected by the fail-loud GPS gate
+  (`gnss_loss_verified=False`, fix stayed valid); not interpretable as a
+  GNSS-denied performance run.
+- LK GNSS-on reference: rejected by flight validation after failsafe/landing
+  timing, but aligned close to truth; max horizontal error `1.10 m`, truth
+  drift end `0.04 m`.
+- No-aid GNSS-loss: `gnss_loss_verified=True`, rejected/divergent baseline;
+  max horizontal error `82.56 m`, truth drift end `82.44 m`.
+
+Interpretation: the timing bug is fixed and the 35 m batch produced valid
+evidence. Phase 14b is rejected as a matrix because only SIFT remains bounded
+and accepted at this altitude. LK and stock, which were acceptable at 15 m, no
+longer meet the 35 m acceptance gates in this run. The no-aid baseline diverges
+as expected.
+
+Next action: decide whether Phase 14 should tune LK at 35 m or continue with
+SIFT as the only accepted 35 m aided candidate.
+
+## 2026-07-21 — Phase 14b stock rep2 rerun: GPS flake resolved, stock still rejected
+
+Reran only `stock_gnssloss_35m_rep2` from
+`experiments/configs/mvp/batches/phase14b_altitude_35m.yaml`, preserving the
+original full-batch data:
+
+`experiments/batches/20260721_192017_phase14b_altitude_35m`
+
+New run:
+
+`experiments/runs/20260721_192020_phase14b_stock_gnssloss_off50s_flat_rural_phototex_noon_alt35m_pxh_takeoff_land_truth`
+
+This rerun fixed the original stock rep2 GPS-drop flake. The status file shows
+`gnss_loss_verified=True`, `gnss_loss_observed_fix_type=0.0`,
+`post_loss_hover_s=50.0`, and `airborne_hover_wait_ok=True`; the 50 s
+post-loss window was actually flown.
+
+Result: **Rejected**, but now for real performance/validation reasons rather
+than missing GNSS loss. Full-window truth alignment:
+
+- Truth drift end: `35.920 m`
+- Horizontal error mean/max: `6.268956 m` / `40.886425 m`
+- Max 3D error: `40.908680 m`
+- ULog distance-sensor gate failed:
+  `ulog_distance_sensor_ok=False`,
+  `ulog_distance_sensor_max_m=41.680171966552734`,
+  `ulog_distance_sensor_height_diff_m=6.214900970458984`
+
+Interpretation: stock r2 is now interpretable and confirms the Phase 14b stock
+path is not bounded enough at 35 m under the current gates. The original r2
+run remains preserved; the rerun is the usable evidence for that replicate.
+
+## 2026-07-21 — Phase 14b SIFT rep2 rerun accepted
+
+Reran only `sift_xy_gnssloss_35m` from
+`experiments/configs/mvp/batches/phase14b_altitude_35m.yaml` as a second SIFT
+replicate, preserving the original full-batch data:
+
+`experiments/batches/20260721_193527_phase14b_altitude_35m`
+
+New run:
+
+`experiments/runs/20260721_193531_phase14b_sift_xy_gnssloss_off50s_flat_rural_phototex_noon_alt35m_pxh_takeoff_land_truth`
+
+Result: **Accepted** (`accepted_count=1`, `failed_count=0`). The command used
+the Phase 14b timing contract (`--hover-s 90`, `--post-loss-hover-s 50`), GNSS
+loss was verified (`fix_type=0.0`), `airborne_hover_wait_ok=True`,
+`ulog_flight_ok=True`, and `ulog_distance_sensor_ok=True`.
+
+Full-window truth alignment:
+
+- Truth drift end: `10.254 m`
+- Horizontal error mean/max: `0.539414 m` / `1.469144 m`
+- Max 3D error: `1.509481 m`
+- ULog height/range disagreement: `0.11055 m`
+
+Interpretation: the SIFT 35 m result is repeatable in the observed pair. The
+main Phase 14b matrix remains rejected because LK, stock, and no-aid failed,
+but SIFT is now the only aided 35 m candidate with two accepted GNSS-loss
+runs. Caveat: the separate sensor-contract timing report rejected its own
+camera-frame timing gate (`~1.91 Hz` recorded in the scene window), so capture
+instrumentation timing should be tracked separately from end-to-end flight
+acceptance.
+
 ## 2026-07-21 — Phase 14 roadmap fleshed out for batches 2–8
 
 Turned the umbrella `phase_14_difficulty_roadmap.md` from a one-line-per-batch

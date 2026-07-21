@@ -1,0 +1,51 @@
+batch:
+  name: phase14b_altitude_35m
+  description: >
+    Phase 14B altitude step at 35 m on flat_rural_phototex_noon. Same
+    six-case matrix as accepted Phase 14A: LK/SIFT/stock GNSS-loss optical
+    flow, LK GNSS-on reference, and unaided GNSS-loss baseline. The batch
+    deliberately sets hover_s=90 and post_loss_hover_s=50 so skip-landing
+    GNSS-loss cases record the full 50 s outage window; scenario YAML remains
+    authoritative for whether GNSS is lost and for stock's later loss timing.
+
+defaults:
+  hover_s: 90
+  startup_timeout_s: 220
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 180
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  post_loss_hover_s: 50
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: lk_xy_gnssloss_35m
+    scenario: experiments/configs/mvp/scenarios/phase14b_lk_xy_gnssloss_off50s_nmin03_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: default_px4
+
+  - name: sift_xy_gnssloss_35m
+    scenario: experiments/configs/mvp/scenarios/phase14b_sift_xy_gnssloss_off50s_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: default_px4
+
+  - name: stock_gnssloss_35m_rep1
+    scenario: experiments/configs/mvp/scenarios/phase14b_stock_gnssloss_off50s_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: delayed_observation
+
+  - name: stock_gnssloss_35m_rep2
+    scenario: experiments/configs/mvp/scenarios/phase14b_stock_gnssloss_off50s_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: delayed_observation
+
+  - name: lk_xy_gnsson_35m
+    scenario: experiments/configs/mvp/scenarios/phase14b_lk_xy_gnsson_off70s_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: default_px4
+
+  - name: noaid_gnssloss_35m
+    scenario: experiments/configs/mvp/scenarios/phase14b_noaid_gnssloss_off70s_flat_rural_phototex_noon_alt35m.yaml
+    failsafe_profile: delayed_observation
