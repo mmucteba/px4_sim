@@ -1,0 +1,17 @@
+condition:
+  category: lighting
+  name: sunset_low_angle
+  version: 1
+  matrix_role: future_stress
+  description: Low-angle sunset lighting for later visual stress testing.
+
+gazebo_hint:
+  sky: clear
+  sun_position: low
+  shadows: long
+  visibility: normal
+
+analysis_tags:
+  lighting_difficulty: medium_hard
+  optical_flow_expected_quality: medium
+  vio_expected_quality: medium

@@ -1,0 +1,53 @@
+run:
+  name: example_mvp_hover_10m_gnss_on
+  description: Placeholder MVP scenario config for a 10m GNSS-on hover.
+
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+
+world:
+  name: default
+  future_name: databoss_mvp_yard_120m
+  size_m:
+    x: 120
+    y: 120
+  terrain: flat
+  lighting: noon_clear
+  wind:
+    enabled: false
+  objects: []
+
+route:
+  name: hover_60s
+  type: hover
+  altitude_agl_m: 10
+  duration_s: 60
+  waypoints: []
+
+gnss:
+  start_enabled: true
+  loss_enabled: false
+  loss_time_s: null
+  restore_after_run: true
+
+aiding:
+  mode: gnss_on
+  latency_ms: 0
+  noise: null
+  dropout: null
+
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: false
+
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true

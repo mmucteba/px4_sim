@@ -1,0 +1,40 @@
+batch:
+  name: phase7b_gnss_cases_delayed_failsafe
+  description: Rerunnable GNSS-on and GNSS-loss cases with delayed failsafe observation
+    profile.
+defaults:
+  scenario: experiments/configs/mvp/scenarios/example_mvp_hover_10m_gnss_on.yaml
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+  failsafe_profile: delayed_observation
+cases:
+- name: baseline_gnss_on_hover_25s
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: delayed_observation
+- name: gnss_loss_after_takeoff_5s_post_25s
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+- name: gnss_loss_after_takeoff_15s_post_25s
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 15
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+- name: gnss_loss_after_takeoff_5s_post_45s
+  hover_s: 45
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 45
+  failsafe_profile: delayed_observation

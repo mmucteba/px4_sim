@@ -1,0 +1,35 @@
+batch:
+  name: phase8j_all_flow_50s_600m
+  description: >
+    One-pass 50 s GNSS-loss comparison on the 600 m phototextured world:
+    DATABOSS SIFT bridge, repaired DATABOSS LK bridge, and PX4 stock
+    gz_x500_flow. All cases use the same 2.5 m AGL slow +Y profile and skip
+    the landing command.
+
+defaults:
+  hover_s: 60
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 150
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 10
+  post_loss_hover_s: 50
+  failsafe_profile: delayed_observation
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: sift_50s_600m
+    scenario: experiments/configs/mvp/scenarios/phase8j_d_loss_flow_sift_flat_rural_phototex_600m_noon.yaml
+
+  - name: lk_50s_600m
+    scenario: experiments/configs/mvp/scenarios/phase8j_d_loss_flow_lk_flat_rural_phototex_600m_noon.yaml
+
+  - name: stock_50s_600m
+    scenario: experiments/configs/mvp/scenarios/phase8j_stock_flow_50s_flat_rural_phototex_600m_noon.yaml

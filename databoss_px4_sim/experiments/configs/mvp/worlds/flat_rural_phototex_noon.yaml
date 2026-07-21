@@ -1,0 +1,77 @@
+world:
+  name: flat_rural_phototex_noon
+  description: >
+    Flat rural world with a procedurally generated image-textured ground
+    (~1 cm/px at flow scale) for optical-flow validation. Created 2026-07-13
+    after the 8G.2 legx investigation proved the solid-tile worlds give the
+    downward camera no usable texture. Shadows are OFF by design: the
+    vehicle's own shadow moves with the camera and poisons SIFT median flow
+    (documented limitation; 8I realism runs re-enable shadows with an angled
+    sun in a separate world).
+
+  generator:
+    type: databoss_sdf
+    sdf_version: "1.9"
+
+  frame:
+    world_frame: gazebo_world_enu
+    navigation_frame: px4_local_ned
+    origin_policy: align_at_takeoff
+
+  # Enlarged 120 -> 240 m on 2026-07-15 (8I D clean batch): the good D stays
+  # within ~9 m of origin on the 120 m field, but a longer 60 s outage and the
+  # B no-aid failure anchor can drift further; 240 m (+/-120 m textured) gives
+  # ample margin so a driftier run keeps the downward camera over texture and
+  # the rangefinder finite instead of seeing background sky / inf range.
+  size_m:
+    x: 240
+    y: 240
+
+  terrain:
+    type: flat
+    elevation_source: none
+    ground_z_m: 0
+
+  texture:
+    preset: photo_speckle
+    visual_pattern: image_field
+    image: generated_worlds/textures/ground_speckle_2048.png
+    # Texture image is seeded-procedural: scripts/worlds/make_ground_texture.py
+    # --size 2048 --seed 42. Each 20 m tile maps the image once (~1 cm/px).
+    tile_size_m: 20
+    # The generator also emits a solid `ground_base` slab (collision + visual)
+    # under these thin tiles so the downward single-point gpu_lidar cannot slip
+    # through the gaps between tiles (run 20260713_131822 legy: 82% inf without
+    # it; visual-only slab run 20260713_134012 still only 26% finite). Override
+    # with base_color if needed.
+
+  lighting:
+    preset: noon_clear_no_shadows
+    sun_enabled: true
+    shadows_enabled: false
+    ambient: [0.55, 0.55, 0.55, 1.0]
+    background: [0.70, 0.82, 0.95, 1.0]
+    sun_direction: [-0.35, 0.15, -0.92]
+
+  wind:
+    enabled: false
+
+  objects:
+    - name: barn_low
+      type: box
+      pose_m: [28, -22, 3, 0, 0, 0]
+      size_m: [14, 9, 6]
+      color: [0.45, 0.12, 0.08, 1.0]
+
+    - name: hay_block_a
+      type: box
+      pose_m: [-32, 18, 1.2, 0, 0, 0.35]
+      size_m: [6, 4, 2.4]
+      color: [0.70, 0.58, 0.22, 1.0]
+
+    - name: field_marker_a
+      type: cylinder
+      pose_m: [45, 35, 1.5, 0, 0, 0]
+      radius_m: 1.0
+      length_m: 3.0
+      color: [0.85, 0.85, 0.15, 1.0]

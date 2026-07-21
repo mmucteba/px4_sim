@@ -1,0 +1,23 @@
+batch:
+  name: phase8b_generated_world_px4_flight_smoke
+  description: Phase 8B generated-world PX4 flight smoke. Each case launches a generated Gazebo world standalone, lets PX4 spawn x500 into it, then performs a short GNSS-on takeoff/hover/land.
+
+defaults:
+  hover_s: 20
+  startup_timeout_s: 150
+  land_timeout_s: 50
+  global_position_gate_enabled: true
+  global_position_timeout_s: 90
+  global_position_stable_s: 5
+  gnss_start_used: 10
+  qgc:
+    enabled: false
+
+cases:
+  - name: high_texture_generated_world_px4_flight
+    scenario: experiments/configs/mvp/scenarios/phase8b_px4_flight_flat_rural_high_texture_noon.yaml
+    failsafe_profile: default_px4
+
+  - name: low_texture_generated_world_px4_flight
+    scenario: experiments/configs/mvp/scenarios/phase8b_px4_flight_flat_rural_low_texture_noon.yaml
+    failsafe_profile: default_px4

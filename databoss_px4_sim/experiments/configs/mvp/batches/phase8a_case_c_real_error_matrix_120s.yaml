@@ -1,0 +1,94 @@
+batch:
+  name: phase8a_case_c_real_error_matrix_120s
+  description: Phase 8A 120 s real-error robustness matrix. Includes GNSS-on reference, GNSS-loss/no-aiding reference, nominal repaired Case C, and Case C variants with actual injected odometry noise, delayed samples, and dropout.
+
+defaults:
+  hover_s: 120
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  global_position_gate_enabled: true
+  global_position_timeout_s: 120
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: reference_a_gnss_on_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_on_no_aiding.yaml
+    hover_s: 120
+    failsafe_profile: default_px4
+
+  - name: reference_b_gnss_loss_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_no_aiding.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_repaired_nominal_30hz_no_real_error
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_external_position_height_velocity_repaired_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_noise_mild_pos005_vel010
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_noise_mild_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_noise_medium_pos010_vel025
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_noise_medium_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_noise_strong_pos025_vel050
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_noise_strong_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_latency100_uncompensated
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_latency100_uncomp_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_latency100_compensated
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_latency100_comp_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_dropout_1s_every_10s
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_dropout1s_10s_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_dropout_2s_every_10s
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_dropout2s_10s_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_realerr_combo_noise_latency_dropout
+    scenario: experiments/configs/mvp/scenarios/phase8a_realerr_c_combo_noise_latency_dropout_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation

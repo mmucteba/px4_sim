@@ -1,0 +1,69 @@
+world:
+  name: databoss_mvp_yard_120m
+  description: MVP local Gazebo yard for GNSS-denied navigation tests.
+
+  frame:
+    world_frame: gazebo_world_enu
+    navigation_frame: px4_local_ned
+    origin_policy: align_at_takeoff
+
+  size_m:
+    x: 120
+    y: 120
+
+  terrain:
+    type: flat
+    ground_texture: high_texture_planned
+    elevation_source: none
+
+  lighting:
+    preset: noon_clear
+    sun_enabled: true
+    shadows_enabled: true
+
+  wind:
+    enabled: false
+    mean_mps: 0
+    gusts_enabled: false
+
+  objects:
+    - name: tower_80m
+      type: tower
+      position_m:
+        x: 35
+        y: 20
+        z: 40
+      size_m:
+        x: 8
+        y: 8
+        z: 80
+
+    - name: block_building_20m_a
+      type: box_building
+      position_m:
+        x: -25
+        y: 25
+        z: 10
+      size_m:
+        x: 20
+        y: 15
+        z: 20
+
+    - name: block_building_12m_b
+      type: box_building
+      position_m:
+        x: 20
+        y: -30
+        z: 6
+      size_m:
+        x: 15
+        y: 15
+        z: 12
+
+  disabled_for_mvp:
+    - rain
+    - fog
+    - trees
+    - cars
+    - moving_objects
+    - glass_materials

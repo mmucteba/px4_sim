@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# @name Gazebo x500 mono cam down + lidar down (DATABOSS Phase 8E)
+#
+# @type Quadrotor
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_cam_lidar_down}
+
+. ${R}etc/init.d-posix/airframes/4001_gz_x500
+
+# Phase 8G.2 calibrated live optical-flow bridge delay.
+# Keep EKF2_OF_CTRL scenario-controlled: open-loop validation sets 0, 8G.3 sets 1.
+param set-default EKF2_OF_DELAY 111

@@ -1,0 +1,84 @@
+run:
+  name: phase8a_realerr_c_noise_medium_120s
+  description: Phase 8A real-error Case C, 120 s GNSS-loss hover with medium injected odometry noise.
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: default
+  future_name: databoss_mvp_yard_120m
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+  condition_is_physical: false
+route:
+  name: hover_120s
+  type: hover
+  altitude_agl_m: 2.5
+  duration_s: 120
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: true
+  loss_after_takeoff_s: 10
+  restore_after_run: true
+failsafe:
+  profile: delayed_observation
+control:
+  mode: offboard_local_position_hold
+  setpoint_mode: velocity_xy_position_z
+  start_after_takeoff_s: 5
+  warmup_s: 2
+  gnss_loss_after_offboard_s: 3
+  rate_hz: 20
+  x_m: 0
+  y_m: 0
+  z_m: -2.5
+  vx_m_s: 0
+  vy_m_s: 0
+  vz_m_s: 0
+  yaw_deg: 0
+aiding:
+  mode: synthetic_external_odometry
+  enabled: true
+  source: gazebo_truth
+  input_path: mavlink_odometry_to_vehicle_visual_odometry
+  frame: px4_local_ned
+  rate_hz: 30
+  mav_frame: local_enu
+  velocity_source: finite_difference
+  velocity_alpha: 0.35
+  max_finite_diff_speed_m_s: 30.0
+  velocity_reject_action: hold_last
+  quality: 100
+  noise:
+    position_std_m: 0.10
+    velocity_std_m_s: 1.00
+    yaw_std_deg: 30.0
+  injected_error:
+    position_noise_std_m: 0.10
+    velocity_noise_std_m_s: 0.25
+    seed: 8102
+  latency_ms: 0
+  dropout:
+    enabled: false
+  ekf2_ev_ctrl: 7
+  ekf2_hgt_ref: 3
+  ekf2_ev_delay_ms: 0
+  allow_experimental_velocity_fusion: true
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_external_odometry_sent: true
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: true
+  compare_against_no_aiding: true

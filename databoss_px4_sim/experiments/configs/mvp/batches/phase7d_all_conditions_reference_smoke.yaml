@@ -1,0 +1,209 @@
+batch:
+  name: phase7d_all_conditions_reference_smoke
+  description: Phase 7D all-condition reference coverage batch. Runs every lighting/wind/texture
+    condition combination with GNSS ON and GNSS-loss delayed cases.
+  phase: 7D
+defaults:
+  scenario: experiments/configs/mvp/scenarios/example_mvp_hover_10m_gnss_on.yaml
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+  failsafe_profile: delayed_observation
+cases:
+- name: phase7d_gnss_on_noon_clear_none_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_noon_clear_none_high_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: high_texture
+- name: phase7d_gnss_loss_delayed_noon_clear_none_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_noon_clear_none_high_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: high_texture
+- name: phase7d_gnss_on_noon_clear_none_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_noon_clear_none_low_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: low_texture
+- name: phase7d_gnss_loss_delayed_noon_clear_none_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_noon_clear_none_low_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: low_texture
+- name: phase7d_gnss_on_noon_clear_crosswind_5ms_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_noon_clear_crosswind_5ms_high_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: crosswind_5ms
+    texture: high_texture
+- name: phase7d_gnss_loss_delayed_noon_clear_crosswind_5ms_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_noon_clear_crosswind_5ms_high_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: crosswind_5ms
+    texture: high_texture
+- name: phase7d_gnss_on_noon_clear_crosswind_5ms_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_noon_clear_crosswind_5ms_low_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: crosswind_5ms
+    texture: low_texture
+- name: phase7d_gnss_loss_delayed_noon_clear_crosswind_5ms_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_noon_clear_crosswind_5ms_low_texture.yaml
+  conditions:
+    lighting: noon_clear
+    wind: crosswind_5ms
+    texture: low_texture
+- name: phase7d_gnss_on_sunset_low_angle_none_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_sunset_low_angle_none_high_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: none
+    texture: high_texture
+- name: phase7d_gnss_loss_delayed_sunset_low_angle_none_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_sunset_low_angle_none_high_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: none
+    texture: high_texture
+- name: phase7d_gnss_on_sunset_low_angle_none_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_sunset_low_angle_none_low_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: none
+    texture: low_texture
+- name: phase7d_gnss_loss_delayed_sunset_low_angle_none_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_sunset_low_angle_none_low_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: none
+    texture: low_texture
+- name: phase7d_gnss_on_sunset_low_angle_crosswind_5ms_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_sunset_low_angle_crosswind_5ms_high_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: crosswind_5ms
+    texture: high_texture
+- name: phase7d_gnss_loss_delayed_sunset_low_angle_crosswind_5ms_high_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_sunset_low_angle_crosswind_5ms_high_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: crosswind_5ms
+    texture: high_texture
+- name: phase7d_gnss_on_sunset_low_angle_crosswind_5ms_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: default_px4
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_on_sunset_low_angle_crosswind_5ms_low_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: crosswind_5ms
+    texture: low_texture
+- name: phase7d_gnss_loss_delayed_sunset_low_angle_crosswind_5ms_low_texture
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_gnss_loss_delayed_sunset_low_angle_crosswind_5ms_low_texture.yaml
+  conditions:
+    lighting: sunset_low_angle
+    wind: crosswind_5ms
+    texture: low_texture
+matrix:
+  family: condition_reference_coverage
+  lighting:
+  - noon_clear
+  - sunset_low_angle
+  wind:
+  - none
+  - crosswind_5ms
+  texture:
+  - high_texture
+  - low_texture
+  condition_combinations: 8
+  cases_per_combination: 2
+  total_cases: 16
+  note: This proves all condition presets are referenced and run. Physical Gazebo
+    wind/sun/texture application is not wired yet.

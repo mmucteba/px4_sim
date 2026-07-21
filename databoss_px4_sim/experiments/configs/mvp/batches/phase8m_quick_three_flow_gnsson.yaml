@@ -1,0 +1,20 @@
+batch:
+  name: phase8m_quick_three_flow_gnsson
+  description: "Three quick GNSS-on optical-flow smokes: PX4 stock, DATABOSS SIFT, DATABOSS LK."
+defaults:
+  startup_timeout_s: 130
+  land_timeout_s: 30
+  hover_s: 20
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  global_position_timeout_s: 70
+  global_position_stable_s: 2
+  qgc:
+    enabled: false
+cases:
+  - name: quick_stock_px4_flow
+    scenario: experiments/configs/mvp/scenarios/phase8m_quick_stock_flow_gnsson_flat_rural_phototex_noon.yaml
+  - name: quick_databoss_sift
+    scenario: experiments/configs/mvp/scenarios/phase8m_quick_sift_gnsson_flat_rural_phototex_noon.yaml
+  - name: quick_databoss_lk
+    scenario: experiments/configs/mvp/scenarios/phase8m_quick_lk_gnsson_axisfix_ofn05_flat_rural_phototex_noon.yaml

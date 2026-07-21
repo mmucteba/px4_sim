@@ -1,0 +1,23 @@
+batch:
+  name: phase8d_downward_rangefinder_generated_world_smoke
+  description: Phase 8D proof that the TF03-style downward rangefinder x500 flies in generated worlds and its range reaches the PX4 distance_sensor topic.
+
+defaults:
+  hover_s: 20
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 100
+  global_position_stable_s: 5
+  gnss_start_used: 10
+  qgc:
+    enabled: false
+
+cases:
+  - name: high_texture_downward_rangefinder
+    scenario: experiments/configs/mvp/scenarios/phase8d_rangefinder_flat_rural_high_texture_noon.yaml
+    failsafe_profile: default_px4
+
+  - name: low_texture_downward_rangefinder
+    scenario: experiments/configs/mvp/scenarios/phase8d_rangefinder_flat_rural_low_texture_noon.yaml
+    failsafe_profile: default_px4

@@ -1,0 +1,16 @@
+# Python virtual environments
+venv/
+venv_bridge/
+__pycache__/
+*.pyc
+
+# Generated/derived experiment outputs (reproducible via the runner; not source)
+experiments/runs/
+experiments/batches/
+experiments/comparisons/
+experiments/inspections/
+generated_worlds/
+
+# Large binary artifacts (safety net)
+*.ulg
+*.ulg.gz

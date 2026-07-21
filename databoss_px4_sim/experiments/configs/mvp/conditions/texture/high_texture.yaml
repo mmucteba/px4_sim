@@ -1,0 +1,15 @@
+condition:
+  category: texture
+  name: high_texture
+  version: 1
+  matrix_role: capability_baseline
+  description: High-texture ground/world surfaces for visual aiding capability tests.
+
+surface:
+  ground_texture: high
+  repeating_pattern: false
+  visual_features: many
+
+analysis_tags:
+  optical_flow_expected_quality: high
+  vio_expected_quality: high

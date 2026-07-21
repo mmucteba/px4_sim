@@ -1,0 +1,22 @@
+batch:
+  name: phase8m_quick_sift_gnsson_qgc
+  description: "One quick GNSS-on DATABOSS SIFT optical-flow smoke with QGC MAVLink and gzweb enabled."
+defaults:
+  startup_timeout_s: 130
+  # Sim-time landing budget; the runner scales it by sim_time_wall_multiplier
+  # (default 30x) for the wall-clock wait.
+  land_timeout_s: 30
+  hover_s: 14
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  global_position_timeout_s: 70
+  global_position_stable_s: 2
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+cases:
+  - name: quick_databoss_sift_qgc_gzweb
+    scenario: experiments/configs/mvp/scenarios/phase8m_quick_sift_gnsson_flat_rural_phototex_noon.yaml

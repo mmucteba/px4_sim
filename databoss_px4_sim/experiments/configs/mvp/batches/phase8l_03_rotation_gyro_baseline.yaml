@@ -1,0 +1,33 @@
+batch:
+  name: phase8l_03_rotation_gyro_baseline
+  description: >
+    Phase 8L gate 5. Yaw rotation sanity: NaN gyro baseline vs Gazebo-IMU
+    integrated gyro candidate.
+
+defaults:
+  hover_s: 45
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 150
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: yaw_nan_gyro_baseline
+    scenario: experiments/configs/mvp/scenarios/phase8l_rotation_yaw_nan_gyro_flat_rural_phototex_noon.yaml
+  - name: yaw_gzgyro_candidate
+    scenario: experiments/configs/mvp/scenarios/phase8l_rotation_yaw_gzgyro_flat_rural_phototex_noon.yaml
+  - name: roll_oscillation_baseline_blocked
+    disabled: true
+    disabled_reason: current runner supports local position/velocity/yaw setpoints, not roll attitude oscillation setpoints
+  - name: pitch_oscillation_baseline_blocked
+    disabled: true
+    disabled_reason: current runner supports local position/velocity/yaw setpoints, not pitch attitude oscillation setpoints

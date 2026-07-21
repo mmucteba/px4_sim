@@ -1,0 +1,25 @@
+batch:
+  name: phase8n_lk_xy_vs_old_short_gnsson
+  description: "Short GNSS-on route comparison: corrected LK axis_map xy versus old Gate 6b working config axis_map -x-y with EKF2_OF_N_MIN=0.5."
+
+defaults:
+  hover_s: 30
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 150
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: lk_xy_short
+    scenario: experiments/configs/mvp/scenarios/phase8n_lk_xy_gnsson_short_flat_rural_phototex_noon.yaml
+  - name: lk_old_xnegyneg_ofn05_short
+    scenario: experiments/configs/mvp/scenarios/phase8l_lk_gnsson_axisfix140_ofn05_flat_rural_phototex_noon.yaml

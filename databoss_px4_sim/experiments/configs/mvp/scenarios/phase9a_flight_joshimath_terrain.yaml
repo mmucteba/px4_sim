@@ -1,0 +1,60 @@
+run:
+  name: phase9a_flight_joshimath_terrain
+  description: Phase 9A terrain flight proof in the imported Joshimath heightmap world (gazebo_terrain_generator sample), with Gazebo web bridge for live viewing.
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+  gazebo_model_name: x500_0
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 3.3
+    yaw_deg: 0
+world:
+  name: Joshimath
+  sdf_path: generated_worlds/terrain/Joshimath/Joshimath.world
+  home:
+    lat_deg: 30.567683429320212
+    lon_deg: 79.55064713012462
+    alt_m: 1382.2
+  lighting: real_satellite_texture
+  wind: none
+  texture: real_satellite_texture
+  condition_is_physical: true
+route:
+  name: hover_120s_terrain
+  type: hover
+  altitude_agl_m: 2.5
+  duration_s: 120
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: false
+  loss_after_takeoff_s: null
+  restore_after_run: true
+failsafe:
+  profile: default
+visualization:
+  gazebo_web:
+    enabled: true
+    required: true
+    config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch
+    host: 127.0.0.1
+    port: 9003
+    publication_hz: 15
+    startup_timeout_s: 15
+aiding:
+  mode: none
+  enabled: false
+  external_odom_enabled: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_camera_topics: false
+  record_external_odometry_sent: false
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: false

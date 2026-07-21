@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- DATABOSS Phase 8E combined vehicle: x500 + downward mono camera + TF03-style
+     downward single-point lidar. Merge of PX4 stock x500_mono_cam_down and
+     x500_lidar_down. Source of truth: /opt/databoss_px4_sim/src/databoss_sim;
+     deployed copy: PX4 Tools/simulation/gz/models/x500_cam_lidar_down. -->
+<sdf version='1.9'>
+  <model name='x500_cam_lidar_down'>
+    <self_collide>false</self_collide>
+    <include merge='true'>
+      <uri>x500</uri>
+    </include>
+    <include merge='true'>
+      <uri>model://mono_cam</uri>
+      <pose>0 0 .10 0 1.5707 0</pose>
+      <name>mono_cam</name>
+    </include>
+    <joint name="CameraJoint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link</child>
+      <pose relative_to="base_link">0 0 0 0 1.5707 0</pose>
+    </joint>
+    <include merge='true'>
+      <uri>model://LW20</uri>
+      <!-- v2: lidar offset +0.08 m forward, side-by-side with the camera.
+           v1 (centered) left the camera housing in the beam: constant 0.1 m reading
+           (run 20260710_130250). -->
+      <pose relative_to="base_link">0.08 0 -0.079 0 1.57 0</pose>
+    </include>
+    <joint name="lidar_model_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lw20_link</child>
+      <pose relative_to="base_link">-0 0 0 0 0 0</pose>
+    </joint>
+    <joint name="lidar_sensor_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_sensor_link</child>
+    </joint>
+    <link name="lidar_sensor_link">
+      <pose relative_to="base_link">0.08 0 -0.05 0 1.57 0</pose>
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>0.00001</ixx>
+          <iyy>0.00001</iyy>
+          <izz>0.00001</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+      <sensor name='lidar' type='gpu_lidar'>
+        <gz_frame_id>lidar_sensor_link</gz_frame_id>
+        <pose>0 0 0 3.14 0 0</pose>
+        <update_rate>50</update_rate>
+        <ray>
+          <scan>
+            <!-- 3-sample horizontal fan (+-0.02 rad). A degenerate 1x1
+                 gpu_lidar renders a 1-pixel depth image whose single ray goes
+                 to inf under vehicle ROLL (verified 2026-07-13: legy/East legs
+                 82% inf while pitching legx legs were 100% finite; static probe
+                 at +-5 deg roll -> inf). The extra samples make the depth render
+                 non-degenerate; ranges[0] (nadir) then stays finite through the
+                 bank angles of translation flight. Consumers use ranges[0]
+                 (PX4 GZBridge laserScantoLidarSensorCallback; flow bridge). -->
+            <horizontal>
+              <samples>3</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.02</min_angle>
+              <max_angle>0.02</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>100.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </ray>
+        <always_on>1</always_on>
+        <visualize>true</visualize>
+      </sensor>
+    </link>
+  </model>
+</sdf>

@@ -1,0 +1,26 @@
+batch:
+  name: phase7d_environment_matrix_smoke
+  description: Phase 7D schema smoke batch. Freezes condition references before Phase
+    8A.
+  phase: 7D
+  execution_required: true
+  runner_compatibility: phase7d_smoke_run
+matrix:
+  family: capability
+  world: databoss_mvp_yard_120m
+  route: hover_60s
+  altitude_agl_m: 10
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+cases:
+- name: phase7d_hover_10m_gnss_on_noon_wind_none
+  scenario: experiments/configs/mvp/scenarios/phase7d_hover_10m_gnss_on_noon_wind_none.yaml
+  expected_role: baseline
+- name: phase7d_hover_10m_gnss_loss_delayed_noon_wind_none
+  scenario: experiments/configs/mvp/scenarios/phase7d_hover_10m_gnss_loss_delayed_noon_wind_none.yaml
+  expected_role: gnss_loss_no_aiding_reference
+acceptance:
+  run_px4: true
+  reason: User requested real Phase 7D batch smoke test with condition-referenced
+    scenarios.

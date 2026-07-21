@@ -1,0 +1,45 @@
+run:
+  name: phase8a_compare_2p5m_gnss_loss_no_aiding
+  description: Phase 8A comparison Case B, GNSS loss after takeoff with no external aiding.
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: default
+  future_name: databoss_mvp_yard_120m
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+  condition_is_physical: false
+route:
+  name: hover_120s
+  type: hover
+  altitude_agl_m: 2.5
+  duration_s: 120
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: true
+  loss_after_takeoff_s: 10
+  restore_after_run: true
+failsafe:
+  profile: delayed_observation
+aiding:
+  mode: none
+  enabled: false
+  external_odom_enabled: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_external_odometry_sent: false
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: false

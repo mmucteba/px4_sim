@@ -1,0 +1,47 @@
+batch:
+  name: phase8a_position_height_velocity_four_case_120s
+  description: Phase 8A A/B/C/D comparison at 2.5 m AGL with 120 s hover. Case D is parked after the 20260708 EV velocity hard-fail and is skipped unless deliberately re-enabled after repair.
+
+defaults:
+  hover_s: 120
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  global_position_gate_enabled: true
+  global_position_timeout_s: 120
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: case_a_gnss_on_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_on_no_aiding.yaml
+    hover_s: 120
+    failsafe_profile: default_px4
+
+  - name: case_b_gnss_loss_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_no_aiding.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_gnss_loss_external_position_height
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_external_position_height.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_d_gnss_loss_external_position_height_velocity
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_external_position_height_velocity.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+    disabled: true
+    disabled_reason: Case D hard-failed on 2026-07-08 with nonphysical EV velocity, gyro clipping, invalid setpoints, and Gazebo physics abort.

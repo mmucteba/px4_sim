@@ -1,0 +1,24 @@
+batch:
+  name: phase8e_cam_lidar_generated_world_smoke
+  description: Phase 8E proof that the combined camera+rangefinder x500 flies in generated worlds with both sensors publishing, QGC stream and web bridge active.
+
+defaults:
+  hover_s: 20
+  startup_timeout_s: 240
+  land_timeout_s: 200
+  global_position_gate_enabled: true
+  global_position_timeout_s: 100
+  global_position_stable_s: 5
+  gnss_start_used: 10
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+
+cases:
+  - name: high_texture_cam_lidar
+    scenario: experiments/configs/mvp/scenarios/phase8e_cam_lidar_flat_rural_high_texture_noon.yaml
+    failsafe_profile: default_px4
+
+  - name: low_texture_cam_lidar
+    scenario: experiments/configs/mvp/scenarios/phase8e_cam_lidar_flat_rural_low_texture_noon.yaml
+    failsafe_profile: default_px4

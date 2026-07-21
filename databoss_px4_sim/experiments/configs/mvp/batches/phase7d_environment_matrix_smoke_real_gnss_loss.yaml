@@ -1,0 +1,49 @@
+batch:
+  name: phase7d_environment_matrix_smoke_real_gnss_loss
+  description: Phase 7D real smoke batch with condition references and actual GNSS
+    loss.
+  phase: 7D
+defaults:
+  scenario: experiments/configs/mvp/scenarios/example_mvp_hover_10m_gnss_on.yaml
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+  failsafe_profile: delayed_observation
+cases:
+- name: phase7d_hover_10m_gnss_on_noon_wind_none
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: null
+  post_loss_hover_s: null
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_hover_10m_gnss_on_noon_wind_none.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: high_texture
+- name: phase7d_hover_10m_gnss_loss_delayed_noon_wind_none
+  hover_s: 25
+  gnss_start_used: 10
+  gnss_loss_after_takeoff_s: 5
+  post_loss_hover_s: 25
+  failsafe_profile: delayed_observation
+  scenario: experiments/configs/mvp/scenarios/phase7d_hover_10m_gnss_loss_delayed_noon_wind_none.yaml
+  conditions:
+    lighting: noon_clear
+    wind: none
+    texture: high_texture
+matrix:
+  family: capability
+  world: databoss_mvp_yard_120m
+  route: hover_60s
+  altitude_agl_m: 10
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+  gnss_loss: case_2_after_takeoff_5s
+  failsafe_profile: delayed_observation_for_gnss_loss_case

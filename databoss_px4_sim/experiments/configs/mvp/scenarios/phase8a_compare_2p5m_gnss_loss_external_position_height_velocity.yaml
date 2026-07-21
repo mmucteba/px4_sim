@@ -1,0 +1,60 @@
+run:
+  name: phase8a_compare_2p5m_gnss_loss_external_position_height_velocity
+  description: Phase 8A parked Case D, GNSS loss with truth-fed external position, height, and velocity aiding. Do not run until EV velocity source is repaired.
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: default
+  future_name: databoss_mvp_yard_120m
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+  condition_is_physical: false
+route:
+  name: hover_120s
+  type: hover
+  altitude_agl_m: 2.5
+  duration_s: 120
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: true
+  loss_after_takeoff_s: 10
+  restore_after_run: true
+failsafe:
+  profile: delayed_observation
+aiding:
+  mode: synthetic_external_odometry
+  enabled: true
+  source: gazebo_truth
+  input_path: mavlink_odometry_to_vehicle_visual_odometry
+  frame: px4_local_ned
+  rate_hz: 30
+  noise:
+    position_std_m: 0.02
+    velocity_std_m_s: 0.05
+    yaw_std_deg: 30.0
+  latency_ms: 0
+  dropout:
+    enabled: false
+  ekf2_ev_ctrl: 7
+  ekf2_hgt_ref: 3
+  ekf2_ev_delay_ms: 160
+  allow_experimental_velocity_fusion: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_external_odometry_sent: true
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: true
+  compare_against_no_aiding: true

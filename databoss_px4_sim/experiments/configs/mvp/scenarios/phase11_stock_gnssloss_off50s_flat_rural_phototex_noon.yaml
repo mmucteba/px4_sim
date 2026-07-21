@@ -1,0 +1,13 @@
+run: {name: phase11_stock_gnssloss_off50s_flat_rural_phototex_noon, description: Phase 11 three-way comparison stock PX4 flow case. First attempt matched LK/SIFT control timing exactly gnss_loss_after_offboard_s 3 and failsafe default and triggered mc_pos_control Failsafe stop and wait and blind descent 8 times zero for LK and SIFT under the identical timing so this is reverted to stock flow own proven Phase 8J timing and failsafe instead. Same world route and 50s off duration otherwise.}
+vehicle: {model: gz_x500_flow, px4_airframe: x500_flow, gazebo_model_name: x500_flow_0, start_pose: {x_m: 0, y_m: 0, z_m: 0, yaw_deg: 0}}
+world: {name: flat_rural_phototex_noon, sdf_path: generated_worlds/flat_rural_phototex_noon.sdf, lighting: noon_clear_no_shadows, wind: none, texture: photo_speckle, condition_is_physical: true}
+route: {name: phase11_stock_gnssloss_off50s_vy, type: hover, altitude_agl_m: 2.5, duration_s: 70, waypoints: []}
+gnss: {start_enabled: true, loss_enabled: true, loss_after_takeoff_s: 19, restore_after_run: true}
+failsafe: {profile: delayed_observation}
+rangefinder: {proof_enabled: true, description: PX4 stock x500_flow downward rangefinder proof., render_engine: ogre, xvfb_enabled: true, probe_timeout_s: 20, min_ulog_rows: 50, height_agreement_tolerance_m: 0.75}
+visualization: {gazebo_web: {enabled: true, required: true, config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch, host: 127.0.0.1, port: 9003, publication_hz: 15, startup_timeout_s: 15}}
+aiding: {mode: px4_stock_optical_flow, enabled: false, external_odom_enabled: false}
+stock_flow: {enabled: true, ekf2_of_ctrl: 1, ekf2_of_qmin: 17, sens_flow_rot: 0, sens_flow_minhgt: 0.1, sens_flow_maxhgt: 100.0, sim_gz_en_flow: 1, sim_gz_en_lidar: 1}
+logging: {record_ulog: true, record_gazebo_truth: true, record_sensor_logs: true, record_camera_topics: false, record_external_odometry_sent: false}
+analysis: {align_with_gazebo_truth: true, generate_plots: true, generate_summary: true, check_external_odometry_received: false, check_optical_flow_fusion: true}
+control: {mode: offboard_local_position_hold, setpoint_mode: velocity_xy_position_z, start_after_takeoff_s: 5, warmup_s: 2, gnss_loss_after_offboard_s: 12, sim_time_wall_multiplier: 30, rate_hz: 20, x_m: 0, y_m: 0, z_m: -2.5, vx_m_s: 0.0, vy_m_s: 0.2, vz_m_s: 0.0, yaw_deg: 0, skip_landing_command: true}

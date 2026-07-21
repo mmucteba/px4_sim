@@ -1,0 +1,94 @@
+batch:
+  name: phase8a_case_c_stress_matrix_120s
+  description: Phase 8A 120 s robustness matrix. Includes one GNSS-on reference, one GNSS-loss/no-aiding reference, nominal repaired Case C, and wired Case C stress variants for odometry rate, reported EV covariance, and EKF2_EV_DELAY.
+
+defaults:
+  hover_s: 120
+  startup_timeout_s: 150
+  land_timeout_s: 70
+  global_position_gate_enabled: true
+  global_position_timeout_s: 120
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: reference_a_gnss_on_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_on_no_aiding.yaml
+    hover_s: 120
+    failsafe_profile: default_px4
+
+  - name: reference_b_gnss_loss_no_aiding
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_no_aiding.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_repaired_nominal_30hz_cov010_delay0
+    scenario: experiments/configs/mvp/scenarios/phase8a_compare_2p5m_gnss_loss_external_position_height_velocity_repaired_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_rate_15hz
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_rate15_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_rate_10hz
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_rate10_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_rate_5hz
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_rate5_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_cov_pos025_vel150
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_cov_pos025_vel150_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_cov_pos050_vel200
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_cov_pos050_vel200_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_evdelay_100ms
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_evdelay100_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_evdelay_160ms
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_evdelay160_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation
+
+  - name: case_c_stress_combo_rate10_cov025_delay100
+    scenario: experiments/configs/mvp/scenarios/phase8a_stress_c_repaired_combo_rate10_cov_pos025_delay100_120s.yaml
+    hover_s: 120
+    gnss_loss_after_takeoff_s: 10
+    post_loss_hover_s: 110
+    failsafe_profile: delayed_observation

@@ -1,0 +1,44 @@
+run:
+  name: phase7d_gnss_on_noon_clear_crosswind_5ms_high_texture
+  description: Phase 7D all-condition coverage scenario.
+vehicle:
+  model: gz_x500
+  px4_airframe: x500
+world:
+  name: databoss_mvp_yard_120m
+  fallback_sim_world: default
+conditions:
+  lighting: experiments/configs/mvp/conditions/lighting/noon_clear.yaml
+  wind: experiments/configs/mvp/conditions/wind/crosswind_5ms.yaml
+  texture: experiments/configs/mvp/conditions/texture/high_texture.yaml
+route:
+  name: hover_60s
+  type: hover
+  altitude_agl_m: 10
+  duration_s: 60
+gnss:
+  start_enabled: true
+  loss_enabled: false
+  loss_time_s: null
+  restore_after_run: true
+failsafe:
+  profile: default_px4
+aiding:
+  mode: gnss_on
+  latency_ms: 0
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+matrix:
+  phase: 7D
+  family: condition_coverage
+  lighting: noon_clear
+  wind: crosswind_5ms
+  texture: high_texture
+  execution_required: true
+  note: Condition references are tested. Physical Gazebo condition application is
+    not wired yet.

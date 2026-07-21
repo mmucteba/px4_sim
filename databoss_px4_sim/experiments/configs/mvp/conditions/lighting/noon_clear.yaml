@@ -1,0 +1,17 @@
+condition:
+  category: lighting
+  name: noon_clear
+  version: 1
+  matrix_role: capability_baseline
+  description: Clear noon lighting for baseline and capability tests.
+
+gazebo_hint:
+  sky: clear
+  sun_position: high
+  shadows: enabled
+  visibility: normal
+
+analysis_tags:
+  lighting_difficulty: easy
+  optical_flow_expected_quality: high
+  vio_expected_quality: high

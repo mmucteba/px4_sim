@@ -1,0 +1,58 @@
+batch:
+  name: phase8a_synthetic_external_odometry_smoke
+  description: Compare GNSS ON, GNSS LOSS no aiding, and GNSS LOSS plus truth-fed synthetic external odometry.
+
+defaults:
+  vehicle: gz_x500
+  route: hover_60s
+  altitude_agl_m: 10
+  lighting: noon_clear
+  wind: none
+  texture: high_texture
+  condition_is_physical: false
+  record_gazebo_truth: true
+  generate_summary: true
+
+cases:
+  - name: phase8a_hover_10m_gnss_on_reference
+    gnss:
+      start_enabled: true
+      loss_enabled: false
+      restore_after_run: true
+    failsafe:
+      profile: default
+    aiding:
+      mode: gnss_on
+
+  - name: phase8a_hover_10m_gnss_loss_no_aiding_reference
+    gnss:
+      start_enabled: true
+      loss_enabled: true
+      loss_after_takeoff_s: 5
+      restore_after_run: true
+    failsafe:
+      profile: delayed_observation
+    aiding:
+      mode: none
+
+  - name: phase8a_hover_10m_gnss_loss_synthetic_external_odometry
+    gnss:
+      start_enabled: true
+      loss_enabled: true
+      loss_after_takeoff_s: 5
+      restore_after_run: true
+    failsafe:
+      profile: delayed_observation
+    aiding:
+      mode: synthetic_external_odometry
+      source: gazebo_truth
+      input_path: mavlink_odometry_to_vehicle_visual_odometry
+      frame: px4_local_ned
+      rate_hz: 30
+      noise:
+        position_std_m: 0.02
+        velocity_std_m_s: 0.02
+        yaw_std_deg: 1.0
+      latency_ms: 0
+      dropout:
+        enabled: false

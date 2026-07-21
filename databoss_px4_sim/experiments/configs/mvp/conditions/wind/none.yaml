@@ -1,0 +1,19 @@
+condition:
+  category: wind
+  name: none
+  version: 1
+  matrix_role: capability_baseline
+  description: No wind. Used for baseline and first aiding capability tests.
+
+wind:
+  enabled: false
+  frame: world
+  mean_velocity_m_s:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  gusts:
+    enabled: false
+
+analysis_tags:
+  disturbance_difficulty: easy

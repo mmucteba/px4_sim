@@ -1,0 +1,23 @@
+batch:
+  name: phase8l_01_scene_hover_sanity
+  description: Phase 8L gate 2. Prove phototex world, downward camera scene, and rangefinder at hover before flow tuning.
+
+defaults:
+  hover_s: 45
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 150
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: scene_hover_origin
+    scenario: experiments/configs/mvp/scenarios/phase8l_scene_hover_flat_rural_phototex_noon.yaml

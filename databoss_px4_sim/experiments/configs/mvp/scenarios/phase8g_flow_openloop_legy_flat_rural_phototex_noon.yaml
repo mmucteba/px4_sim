@@ -1,0 +1,97 @@
+run:
+  name: phase8g_flow_openloop_legy_flat_rural_phototex_noon
+  description: 'Phase 8G.2 open-loop +Y translation leg (0.5 m/s): empirical flow
+    sign gate vs truth, EKF2_OF_CTRL=0, GNSS on.'
+vehicle:
+  model: gz_x500_cam_lidar_down
+  px4_airframe: x500_cam_lidar_down
+  gazebo_model_name: x500_cam_lidar_down_0
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: flat_rural_phototex_noon
+  sdf_path: generated_worlds/flat_rural_phototex_noon.sdf
+  lighting: noon_clear_no_shadows
+  wind: none
+  texture: photo_speckle
+  condition_is_physical: true
+route:
+  name: openloop_legx_30s
+  type: hover
+  altitude_agl_m: 2.5
+  duration_s: 30
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: false
+  loss_after_takeoff_s: null
+  restore_after_run: true
+failsafe:
+  profile: default
+camera:
+  proof_enabled: true
+  description: Downward mono camera frame publication proof on the combined vehicle.
+  render_engine: ogre
+  xvfb_enabled: true
+  xvfb_server_args: -screen 0 1280x1024x24
+  headless_rendering: false
+  probe_timeout_s: 25
+rangefinder:
+  proof_enabled: true
+  description: Single-point downward gpu_lidar proof on the combined vehicle.
+  render_engine: ogre
+  xvfb_enabled: true
+  probe_timeout_s: 20
+  min_ulog_rows: 50
+  height_agreement_tolerance_m: 0.75
+visualization:
+  gazebo_web:
+    enabled: true
+    required: true
+    config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch
+    host: 127.0.0.1
+    port: 9003
+    publication_hz: 15
+    startup_timeout_s: 15
+aiding:
+  mode: none
+  enabled: false
+  external_odom_enabled: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_camera_topics: true
+  record_external_odometry_sent: false
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: false
+flow_recording:
+  enabled: true
+  rate_hz: 0
+  max_width: 640
+  min_frames: 100
+flow_bridge:
+  enabled: true
+  estimator: sift
+  rate_hz: 10
+  max_width: 480
+  hfov_rad: 1.74
+  axis_map: "-yx"
+  quality_in_min: 20
+  quality_in_max: 100
+  min_sent_samples: 100
+  ekf2_of_ctrl: 0
+  ekf2_of_qmin: 17
+control:
+  mode: offboard_local_position_hold
+  setpoint_mode: velocity_xy_position_z
+  vx_m_s: 0.0
+  vy_m_s: 0.5
+  vz_m_s: 0.0
+  z_m: -2.5

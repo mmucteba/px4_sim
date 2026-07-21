@@ -1,0 +1,19 @@
+condition:
+  category: wind
+  name: crosswind_5ms
+  version: 1
+  matrix_role: future_stress
+  description: 5 m/s crosswind preset for later stress testing.
+
+wind:
+  enabled: true
+  frame: world
+  mean_velocity_m_s:
+    x: 0.0
+    y: 5.0
+    z: 0.0
+  gusts:
+    enabled: false
+
+analysis_tags:
+  disturbance_difficulty: medium

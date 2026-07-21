@@ -1,0 +1,24 @@
+batch:
+  name: phase8a_velocity_validation_short
+  description: Short preflight validation for finite-difference external velocity aiding before rerunning GNSS-loss Case C.
+
+defaults:
+  hover_s: 35
+  startup_timeout_s: 150
+  land_timeout_s: 60
+  global_position_gate_enabled: true
+  global_position_timeout_s: 120
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: velocity_validation_gnss_on_external_position_height_velocity
+    scenario: experiments/configs/mvp/scenarios/phase8a_velocity_validation_2p5m_gnss_on_external_position_height_velocity.yaml
+    hover_s: 35
+    failsafe_profile: default_px4

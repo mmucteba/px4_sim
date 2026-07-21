@@ -1,0 +1,23 @@
+batch:
+  name: phase8c_web_visualization_generated_world_smoke
+  description: Phase 8C proof that generated worlds can be exposed through the Gazebo websocket bridge during a PX4 camera-vehicle flight.
+
+defaults:
+  hover_s: 20
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 100
+  global_position_stable_s: 5
+  gnss_start_used: 10
+  qgc:
+    enabled: false
+
+cases:
+  - name: high_texture_web_viewer
+    scenario: experiments/configs/mvp/scenarios/phase8c_web_camera_flat_rural_high_texture_noon.yaml
+    failsafe_profile: default_px4
+
+  - name: low_texture_web_viewer
+    scenario: experiments/configs/mvp/scenarios/phase8c_web_camera_flat_rural_low_texture_noon.yaml
+    failsafe_profile: default_px4

@@ -1,0 +1,15 @@
+condition:
+  category: texture
+  name: low_texture
+  version: 1
+  matrix_role: future_stress
+  description: Low-texture surfaces for later optical-flow and VIO stress tests.
+
+surface:
+  ground_texture: low
+  repeating_pattern: false
+  visual_features: few
+
+analysis_tags:
+  optical_flow_expected_quality: low
+  vio_expected_quality: low

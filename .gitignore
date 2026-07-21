@@ -1,0 +1,34 @@
+# Unrelated sibling projects (not part of DATABOSS)
+/meetshare/
+/hw3_server/
+/xtensa-esp-elf/
+/gazebo_terrain_generator/
+*.deb
+
+# PX4 upstream source (huge; not ours to version, DATABOSS never stores
+# outputs here)
+/sim_px4/
+
+# Claude/Codex harness-managed state (ephemeral, local-only) - skill docs
+# themselves are kept, they're project workflow documentation
+/.claude/worktrees/
+/.claude/scheduled_tasks.lock
+/.claude/settings.local.json
+
+# Python virtual environments and caches
+databoss_px4_sim/venv/
+databoss_px4_sim/venv_bridge/
+__pycache__/
+*.pyc
+
+# DATABOSS generated/derived experiment output (reproducible via the
+# runner; not source, and currently ~8GB+)
+databoss_px4_sim/experiments/runs/
+databoss_px4_sim/experiments/batches/
+databoss_px4_sim/experiments/comparisons/
+databoss_px4_sim/experiments/inspections/
+databoss_px4_sim/generated_worlds/
+
+# Large binary artifacts (safety net)
+*.ulg
+*.ulg.gz

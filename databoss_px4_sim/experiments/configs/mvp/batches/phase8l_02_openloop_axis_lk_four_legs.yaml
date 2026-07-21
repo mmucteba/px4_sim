@@ -1,0 +1,29 @@
+batch:
+  name: phase8l_02_openloop_axis_lk_four_legs
+  description: Phase 8L gate 4. Four signed open-loop LK translation legs with EKF2_OF_CTRL=0.
+
+defaults:
+  hover_s: 45
+  startup_timeout_s: 180
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 150
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: lk_axis_px
+    scenario: experiments/configs/mvp/scenarios/phase8l_openloop_lk_px_flat_rural_phototex_noon.yaml
+  - name: lk_axis_nx
+    scenario: experiments/configs/mvp/scenarios/phase8l_openloop_lk_nx_flat_rural_phototex_noon.yaml
+  - name: lk_axis_py
+    scenario: experiments/configs/mvp/scenarios/phase8l_openloop_lk_py_flat_rural_phototex_noon.yaml
+  - name: lk_axis_ny
+    scenario: experiments/configs/mvp/scenarios/phase8l_openloop_lk_ny_flat_rural_phototex_noon.yaml
