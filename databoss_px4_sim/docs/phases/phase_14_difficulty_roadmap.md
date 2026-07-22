@@ -1,6 +1,6 @@
 # Phase 14 — Difficulty Roadmap: Flat/Noon/Low-Alt → Dark Terrain @ 60m
 
-Status: **In progress** (2026-07-21). Umbrella planning doc for an
+Status: **In progress** (2026-07-22). Umbrella planning doc for an
 8-batch campaign; each batch gets its own lettered phase doc
 (`phase_14a_*.md` … `phase_14h_*.md`) written when that batch actually
 flies, mirroring the `phase_08a`…`phase_08n` lettered-sub-phase convention.
@@ -101,12 +101,12 @@ per-batch specs follow the table.
 | # | Phase doc | World / field | Lighting | Altitude | New engineering | Isolates |
 |---|---|---|---|---|---|---|
 | 1 | `phase_14a_altitude_15m` | flat_rural_phototex (240m) | noon (baseline) | 15m | none (produced the 4 primitives) | first altitude step above 2.5m, full stack |
-| 2 | `phase_14b_altitude_35m` | flat_rural_phototex (240m) | noon | 35m | **none — config-only drop-in** | altitude trend continues, still flat/bright |
-| 3 | `phase_14c_altitude_60m` | flat_rural_phototex **600m** | noon | 60m | none (switch to 600m field) | 60m proven in isolation; lidar headroom check |
-| 4 | `phase_14d_dim_lighting` | flat_rural_phototex (240m) | dim/overcast (new preset) | 15m | new world YAML preset (no code) | lighting-only difficulty, safe altitude |
-| 5 | `phase_14e_dim_lighting_60m` | flat_rural_phototex **600m** | dim/overcast | 60m | none (reuses #3 + #4) | lighting + altitude combined, still flat |
-| 6 | `phase_14f_terrain_baseline` | serefli_koschisar terrain | noon/default | 15–35m | first full-stack terrain run **+ height-reference decision** | terrain-only difficulty |
-| 7 | `phase_14g_terrain_dim` | serefli_koschisar terrain | dim/overcast | 15–35m | **port lighting into `heightmap_to_web_mesh_world.py`** (currently none) | terrain + lighting code risk, safe altitude |
+| 2 | `phase_14b_altitude_35m` | flat_rural_phototex (240m) | noon | 35m | **none — config-only drop-in** | completed: accepted as evidence; SIFT bounded, matrix rejected |
+| 3 | `phase_14c_altitude_60m` | flat_rural_phototex **600m** | noon | 60m | none (switch to 600m field) | completed: accepted as evidence; 60m matrix rejected |
+| 4 | `phase_14d_dim_lighting` | flat_rural_phototex (240m) | dim/overcast (new preset) | 15m | completed: new world YAML preset, no code | lighting-only difficulty, safe altitude |
+| 5 | `phase_14e_dim_lighting_60m` | flat_rural_phototex **600m** | dim/overcast | 60m | completed: config-only reuse of #3 + #4 | completed: accepted as characterization evidence; matrix rejected |
+| 6 | `phase_14f_terrain_baseline` | serefli_koschisar terrain | noon/default | 15m | completed: first full-stack terrain run + height-reference decision | terrain-only difficulty |
+| 7 | `phase_14g_terrain_dim` | serefli_koschisar terrain | dim/overcast | 15m | completed: terrain lighting preset in `heightmap_to_web_mesh_world.py` | terrain + lighting code risk, safe altitude |
 | 8 | `phase_14h_dark_terrain_60m` | serefli_koschisar terrain | dim/overcast | 60m | none (reuses #3, #6, #7) | **endgame**: everything combined |
 
 Every batch reruns the LK/SIFT/stock × gnss-loss matrix, a stock replicate
@@ -142,6 +142,13 @@ own `phase_14x_*.md` is written only after it flies.
 
 ### Batch 3 — `phase_14c_altitude_60m` (altitude endgame, isolated)
 
+**Completed 2026-07-21:** accepted as evidence; matrix rejected. All GNSS-loss
+cases verified actual GPS loss in ULog and completed the 50 s post-loss
+window, so no run was discarded as suspicious. SIFT no longer stayed bounded at
+60 m: LK and SIFT both diverged heavily, stock remained a caveated baseline
+because its camera far clip is 30 m, and the LK GNSS-on reference stayed close
+to truth. Full record: `phase_14c_altitude_60m.md`.
+
 - **Prep:** copy batch-2 scenarios to `phase14c_*_alt60m_*`;
   `altitude_agl_m: 60.0`, `control.z_m: -60.0`, **and switch the world to
   `flat_rural_phototex_600m_noon`** (`world.name` + `world.sdf_path`) so the
@@ -155,10 +162,19 @@ own `phase_14x_*.md` is written only after it flies.
   weakest flow of the flat batches; a driftier run leaving texture (mitigated
   by the 600 m field).
 - **Acceptance:** aided bounded, unaided diverges, GPS guard clean, lidar
-  finite-fraction acceptable. **This is a prerequisite gate for batches 5
-  and 8** — the endgame cannot be attempted until 60 m is proven alone.
+  finite-fraction acceptable. This gate did not pass as a method claim; later
+  60 m combined-condition runs may still be flown as characterization/evidence
+  but should not be described as building on an accepted 60 m flat/noon method.
 
 ### Batch 4 — `phase_14d_dim_lighting` (new world preset, no code)
+
+**Completed 2026-07-21:** accepted as valid evidence with caveats. All
+GNSS-loss runs verified actual GPS loss in ULog evidence and copied ULogs; the
+LK GNSS-on reference stayed GNSS-on. LK and stock remained bounded in dim light
+at 15 m. SIFT remained metrically bounded over its aligned window but landed
+early after dim-light feature/match degradation. The no-aid baseline completed
+the 50 s post-loss window and diverged/descent under dead reckoning as expected.
+Full record: `phase_14d_dim_lighting.md`.
 
 - **Prep:** new world YAML `flat_rural_phototex_dim.yaml` cloned from
   `flat_rural_phototex_noon.yaml`, changing only the `lighting` block:
@@ -183,11 +199,22 @@ own `phase_14x_*.md` is written only after it flies.
 
 ### Batch 5 — `phase_14e_dim_lighting_60m` (dim + altitude, flat ceiling)
 
+**Completed 2026-07-22 UTC:** accepted as characterization evidence; matrix
+rejected. All GNSS-loss cases verified actual GPS loss in ULog evidence and
+copied ULogs. The LK GNSS-on reference stayed GNSS-on, remained close to truth,
+and copied a ULog, but its LK flow velocity sign sentinel rejected under this
+combined dim 60 m condition. LK GNSS-loss diverged severely; SIFT, stock, and
+no-aid loss cases were procedurally valid but rejected by gates and drift/error
+outcomes. No run was suspicious enough to rerun. Full record:
+`phase_14e_dim_lighting_60m.md`.
+
 - **Prep:** dim world at 60 m on the **600 m** field — i.e. the batch-4
   lighting block applied to a 600 m dim world, batch-3 altitude/field. Build
   `flat_rural_phototex_600m_dim.yaml`, 6 scenarios `phase14e_*_dim_alt60m_*`.
 - **New engineering:** none — pure reuse of #3 (60 m + 600 m field) and #4
-  (dim preset). **Prerequisite: batches 3 and 4 both Accepted.**
+  (dim preset). Because batch 3 failed as a bounded-method claim, this batch
+  should be treated as characterization of the combined flat 60 m + dim
+  condition, not as a prerequisite-proving acceptance gate.
 - **What could break:** the two hardest flat-world stressors compounded —
   weakest flow (60 m) *and* lowest contrast (dim). This is the flat-world
   stress ceiling; it de-risks whether the *terrain* endgame's difficulty is
@@ -197,10 +224,27 @@ own `phase_14x_*.md` is written only after it flies.
 
 ### Batch 6 — `phase_14f_terrain_baseline` (first full-stack on terrain)
 
-- **Prep:** `serefli_koschisar_web_terrain` world; 6 scenarios
-  `phase14f_*_terrain_alt{15|35}m_*`. First GNSS-loss + optical-flow-aiding
-  run ever on real heightmap terrain (previously camera-only, once). Keep
-  altitude a safe **15–35 m** so terrain is the only new axis.
+**Completed 2026-07-22 UTC:** accepted with limitations as the first
+full-stack terrain baseline. The batch used `EKF2_RNG_A_HMAX=5` rather than
+the flat-world HMAX=80 trick, keeping rangefinder height from being treated as
+absolute altitude over terrain relief. Terrain GNSS-loss initially exposed a
+PX4 Gazebo bridge issue: `SIM_GPS_USED` changed in PX4, but Gazebo NavSat kept
+publishing `fix_type=3`. PX4 was patched in
+`src/modules/simulation/gz_bridge/GZBridge.cpp` to refresh `SIM_GPS_USED`
+inside `GZBridge::navSatCallback()` before publishing `sensor_gps`.
+
+Post-patch, all GNSS-loss cases verified actual GPS loss from ULog evidence.
+LK and SIFT stayed bounded at 15 m terrain; stock and no-aid were valid
+GNSS-denied behavior evidence but rejected by performance/terrain validation
+gates. The LK GNSS-on reference stayed GNSS-on but required manual closeout
+after the no-loss runner failed to stop cleanly. Full record:
+`phase_14f_terrain_baseline.md`.
+
+- **Prep:** completed on the `serefli_koschisar_flowtex` terrain world with
+  scenarios `phase14f_*_serefli_koschisar_flowtex_alt15m.yaml`. This was the
+  first GNSS-loss + optical-flow-aiding run set on real heightmap terrain
+  (previously camera-only, once). Altitude was kept at a safe **15 m** so
+  terrain was the only new axis.
 - **New engineering — the height-reference decision (central risk):**
   HMAX=80's flat-ground assumption is invalid here — the rangefinder reads
   height *above varying terrain*, not absolute altitude, so blindly anchoring
@@ -226,35 +270,50 @@ own `phase_14x_*.md` is written only after it flies.
 
 ### Batch 7 — `phase_14g_terrain_dim` (terrain-lighting CODE)
 
-- **New engineering — biggest code item in the roadmap:**
-  `scripts/worlds/heightmap_to_web_mesh_world.py` has **zero lighting
-  support**. Port the same `sun_direction` / `ambient` / `background` /
-  `shadows_enabled` knobs the flat `build_gazebo_world.py` scene builder
-  already exposes into the terrain generator's SDF emission, so the batch-4
-  dim preset can be applied to terrain. Validate the generated terrain SDF
-  renders with usable downward texture under dim light before flying.
-- **Prep:** dim terrain world + 6 scenarios `phase14g_*_terrain_dim_alt{15|35}m_*`,
-  reusing the height-reference strategy chosen in batch 6. Safe 15–35 m.
+**Completed 2026-07-22 UTC:** accepted with limitations. Added
+`--lighting-preset dim_overcast_no_shadows` to
+`scripts/worlds/heightmap_to_web_mesh_world.py`, generated
+`serefli_koschisar_flowtex_dim`, and validated the SDF with `gz sdf -k`.
+The dim terrain preset reuses the Phase 14D ambient/background/shadows-off
+contract, with a terrain-safe y-only low sun direction to avoid the source
+terrain world's documented shadow-map artifact.
+
+All GNSS-loss cases verified actual GPS loss from ULog evidence. LK and SIFT
+stayed bounded at 15 m dim terrain but degraded versus Phase 14F default-light
+terrain. Stock and no-aid remained valid rejected-performance evidence. The
+LK GNSS-on reference stayed GNSS-on but required manual closeout because the
+known no-loss runner long-hold issue remains. Full record:
+`phase_14g_terrain_dim.md`.
+
+- **New engineering:** completed by porting the `sun_direction`, `ambient`,
+  `background`, and `shadows_enabled` style controls into
+  `heightmap_to_web_mesh_world.py` as a terrain SDF lighting preset.
+- **Prep:** completed with dim terrain world
+  `serefli_koschisar_flowtex_dim` and 6 scenarios
+  `phase14g_*_serefli_koschisar_flowtex_dim_alt15m.yaml`, reusing the Phase
+  14F HMAX=5 height-reference strategy.
 - **Prerequisite:** batches 4 (dim preset) and 6 (terrain full-stack +
-  height reference) both Accepted.
-- **What could break:** the new lighting code itself (SDF that won't load,
-  black renders, texture washed out); dim + terrain-relief flow combined.
-- **Acceptance:** dim terrain renders with usable texture; aiding bounded or
-  a documented, understood degradation.
+  height reference) were both accepted before this run.
+- **What broke / degraded:** LK and SIFT stayed bounded but worsened versus
+  Phase 14F; stock/no-aid remained rejected-performance evidence; GNSS-on
+  needed manual closeout due the known no-loss runner long-hold path.
+- **Acceptance:** dim terrain rendered with usable texture, GNSS-state guard
+  matched every manifest tag, and aided LK/SIFT stayed bounded.
 
 ### Batch 8 — `phase_14h_dark_terrain_60m` (ENDGAME — the user's target)
 
-- **Prep:** everything combined — `serefli_koschisar` terrain, dim/overcast
-  lighting (batch-7 code), **60 m** altitude. 6 scenarios
-  `phase14h_*_dark_terrain_alt60m_*`. No new engineering: reuses #3 (60 m
-  proven + field/lidar handling), #6 (terrain height reference), #7 (terrain
-  lighting code).
+- **Completed:** everything combined — `serefli_koschisar` terrain,
+  dim/overcast lighting (batch-7 code), **60 m** altitude. 6 evidence runs
+  under `phase14h_*_serefli_koschisar_flowtex_dim_alt60m`.
 - **Hard prerequisite:** batches 3, 4, 6, and 7 each independently
   `Accepted`. This gate is non-negotiable — the whole ladder exists so that
   if this batch fails, the cause is a *combination* effect, every ingredient
   having been proven alone.
-- **Acceptance:** aided GNSS-denied flight bounded (or characterized) on dark
-  terrain at 60 m — the campaign's headline result.
+- **Acceptance:** accepted with limitations as the campaign's endgame
+  characterization result. All report cases matched ULog GNSS-state proof.
+  LK GNSS-loss degraded substantially at 60 m dim terrain (Hmax 34.594 m) but
+  remained below SIFT (Hmax 96.102 m). Stock/no-aid are retained as valid
+  rejected-performance baselines, not passes.
 
 ## Dependency graph
 
@@ -295,13 +354,13 @@ terrain-lighting code, so the second half is sequential and slower.
 | # | Phase doc | Status |
 |---|---|---|
 | 1 | `phase_14a_altitude_15m` | **Accepted (2026-07-21)** — aided 1.5–2.2 m vs 60 m unaided |
-| 2 | `phase_14b_altitude_35m` | **Planned — next; config-only drop-in** |
-| 3 | `phase_14c_altitude_60m` | Planned (switch to 600m field; lidar headroom check) |
-| 4 | `phase_14d_dim_lighting` | Planned (new dim world preset, no code) |
-| 5 | `phase_14e_dim_lighting_60m` | Planned (needs 3 + 4) |
-| 6 | `phase_14f_terrain_baseline` | Planned (height-reference decision) |
-| 7 | `phase_14g_terrain_dim` | Planned (terrain-lighting code) |
-| 8 | `phase_14h_dark_terrain_60m` | Planned (endgame; needs 3, 4, 6, 7) |
+| 2 | `phase_14b_altitude_35m` | **Accepted as evidence; matrix rejected (2026-07-21)** |
+| 3 | `phase_14c_altitude_60m` | **Accepted as evidence; matrix rejected (2026-07-21)** |
+| 4 | `phase_14d_dim_lighting` | **Accepted with caveats (2026-07-21)** |
+| 5 | `phase_14e_dim_lighting_60m` | **Accepted as characterization evidence; matrix rejected (2026-07-22)** |
+| 6 | `phase_14f_terrain_baseline` | **Accepted with limitations (2026-07-22)** |
+| 7 | `phase_14g_terrain_dim` | **Accepted with limitations (2026-07-22)** |
+| 8 | `phase_14h_dark_terrain_60m` | **Accepted with limitations (2026-07-22)** |
 
 ## Reused infrastructure
 
@@ -317,10 +376,7 @@ Python. Same GPS-guard verification and per-run dashboards throughout.
 
 ## Disk and time budget
 
-~48 runs across the remaining 7 batches (6 runs/batch), each producing a
-`flow_recording` at the Phase-12-fixed `rate_hz: 2` (~10MB/run). Multi-session
-effort; batches 6–8 (terrain) are gated on the terrain height-reference
-decision and the terrain-lighting code, so the second half is sequential.
+No Phase 14 batches remain. Phase 14A-14H are complete.
 
 **ULog lifecycle** (the biggest disk lever): handled via **gzip-in-place,
 not deletion** — `open_ulog()` transparently decompresses `flight.ulg.gz`
@@ -328,8 +384,8 @@ on demand so report/plot scripts need no change, and ULogs stay
 regenerable (this project has re-run the Phase 12 report 4–5 times).
 Policy: gzip a batch's 6 ULogs only after that batch's report is generated
 and verified; `df -h /opt` checkpoint before/after every batch; abort
-further launches below ~150MB free. **Current free space is tight (~360MB,
-100% used) — clear headroom before batch 2 launches.**
+further launches below ~150MB free. Phase 14H evidence ULogs and raw truth
+were compressed after report generation and verified with `gzip -t`.
 
 ## Acceptance criteria (for this umbrella doc)
 
@@ -343,6 +399,6 @@ further launches below ~150MB free. **Current free space is tight (~360MB,
 
 ## Next phase
 
-Batch 2 (`phase_14b_altitude_35m`) — a config-only drop-in per its spec
-above. Clear disk headroom first, then it's copy-6-YAMLs + new manifest +
-run + report, no code.
+Phase 14 is complete. Next work is campaign-level consolidation/report
+packaging and deciding which documented limitations become follow-up
+engineering items.

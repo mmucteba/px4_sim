@@ -29,12 +29,79 @@ from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+LIGHTING_PRESETS = {
+    "source": None,
+    "dim_overcast_no_shadows": {
+        "ambient": "0.250 0.250 0.250 1.000",
+        "background": "0.360 0.400 0.450 1.000",
+        "shadows": "false",
+        "sun_direction": "0.0 0.35 -0.55",
+        "sun_diffuse": "0.9 0.86 0.76 1",
+        "sun_specular": "0.2 0.2 0.2 1",
+        "gui_ambient_light": "0.25 0.25 0.25",
+        "gui_background_color": "0.36 0.40 0.45",
+    },
+}
+
 
 def parse_vec3(text: str) -> tuple[float, float, float]:
     values = [float(item) for item in text.split()]
     if len(values) != 3:
         raise ValueError(f"expected vec3, got {text!r}")
     return values[0], values[1], values[2]
+
+
+def set_xml_text_tag(block: str, tag: str, value: str, after_tag: str | None = None) -> str:
+    pattern = rf"<{tag}>[^<]*</{tag}>"
+    replacement = f"<{tag}>{value}</{tag}>"
+    if re.search(pattern, block):
+        return re.sub(pattern, replacement, block, count=1)
+    if after_tag and re.search(rf"</{after_tag}>", block):
+        return re.sub(rf"(</{after_tag}>)", rf"\1\n            {replacement}", block, count=1)
+    return re.sub(r"(</[^/<>]+>\s*)$", f"            {replacement}\n\\1", block, count=1)
+
+
+def apply_lighting_preset(world_text: str, preset_name: str) -> str:
+    preset = LIGHTING_PRESETS[preset_name]
+    if preset is None:
+        return world_text
+
+    def scene_repl(match: re.Match[str]) -> str:
+        block = match.group(0)
+        block = set_xml_text_tag(block, "ambient", preset["ambient"])
+        block = set_xml_text_tag(block, "background", preset["background"], after_tag="ambient")
+        block = set_xml_text_tag(block, "shadows", preset["shadows"], after_tag="background")
+        return block
+
+    def sun_repl(match: re.Match[str]) -> str:
+        block = match.group(0)
+        block = set_xml_text_tag(block, "cast_shadows", preset["shadows"])
+        block = set_xml_text_tag(block, "diffuse", preset["sun_diffuse"])
+        block = set_xml_text_tag(block, "specular", preset["sun_specular"])
+        block = set_xml_text_tag(block, "direction", preset["sun_direction"])
+        return block
+
+    text = re.sub(r"<scene>.*?</scene>", scene_repl, world_text, count=1, flags=re.DOTALL)
+    text = re.sub(
+        r"<light\s+type=\"directional\"\s+name=\"sun\">.*?</light>",
+        sun_repl,
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"<ambient_light>[^<]*</ambient_light>",
+        f"<ambient_light>{preset['gui_ambient_light']}</ambient_light>",
+        text,
+        count=1,
+    )
+    text = re.sub(
+        r"<background_color>[^<]*</background_color>",
+        f"<background_color>{preset['gui_background_color']}</background_color>",
+        text,
+        count=1,
+    )
+    return text
 
 
 def read_heightmap_spec(world_text: str) -> tuple[str, tuple[float, float, float], tuple[float, float, float]]:
@@ -419,6 +486,12 @@ def main() -> None:
         ),
     )
     parser.add_argument("--model-name", default="serefli_koschisar_web_terrain")
+    parser.add_argument(
+        "--lighting-preset",
+        choices=tuple(LIGHTING_PRESETS.keys()),
+        default="source",
+        help="Lighting override for the generated world; source keeps the input world unchanged.",
+    )
     args = parser.parse_args()
 
     if args.stride < 1:
@@ -477,6 +550,7 @@ def main() -> None:
         world_text = build_model_uri_world_text(source_text, args.output_world_name, args.model_name)
     else:
         world_text = build_world_text(source_text, args.output_world_name)
+    world_text = apply_lighting_preset(world_text, args.lighting_preset)
     output_world.write_text(world_text, encoding="utf-8")
 
     print(f"source_world={source_world}")
@@ -486,6 +560,7 @@ def main() -> None:
     print(f"triangles={triangles}")
     print(f"stride={args.stride}")
     print(f"visual_mode={args.visual_mode}")
+    print(f"lighting_preset={args.lighting_preset}")
     if args.visual_mode == "fuel_model_mesh":
         print(f"model={output_dir / args.model_name}")
     if args.visual_mode == "colored_tiles":

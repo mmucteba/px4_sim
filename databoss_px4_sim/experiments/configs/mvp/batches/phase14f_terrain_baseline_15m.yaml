@@ -1,0 +1,40 @@
+batch:
+  name: phase14f_terrain_baseline_15m
+  description: Phase 14F first full-stack terrain baseline on serefli_koschisar_flowtex at 15 m AGL. Uses HMAX=5 to avoid
+    flat-ground rangefinder absolute-height anchoring over terrain relief; drift/rejection is accepted as characterization
+    evidence, suspicious GNSS/artifact failures are rerun.
+defaults:
+  hover_s: 90
+  startup_timeout_s: 260
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 180
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  post_loss_hover_s: 50
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+cases:
+- name: lk_xy_gnssloss_terrain_15m
+  scenario: experiments/configs/mvp/scenarios/phase14f_lk_xy_gnssloss_off50s_nmin03_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: default_px4
+- name: sift_xy_gnssloss_terrain_15m
+  scenario: experiments/configs/mvp/scenarios/phase14f_sift_xy_gnssloss_off50s_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: default_px4
+- name: stock_gnssloss_terrain_15m_rep1
+  scenario: experiments/configs/mvp/scenarios/phase14f_stock_gnssloss_off50s_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: delayed_observation
+- name: stock_gnssloss_terrain_15m_rep2
+  scenario: experiments/configs/mvp/scenarios/phase14f_stock_gnssloss_off50s_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: delayed_observation
+- name: lk_xy_gnsson_terrain_15m
+  scenario: experiments/configs/mvp/scenarios/phase14f_lk_xy_gnsson_off70s_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: default_px4
+- name: noaid_gnssloss_terrain_15m
+  scenario: experiments/configs/mvp/scenarios/phase14f_noaid_gnssloss_off70s_serefli_koschisar_flowtex_alt15m.yaml
+  failsafe_profile: delayed_observation

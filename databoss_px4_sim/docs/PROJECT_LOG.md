@@ -4264,6 +4264,37 @@ camera-frame timing gate (`~1.91 Hz` recorded in the scene window), so capture
 instrumentation timing should be tracked separately from end-to-end flight
 acceptance.
 
+## 2026-07-21 — Phase 14b report created; results accepted as evidence
+
+Created the final Phase 14b comparison report:
+
+`experiments/comparisons/20260721_phase14b_altitude_35m/report.md`
+
+Supporting generated artifacts:
+
+- `experiments/comparisons/20260721_phase14b_altitude_35m/manifest.yaml`
+- `experiments/comparisons/20260721_phase14b_altitude_35m/summary.csv`
+- `experiments/comparisons/20260721_phase14b_altitude_35m/summary.json`
+- `experiments/comparisons/20260721_phase14b_altitude_35m/plots/`
+- `experiments/comparisons/20260721_phase14b_altitude_35m/camera_samples/`
+
+Final decision for this rung: accept the results as the Phase 14b evidence set
+without relabeling failed runs as passes. The full matrix remains rejected as
+an all-method gate, but the evidence set is accepted:
+
+- SIFT GNSS-loss accepted and repeatable at 35 m: r1 H max `1.714957 m`, r2
+  H max `1.469144 m`.
+- Stock GNSS-loss rejected in two valid runs: r1 H max `55.967629 m`, clean r2
+  H max `40.886425 m`.
+- LK GNSS-loss rejected: H max `20.842661 m`.
+- No-aid GNSS-loss rejected/divergent: H max `82.564907 m`.
+
+The report excludes the original full-batch stock rep2 GPS flake from aggregate
+plots and uses the clean stock rep2 rerun instead. It also records the stock
+simulator caveat: PX4's stock `optical_flow` Gazebo camera has a `30 m` far
+clip, while Phase 14b flew at `35 m`; this is accepted as a stock-baseline
+limitation rather than repaired in this phase.
+
 ## 2026-07-21 — Phase 14 roadmap fleshed out for batches 2–8
 
 Turned the umbrella `phase_14_difficulty_roadmap.md` from a one-line-per-batch
@@ -4297,3 +4328,316 @@ Key structural decisions recorded in the roadmap:
 
 No runs this step — planning/docs only. Next action unchanged: launch
 Phase 14b once disk headroom is cleared (currently ~360 MB free, 100% used).
+
+## 2026-07-21 — Phase 14c 60 m altitude batch completed and reported
+
+Created and ran the Phase 14c altitude-60 m batch:
+
+`experiments/configs/mvp/batches/phase14c_altitude_60m.yaml`
+
+Batch folder:
+
+`experiments/batches/20260721_205051_phase14c_altitude_60m`
+
+The batch used the full timing contract (`hover_s=90`,
+`post_loss_hover_s=50`) and the 600 m photo-textured field
+(`flat_rural_phototex_600m_noon`) for 60 m camera-footprint headroom. All
+GNSS-loss cases verified actual GPS loss (`fix_type=0.0`) and completed the
+50 s post-loss window; the GNSS-on reference stayed GNSS-on throughout. No run
+was suspicious enough to rerun.
+
+Final result: **accepted as evidence; matrix rejected**.
+
+- LK GNSS-loss rejected: H max `575.190331 m`, max 3D `582.589305 m`, truth
+  drift end `64.938 m`.
+- SIFT GNSS-loss rejected: H max `419.250984 m`, max 3D `427.275966 m`, truth
+  drift end `70.066 m`.
+- Stock GNSS-loss rejected in two valid replicates: H max `67.404116 m` and
+  `34.290274 m`. Stock remains caveated because PX4's stock optical-flow
+  camera has a 30 m far clip while this rung flies at 60 m AGL.
+- LK GNSS-on reference accepted: H max `0.149769 m`, max 3D `0.994396 m`.
+- No-aid GNSS-loss rejected as expected: H max `43.893925 m`, max 3D
+  `43.905962 m`.
+
+Created the final report and plots:
+
+`experiments/comparisons/20260721_phase14c_altitude_60m/report.md`
+
+After report generation, Phase 14C ULogs were gzipped and verified with
+`gzip -t`; Phase 14B/14C raw Gazebo-truth text logs were also gzipped
+losslessly to restore disk headroom for the next batches.
+
+## 2026-07-21 — Phase 14d dim-light 15 m batch completed and reported
+
+Created the dim flat-world preset, generated and validated its SDF, then ran
+the Phase 14D six-case batch:
+
+`experiments/configs/mvp/batches/phase14d_dim_lighting_15m.yaml`
+
+Batch folder:
+
+`experiments/batches/20260721_221131_phase14d_dim_lighting_15m`
+
+Final result: **accepted as valid evidence with caveats**. All GNSS-loss runs
+verified actual GPS loss (`fix_type=0.0` in runner-observed evidence and
+`fix_type < 3` in ULog), and the LK GNSS-on reference stayed GNSS-on. No run
+was suspicious enough to rerun.
+
+- LK GNSS-loss accepted: H max `1.445526 m`, max 3D `1.465072 m`.
+- SIFT GNSS-loss accepted but caveated: H max `2.021739 m`, max 3D
+  `2.048288 m`; the vehicle landed early after dim-light feature/match
+  degradation (`airborne_hover_wait_ok=false`, ULog airborne duration
+  `43.624 s`).
+- Stock GNSS-loss accepted in two valid replicates: H max `0.712371 m` and
+  `0.450337 m`.
+- LK GNSS-on reference accepted: H max `0.150936 m`, max 3D `0.483560 m`.
+- No-aid GNSS-loss rejected as expected after dead-reckoning divergence: H max
+  `40.918047 m`, max 3D `40.920585 m`.
+
+Created the final report and plots:
+
+`experiments/comparisons/20260721_phase14d_dim_lighting_15m/report.md`
+
+After report generation, Phase 14D ULogs and raw Gazebo-truth text logs were
+gzipped and verified with `gzip -t`. Older already reported raw Gazebo-truth
+logs from previous phases were also gzipped losslessly to restore disk
+headroom for the remaining batches.
+
+## 2026-07-22 — Phase 14e dim-light 60 m characterization batch completed and reported
+
+Created the 600 m dim/overcast flat-world preset, generated and validated its
+SDF, then ran the Phase 14E six-case batch:
+
+`experiments/configs/mvp/batches/phase14e_dim_lighting_60m.yaml`
+
+Batch folder:
+
+`experiments/batches/20260721_230820_phase14e_dim_lighting_60m`
+
+Final result: **accepted as characterization evidence; matrix rejected**. All
+GNSS-loss runs verified actual GPS loss (`fix_type=0.0` in runner-observed
+evidence and `fix_type < 3` in ULog), recorded Gazebo truth, copied ULogs, and
+were postprocessed/aligned against Gazebo truth. The LK GNSS-on reference did
+not request GNSS loss, stayed GNSS-on, and remained close to truth, but its LK
+flow velocity sign sentinel rejected under the dim 60 m condition. No run was
+suspicious enough to rerun.
+
+- LK GNSS-loss rejected after severe divergence: H max `771.272241 m`, max 3D
+  `772.692147 m`.
+- SIFT GNSS-loss rejected: H max `61.730776 m`, max 3D `77.151877 m`; valid
+  loss evidence, but the vehicle landed during the requested post-loss hover.
+- Stock GNSS-loss rejected in two valid replicates: H max `46.402739 m` and
+  `51.870340 m`. Stock remains caveated because PX4's stock optical-flow
+  camera has a 30 m far clip while this rung flies at 60 m AGL.
+- LK GNSS-on reference accepted by flight/GNSS evidence: H max `0.363965 m`,
+  max 3D `0.943113 m`; flow sign sentinel rejected and is documented as a
+  reference caveat.
+- No-aid GNSS-loss rejected as expected: H max `67.896167 m`, max 3D
+  `67.938136 m`.
+
+Created the final report and plots:
+
+`experiments/comparisons/20260721_phase14e_dim_lighting_60m/report.md`
+
+After report generation, Phase 14E ULogs and raw Gazebo-truth text logs were
+gzipped losslessly and verified with `gzip -t`. Next action: start Phase 14F,
+the terrain baseline at a safe 15-35 m altitude, with the height-reference
+strategy as the main decision because flat-ground `EKF2_RNG_A_HMAX=80` does
+not directly transfer to terrain relief.
+
+## 2026-07-22 — Phase 14f terrain baseline completed and reported
+
+Created and ran the Phase 14F terrain-baseline batch at 15 m AGL on
+`serefli_koschisar_flowtex`:
+
+`experiments/configs/mvp/batches/phase14f_terrain_baseline_15m.yaml`
+
+Final report and plots:
+
+`experiments/comparisons/20260722_phase14f_terrain_baseline_15m/report.md`
+
+Final result: **accepted with limitations**. This is accepted as terrain
+characterization evidence, not as a universal method-win gate. All GNSS-loss
+cases in the final report verified actual GPS loss from ULog GPS topics
+(`fix_type=0` during the loss window), and the LK GNSS-on reference stayed
+GNSS-on (`fix_type=3`, satellites=10) with no `SIM_GPS_USED 0` command.
+
+Terrain GNSS-loss initially exposed a PX4 Gazebo bridge issue: the terrain
+world's NavSat path kept publishing GPS fix data after `SIM_GPS_USED` was set
+to 0. PX4 was patched in:
+
+`/opt/sim_px4/PX4-Autopilot/src/modules/simulation/gz_bridge/GZBridge.cpp`
+
+`GZBridge::navSatCallback()` now refreshes `_sim_gps_used` before publishing
+`sensor_gps`. Post-patch GNSS-loss runs showed the expected ULog `fix_type=0`
+state.
+
+Results:
+
+- LK GNSS-loss accepted: H max `1.190626 m`, max 3D `1.203275 m`.
+- SIFT GNSS-loss accepted: H max `2.477781 m`, max 3D `2.496030 m`; bounded
+  but worse than LK in this terrain batch.
+- Stock GNSS-loss replicate 1 accepted as rejected-performance evidence: H max
+  `51.264044 m`, max 3D `51.265280 m`; valid GNSS loss, but rangefinder/terrain
+  validation and altitude behavior remained caveated.
+- Stock GNSS-loss replicate 2 accepted as rejected-performance evidence: H max
+  `109.051513 m`, max 3D `109.054747 m`; valid GNSS loss and confirms unstable
+  stock behavior on this terrain batch.
+- LK GNSS-on reference accepted with manual-closeout caveat: H max
+  `0.236535 m`, max 3D `0.339562 m`; the no-loss direct runner failed to stop
+  cleanly, so PX4 was stopped gracefully, the ULog was recovered from PX4
+  rootfs, and Gazebo truth was postprocessed with model
+  `x500_cam_lidar_down_0`.
+- No-aid GNSS-loss accepted as catastrophic-baseline evidence: H max
+  `417.551074 m`, max 3D `456.022449 m`; valid GNSS loss, climbed to about
+  `204.5 m`, and diverged.
+
+The report generator was also corrected so the "World And Environment
+Settings" section no longer hardcodes the older flat-world wording; it now
+states that world/lighting/texture/wind values are read from each run's copied
+`config.yaml`.
+
+After report generation, Phase 14F ULogs and raw Gazebo-truth text logs were
+gzipped losslessly and verified with `gzip -t`. Free space after compression:
+about `1.3G` on `/opt`. Next action: Phase 14G terrain dim-light, which
+requires porting dim/overcast lighting controls into the terrain world
+generator before running the same six-case terrain matrix.
+
+## 2026-07-22 — Phase 14g dim-terrain batch completed and reported
+
+Added terrain dim-light support to:
+
+`scripts/worlds/heightmap_to_web_mesh_world.py`
+
+The new `--lighting-preset dim_overcast_no_shadows` path updates the generated
+terrain SDF scene/light fields after the proven terrain visual replacement
+step. Generated and validated:
+
+`generated_worlds/terrain/serefli_koschisar_flowtex_dim/serefli_koschisar_flowtex_dim.world`
+
+Validation:
+
+`gz sdf -k generated_worlds/terrain/serefli_koschisar_flowtex_dim/serefli_koschisar_flowtex_dim.world`
+
+Result: `Valid`.
+
+Created and ran the Phase 14G dim-terrain batch:
+
+`experiments/configs/mvp/batches/phase14g_terrain_dim_15m.yaml`
+
+Final report and plots:
+
+`experiments/comparisons/20260722_phase14g_terrain_dim_15m/report.md`
+
+Final result: **accepted with limitations**. All GNSS-loss cases verified
+actual GPS loss from ULog GPS topics (`fix_type=0` during the loss window).
+The LK GNSS-on reference stayed `fix_type=3` with 10 satellites and had no
+`SIM_GPS_USED 0` command, but required manual closeout because the known
+no-loss runner long-hold issue remains. The no-aid case was rerun directly
+after cleaning the stale Gazebo websocket state left by the interrupted
+GNSS-on reference.
+
+Results:
+
+- LK GNSS-loss accepted: H max `2.265130 m`, max 3D `2.278644 m`.
+- SIFT GNSS-loss accepted with sensor-contract caveat: H max `3.667356 m`,
+  max 3D `3.678212 m`; SIFT sent fewer bridge rows and the sensor-contract
+  report rejected.
+- Stock GNSS-loss replicate 1 accepted as rejected-performance evidence:
+  H max `46.131063 m`, max 3D `46.135581 m`; valid GNSS loss, rangefinder /
+  terrain validation reject.
+- Stock GNSS-loss replicate 2 accepted as rejected-performance evidence:
+  H max `46.217468 m`, max 3D `46.221783 m`; repeatable stock drift near
+  46 m.
+- LK GNSS-on reference accepted with manual-closeout caveat: H max
+  `0.137504 m`, max 3D `0.509660 m`.
+- No-aid GNSS-loss accepted as rejected-performance baseline: H max
+  `38.263638 m`, max 3D `38.273682 m`; valid GNSS loss, no optical-flow
+  bridge or stock flow.
+
+Interpretation: the dim-terrain code path is usable, and LK/SIFT remain
+bounded at 15 m, but both degrade versus Phase 14F default-light terrain.
+Stock/no-aid remain valid behavior baselines rather than passes.
+
+After report generation, Phase 14G ULogs and raw Gazebo-truth text logs were
+gzipped losslessly and verified with `gzip -t`. Free space after compression:
+about `1.1G` on `/opt`. Next action: Phase 14H, the final dim-terrain 60 m
+endgame, using the Phase 14G dim terrain world and Phase 14F HMAX=5 terrain
+height-reference strategy.
+
+## 2026-07-22 — Phase 14h dim-terrain 60 m endgame completed and reported
+
+Created and ran the final Phase 14H dim-terrain 60 m matrix:
+
+`experiments/configs/mvp/batches/phase14h_dark_terrain_60m.yaml`
+
+Final report and plots:
+
+`experiments/comparisons/20260722_phase14h_dark_terrain_60m/report.md`
+
+Final result: **accepted with limitations**. This is accepted as endgame
+characterization evidence, not a clean method-win gate. All report cases
+matched their manifest GNSS state according to ULog GPS topics. Scratch
+attempts without complete evidence were marked with `SCRATCH_INVALID_RUN.md`
+and excluded.
+
+Results:
+
+- LK GNSS-loss accepted as rejected-performance evidence: H max `34.594090 m`,
+  max 3D `34.595394 m`; flow delivery and GNSS loss were valid, but
+  terrain/rangefinder validation rejected after drift.
+- SIFT GNSS-loss accepted as rejected-performance evidence: H max
+  `96.102057 m`, max 3D `96.102465 m`; severe dim-terrain 60 m degradation.
+- Stock GNSS-loss replicate 1 accepted as rejected-performance evidence:
+  H max `38.077281 m`, max 3D `38.084020 m`.
+- Stock GNSS-loss replicate 2 accepted as rejected-performance evidence:
+  H max `54.451558 m`, max 3D `54.461421 m`; one prior r2 attempt aborted
+  before OFFBOARD/GNSS loss and was excluded as scratch.
+- LK GNSS-on reference accepted with manual-closeout caveat: H max
+  `0.131828 m`, max 3D `0.954246 m`; ULog `vehicle_gps_position` and
+  `sensor_gps` stayed `fix_type=3`, satellites=10 throughout.
+- No-aid GNSS-loss accepted as rejected-performance baseline: H max
+  `36.011929 m`, max 3D `36.023582 m`.
+
+Interpretation: the 60 m dim-terrain stack is validly characterized. LK
+degraded but remained below SIFT in this endgame condition; stock/no-aid are
+baselines, not passes. The tight GNSS-on LK reference shows the truth/alignment
+pipeline itself stayed healthy at 60 m dim terrain.
+
+After report generation, Phase 14H evidence ULogs and raw Gazebo-truth text
+logs were gzipped losslessly and verified with `gzip -t`; scratch large
+artifacts were also compressed. Phase 14A-14H are now complete.
+
+## 2026-07-22 — Phase 14G dark-terrain 15 m repeat batch completed
+
+Ran a fresh six-case Phase 14G dim/dark-terrain repeat at 15 m AGL after the
+Phase 14H endgame:
+
+`experiments/configs/mvp/batches/phase14g_terrain_dim_15m.yaml`
+
+Final repeat report and plots:
+
+`experiments/comparisons/20260722_phase14g_dark_terrain_15m_repeat/report.md`
+
+Final result: **accepted** as repeat characterization evidence. All report
+cases matched their manifest GNSS state according to ULog GPS topics. The
+GNSS-loss runs showed PX4 GPS dropping to `fix_type=0` and
+`satellites_used=0`; the LK GNSS-on reference stayed GNSS-on throughout.
+Stock/no-aid runner validation `false` was accepted as expected drift
+baseline behavior, not a data-quality rejection.
+
+Results:
+
+- LK GNSS-loss accepted: H mean `0.960 m`, H max `2.776 m`.
+- SIFT GNSS-loss accepted: H mean `1.183 m`, H max `3.382 m`.
+- Stock GNSS-loss replicate 1 accepted as drift baseline: H mean `7.395 m`,
+  H max `61.213 m`.
+- Stock GNSS-loss replicate 2 accepted as drift baseline: H mean `7.232 m`,
+  H max `63.695 m`.
+- LK GNSS-on reference accepted: H mean `0.053 m`, H max `0.115 m`.
+- No-aid GNSS-loss accepted as drift baseline: H mean `4.873 m`, H max
+  `34.863 m`.
+
+After each run, the ULog and raw Gazebo-truth text were gzipped losslessly and
+verified with `gzip -t`. Free space after report generation and compression:
+about `426M` on `/opt`.

@@ -1,7 +1,7 @@
 # Phase 14b — Altitude step 2: GNSS-denied optical flow at 35 m
 
-Status: **Rejected** (2026-07-21). Batch 2 of the Phase 14 difficulty
-roadmap (`docs/phases/phase_14_difficulty_roadmap.md`).
+Status: **Accepted as evidence; matrix rejected** (2026-07-21). Batch 2 of
+the Phase 14 difficulty roadmap (`docs/phases/phase_14_difficulty_roadmap.md`).
 
 ## Goal
 
@@ -107,6 +107,9 @@ Batch summary:
 Batch metrics:
 `experiments/batches/20260721_151916_phase14b_altitude_35m/batch_metrics.md`
 
+Final comparison report:
+`experiments/comparisons/20260721_phase14b_altitude_35m/report.md`
+
 ### Stock rep2 rerun
 
 The original stock rep2 data was preserved. A single-case rerun was launched
@@ -193,6 +196,7 @@ At 35 m on this flat world:
 - `experiments/batches/20260721_151916_phase14b_altitude_35m/`
 - `experiments/batches/20260721_192017_phase14b_altitude_35m/`
 - `experiments/batches/20260721_193527_phase14b_altitude_35m/`
+- `experiments/comparisons/20260721_phase14b_altitude_35m/`
 - Six run folders under `experiments/runs/20260721_*phase14b*alt35m*`
 - `scripts/runner/auto_takeoff_land_pxh_truth.py`
 - This document

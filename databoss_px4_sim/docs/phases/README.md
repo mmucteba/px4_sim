@@ -20,9 +20,41 @@
 - Phase 8B — Physical world generation and generated-world PX4 flight proof.
 - Phase 8C — Downward monocular camera proof in generated worlds.
 - Phase 14A — Altitude step 1 at 15 m, accepted.
-- Phase 14B — Altitude step 2 at 35 m, rejected as a matrix; SIFT GNSS-loss
-  accepted in two observed runs, LK/stock/no-aid rejected or flaky. Details:
+- Phase 14B — Altitude step 2 at 35 m, accepted as evidence but rejected as a
+  full-method matrix; SIFT GNSS-loss accepted in two observed runs,
+  LK/stock/no-aid rejected or flaky. Details:
   `phase_14b_altitude_35m.md`.
+- Phase 14C — Altitude step 3 at 60 m on the 600 m flat photo-textured field,
+  accepted as evidence but rejected as a full-method matrix. All GNSS-loss
+  cases verified GPS loss and completed the 50 s post-loss window; SIFT no
+  longer stayed bounded at 60 m. Details: `phase_14c_altitude_60m.md`.
+- Phase 14D — Dim/overcast lighting at 15 m on the flat photo-textured field,
+  accepted as valid evidence with caveats. LK and stock stayed bounded, SIFT
+  verified GNSS loss but landed early after dim-light feature/match degradation,
+  and no-aid diverged as expected. Details: `phase_14d_dim_lighting.md`.
+- Phase 14E — Dim/overcast lighting combined with 60 m altitude on the 600 m
+  flat photo-textured field, accepted as characterization evidence with the
+  matrix rejected. All GNSS-loss cases verified actual GPS loss; the LK
+  GNSS-on reference stayed GNSS-on and close to truth, but the LK flow sign
+  sentinel rejected under this condition. Details:
+  `phase_14e_dim_lighting_60m.md`.
+- Phase 14F — Terrain baseline at 15 m on `serefli_koschisar_flowtex`,
+  accepted with limitations. Terrain GNSS-loss exposed and fixed a PX4
+  Gazebo bridge `SIM_GPS_USED` refresh issue; post-patch LK/SIFT stayed
+  bounded under verified GNSS loss, while stock/no-aid were retained as
+  valid rejected-performance evidence. Details:
+  `phase_14f_terrain_baseline.md`.
+- Phase 14G — Dim/overcast terrain at 15 m on
+  `serefli_koschisar_flowtex_dim`, accepted with limitations. The terrain
+  generator now supports a dim-overcast lighting preset; LK/SIFT stayed
+  bounded under verified GNSS loss, while stock/no-aid remained rejected
+  behavior evidence. Details: `phase_14g_terrain_dim.md`.
+- Phase 14H — Dim/overcast terrain at 60 m on
+  `serefli_koschisar_flowtex_dim`, accepted with limitations. This completed
+  the Phase 14 endgame ladder: all report cases had ULog-verified GNSS state;
+  LK GNSS-loss degraded but remained below SIFT, stock/no-aid were retained as
+  rejected-performance baselines, and LK GNSS-on stayed tight. Details:
+  `phase_14h_dark_terrain_60m.md`.
 
 ## Proven / trustworthy building blocks (added 2026-07-20)
 
@@ -145,6 +177,12 @@ GNSS-on closed-loop EKF2 optical-flow fusion passed in run `20260713_151744`
 `phase_08g_live_flow_bridge.md`.
 
 ## Current phase
+
+Phase 14A-14H are complete. Current work should focus on consolidating the
+Phase 14 campaign reports and carrying forward only explicitly documented
+limitations.
+
+## Historical Phase 8L / 8N Notes
 
 Phase 8L — Full sensor sanity ladder before more flow tuning.
 

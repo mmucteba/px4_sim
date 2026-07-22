@@ -1,0 +1,125 @@
+run:
+  name: phase14e_sift_xy_gnssloss_off50s_flat_rural_phototex_600m_dim_alt60m
+  description: Phase 14e 60 m SIFT GNSS-loss run on flat_rural_phototex_600m_dim. Same SIFT tuning and timing contract as
+    Phase 14b, with altitude raised to 60 m, larger 600 m dim field used for texture and lighting headroom, and send_max_range_m raised to
+    90 m for lidar-headroom testing.
+vehicle:
+  model: gz_x500_cam_lidar_down
+  px4_airframe: x500_cam_lidar_down
+  gazebo_model_name: x500_cam_lidar_down_0
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: flat_rural_phototex_600m_dim
+  sdf_path: generated_worlds/flat_rural_phototex_600m_dim.sdf
+  lighting: dim_overcast_no_shadows
+  wind: none
+  texture: photo_speckle
+  condition_is_physical: true
+route:
+  name: phase14e_sift_xy_gnssloss_off50s_vy_alt60m
+  type: hover
+  altitude_agl_m: 60.0
+  duration_s: 70
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: true
+  loss_after_takeoff_s: 10
+  restore_after_run: true
+failsafe:
+  profile: default
+camera:
+  proof_enabled: true
+  description: Downward camera timing proof
+  render_engine: ogre
+  xvfb_enabled: true
+  xvfb_server_args: -screen 0 1280x1024x24
+  headless_rendering: false
+  probe_timeout_s: 25
+rangefinder:
+  proof_enabled: true
+  description: Downward rangefinder timing proof
+  render_engine: ogre
+  xvfb_enabled: true
+  probe_timeout_s: 20
+  min_ulog_rows: 50
+  height_agreement_tolerance_m: 0.75
+visualization:
+  gazebo_web:
+    enabled: true
+    required: true
+    config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch
+    host: 127.0.0.1
+    port: 9003
+    publication_hz: 15
+    startup_timeout_s: 15
+aiding:
+  mode: none
+  enabled: false
+  external_odom_enabled: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_camera_topics: true
+  record_external_odometry_sent: false
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: false
+  check_optical_flow_fusion: true
+  sensor_contract_report: true
+  sensor_contract_gate: timing
+  sensor_contract_gate_required: false
+flow_recording:
+  enabled: true
+  rate_hz: 2
+  max_width: 640
+  min_frames: 100
+flow_bridge:
+  enabled: true
+  estimator: sift
+  rate_hz: 20
+  max_width: 320
+  hfov_rad: 1.74
+  axis_map: xy
+  quality_in_min: 20
+  quality_in_max: 100
+  sift_n_features: 180
+  sift_ratio: 0.75
+  sift_min_matches: 8
+  send_min_range_m: 0.8
+  send_max_range_m: 90.0
+  send_min_quality: 20
+  send_min_matches: 8
+  reset_on_unsent: true
+  prime_on_unsent: true
+  min_sent_samples: 60
+  ekf2_of_ctrl: 1
+  ekf2_of_qmin: 17
+  ekf2_of_delay: 111
+control:
+  mode: offboard_local_position_hold
+  setpoint_mode: velocity_xy_position_z
+  start_after_takeoff_s: 5
+  warmup_s: 2
+  gnss_loss_after_offboard_s: 3
+  sim_time_wall_multiplier: 30
+  rate_hz: 20
+  x_m: 0
+  y_m: 0
+  z_m: -60.0
+  vx_m_s: 0.0
+  vy_m_s: 0.2
+  vz_m_s: 0.0
+  yaw_deg: 0
+  skip_landing_command: true
+extra_px4_params:
+  EKF2_RNG_A_HMAX: 80
+  SIM_BAT_DRAIN: 3000
+  SIM_BAT_MIN_PCT: 95

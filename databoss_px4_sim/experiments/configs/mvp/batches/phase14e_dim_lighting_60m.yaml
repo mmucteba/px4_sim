@@ -1,0 +1,38 @@
+batch:
+  name: phase14e_dim_lighting_60m
+  description: Phase 14E combined dim/overcast lighting plus 60 m altitude rung on flat_rural_phototex_600m_dim. Same six-case matrix as Phase 14C with full 50 s post-loss observation and ULog GNSS-state verification; drift is reported as evidence, suspicious GNSS/state failures are rerun.
+defaults:
+  hover_s: 90
+  startup_timeout_s: 260
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 180
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  post_loss_hover_s: 50
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+cases:
+- name: lk_xy_gnssloss_dim_60m
+  scenario: experiments/configs/mvp/scenarios/phase14e_lk_xy_gnssloss_off50s_nmin03_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: default_px4
+- name: sift_xy_gnssloss_dim_60m
+  scenario: experiments/configs/mvp/scenarios/phase14e_sift_xy_gnssloss_off50s_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: default_px4
+- name: stock_gnssloss_dim_60m_rep1
+  scenario: experiments/configs/mvp/scenarios/phase14e_stock_gnssloss_off50s_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: delayed_observation
+- name: stock_gnssloss_dim_60m_rep2
+  scenario: experiments/configs/mvp/scenarios/phase14e_stock_gnssloss_off50s_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: delayed_observation
+- name: lk_xy_gnsson_dim_60m
+  scenario: experiments/configs/mvp/scenarios/phase14e_lk_xy_gnsson_off70s_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: default_px4
+- name: noaid_gnssloss_dim_60m
+  scenario: experiments/configs/mvp/scenarios/phase14e_noaid_gnssloss_off70s_flat_rural_phototex_600m_dim_alt60m.yaml
+  failsafe_profile: delayed_observation

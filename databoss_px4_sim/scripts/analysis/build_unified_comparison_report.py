@@ -702,11 +702,10 @@ def build_report(manifest: Manifest, data: list[dict[str, Any]], out_dir: Path) 
     lines.append("## World And Environment Settings")
     lines.append("")
     lines.append(
-        "Only the `flat_rural_phototex_noon` world variant has been run so far (all cases below). "
-        "Future world-lighting/shadow/reflectivity or sensor-range variants become new rows here automatically "
-        "once a manifest entry points at a run whose `config.yaml` `world:` block actually differs -- this table "
-        "reads the value straight from each run's own copied config, so it can never silently claim a variant "
-        "was tested when it wasn't."
+        "This table reads world, lighting, texture, wind, and SDF path directly from each run's copied "
+        "`config.yaml`. Future world-lighting/shadow/reflectivity or sensor-range variants become new rows "
+        "automatically once a manifest entry points at a run whose `world:` block actually differs, so the "
+        "report does not silently claim a variant was tested when it was only named in the manifest."
     )
     lines.append("")
     rows = []
