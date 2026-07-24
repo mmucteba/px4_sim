@@ -5,23 +5,32 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from databoss_sim.dashboard.config import EXPERIMENTS_ROOT
-from databoss_sim.dashboard.routers import comparisons, runs
+from databoss_sim.dashboard.routers import checks, comparisons, runs
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    checks.refresh_model_sync_cache()
+    yield
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="DATABOSS Dashboard")
+    app = FastAPI(title="DATABOSS Dashboard", lifespan=_lifespan)
     app.include_router(runs.router)
     app.include_router(comparisons.router)
+    app.include_router(checks.router)
 
     @app.get("/", include_in_schema=False)
     def serve_index() -> FileResponse:
