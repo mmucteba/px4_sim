@@ -2,13 +2,21 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DATABOSS Dashboard</title>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-<h1><a href="/" style="text-decoration:none;color:inherit;">DATABOSS Dashboard</a></h1>
-<nav><a href="/">Runs</a><a href="/create">Create</a></nav>
-<div id="app">Loading...</div>
+<header class="site-header">
+  <h1><a href="/" style="text-decoration:none;color:inherit;">DATABOSS Dashboard</a></h1>
+  <nav>
+    <a href="/">Runs</a>
+    <a href="/create">Create</a>
+  </nav>
+</header>
+<div class="page">
+  <div id="app"><span class="spinner"></span>Loading...</div>
+</div>
 <script type="module" src="/static/js/router.js"></script>
 </body>
 </html>

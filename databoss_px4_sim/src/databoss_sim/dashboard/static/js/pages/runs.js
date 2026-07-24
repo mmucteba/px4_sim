@@ -63,7 +63,7 @@ export async function renderList() {
   const statusSelect = filterSelect("f-status", "status", distinctSorted(runs, "contract_status"), state.status);
 
   const summary = el("p", {});
-  const tableWrap = el("div", {});
+  const tableWrap = el("div", { class: "table-scroll" });
 
   function syncUrl() {
     const p = new URLSearchParams();

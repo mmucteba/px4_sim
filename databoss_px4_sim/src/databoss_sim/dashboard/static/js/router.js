@@ -3,7 +3,17 @@ import { renderRun } from "./pages/run_detail.js";
 import { renderComparison } from "./pages/comparison_detail.js";
 import { renderCreate } from "./pages/create.js";
 
+function updateNavActive() {
+  const path = location.pathname;
+  document.querySelectorAll("nav a").forEach((a) => {
+    const href = a.getAttribute("href");
+    const active = href === "/" ? path === "/" : path.startsWith(href);
+    a.classList.toggle("active", active);
+  });
+}
+
 function route() {
+  updateNavActive();
   const path = location.pathname;
   const runMatch = path.match(/^\/runs\/(.+)$/);
   const compMatch = path.match(/^\/comparisons\/(.+)$/);
