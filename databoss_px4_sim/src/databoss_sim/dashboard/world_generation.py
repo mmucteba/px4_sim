@@ -8,9 +8,13 @@ touches gz-sim/PX4 in any way.
 from __future__ import annotations
 
 import json
+import re
+import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree as ET
 
 import yaml
 
@@ -20,6 +24,66 @@ WORLDS_CONFIG_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "worlds"
 GENERATED_WORLDS_DIR = PROJECT_ROOT / "generated_worlds"
 
 TERRAIN_WORLDS_DIR = GENERATED_WORLDS_DIR / "terrain"
+RAW_TERRAIN_DIR = TERRAIN_WORLDS_DIR / "_generator_output"
+
+# The exact "DATABOSS import preparation" plugin block, reused verbatim from
+# the real, flight-proven serefli_koschisar import (docs/phases/
+# phase_09a_real_terrain_world_import.md's "Import-preparation rule
+# discovered" section, 2026-07-10): gazebo_terrain_generator's own world
+# template only loads Physics/UserCommands/SceneBroadcaster/Sensors/Imu/
+# NavSat, and since world-level plugins override PX4's server.config
+# defaults, PX4 preflight fails ("barometer 0 missing", "Found 0 compass")
+# without these four.
+_IMPORT_PLUGINS_XML = """
+        <!-- DATABOSS import preparation: PX4 needs these sensor systems.
+             World-level plugins override PX4's server.config defaults, and the
+             generator's template omits these four. -->
+        <plugin
+                filename="gz-sim-air-pressure-system"
+                name="gz::sim::systems::AirPressure">
+        </plugin>
+        <plugin
+                filename="gz-sim-magnetometer-system"
+                name="gz::sim::systems::Magnetometer">
+        </plugin>
+        <plugin
+                filename="gz-sim-contact-system"
+                name="gz::sim::systems::Contact">
+        </plugin>
+        <plugin
+                filename="gz-sim-apply-link-wrench-system"
+                name="gz::sim::systems::ApplyLinkWrench">
+        </plugin>
+
+"""
+
+# Exact launch-pad model reused verbatim from the same real import (a real
+# tip-over incident: the terrain around the pin sloped 14-20 deg, the x500
+# flipped on takeoff spin-up from bare slope - run 20260710_113538,
+# rejected). Harmless on flat terrain, so added by default like the flat-
+# world generator's own pad (build_gazebo_world.py's launch_pad_model()).
+_IMPORT_PAD_XML = """
+        <!-- DATABOSS import preparation: flat launch pad at the spawn point.
+             The surrounding terrain may slope enough to tip the x500 over on
+             takeoff from bare ground - see phase_09a's documented incident. -->
+        <model name="databoss_launch_pad">
+            <static>true</static>
+            <pose>0 0 1.05 0 0 0</pose>
+            <link name="pad">
+                <collision name="c">
+                    <geometry><box><size>4 4 0.5</size></box></geometry>
+                </collision>
+                <visual name="v">
+                    <geometry><box><size>4 4 0.5</size></box></geometry>
+                    <material>
+                        <ambient>0.35 0.35 0.35 1</ambient>
+                        <diffuse>0.45 0.45 0.45 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+"""
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "worlds"))
 from build_gazebo_world import apply_wind_to_world_file, build_sdf, write_manifest  # noqa: E402
@@ -317,6 +381,140 @@ def list_terrain_worlds() -> list[dict[str, Any]]:
             "is_browser_substitute": _is_colored_tiles_substitute(world_file),
         })
     return out
+
+
+def list_unimported_terrain_packages() -> list[dict[str, Any]]:
+    """Raw gazebo_terrain_generator output sitting under
+    generated_worlds/terrain/_generator_output/<name>/<name>.world - the
+    generator tool's own export, before the DATABOSS import-preparation
+    step. That tool runs locally (127.0.0.1:8080, needs a Mapbox key -
+    genuinely external, not something this dashboard can embed); the
+    import step below IS something this dashboard can do."""
+    if not RAW_TERRAIN_DIR.is_dir():
+        return []
+    out = []
+    already_imported = {w["name"] for w in list_terrain_worlds()}
+    for pkg_dir in sorted(p for p in RAW_TERRAIN_DIR.iterdir() if p.is_dir()):
+        world_file = pkg_dir / f"{pkg_dir.name}.world"
+        if not world_file.is_file():
+            continue
+        home = {}
+        try:
+            text = world_file.read_text()
+            lat_m = re.search(r"<latitude_deg>([^<]+)</latitude_deg>", text)
+            lon_m = re.search(r"<longitude_deg>([^<]+)</longitude_deg>", text)
+            elev_m = re.search(r"<elevation>([^<]+)</elevation>", text)
+            home = {
+                "lat_deg": float(lat_m.group(1)) if lat_m else None,
+                "lon_deg": float(lon_m.group(1)) if lon_m else None,
+                "elevation_m": float(elev_m.group(1)) if elev_m else None,
+            }
+        except OSError:
+            pass
+        out.append({
+            "name": pkg_dir.name,
+            "raw_path": str(world_file.relative_to(PROJECT_ROOT)),
+            "already_imported": pkg_dir.name in already_imported,
+            "home": home,
+        })
+    return out
+
+
+def import_terrain_world(package_name: str, new_name: str | None = None, add_pad: bool = True) -> dict[str, Any]:
+    """Apply the documented DATABOSS import-preparation checklist
+    (docs/phases/phase_09a_real_terrain_world_import.md) to a raw
+    gazebo_terrain_generator package: add the 4 PX4 sensor plugins the
+    generator's template omits, fix the Sensors plugin's render_engine
+    (ogre2 segfaults under EGL on this headless host - phase_09a's
+    documented finding), optionally add a launch pad (default on, matches
+    a real documented tip-over incident), and write PROVENANCE.yaml.
+
+    Every XML block used here is reused verbatim from the real,
+    flight-proven serefli_koschisar import, not reinvented. Never
+    modifies the raw package; writes a NEW output directory only (409-
+    equivalent if it already exists).
+    """
+    pkg_dir = RAW_TERRAIN_DIR / package_name
+    raw_world = pkg_dir / f"{package_name}.world"
+    if not raw_world.is_file():
+        raise FileNotFoundError(package_name)
+
+    output_name = new_name or package_name
+    out_dir = TERRAIN_WORLDS_DIR / output_name
+    out_world = out_dir / f"{output_name}.world"
+    if out_dir.exists():
+        raise FileExistsError(f"terrain world already exists: {output_name}")
+
+    text = raw_world.read_text()
+
+    if "gz-sim-air-pressure-system" in text:
+        raise ValueError(f"{package_name} already has DATABOSS import plugins - already imported?")
+
+    # 1. Add the 4 missing PX4 sensor plugins, right before the first
+    # <light> element (stable anchor - every real template has the
+    # plugin list immediately followed by the sun light).
+    light_match = re.search(r"<light\b", text)
+    if not light_match:
+        raise ValueError(f"{package_name}: no <light> element found - not a recognized world template")
+    text = text[: light_match.start()] + _IMPORT_PLUGINS_XML + text[light_match.start() :]
+
+    # 2. Fix the render engine (ogre2 -> ogre).
+    text = text.replace("<render_engine>ogre2</render_engine>", "<render_engine>ogre</render_engine>")
+
+    # 3. Launch pad, right before </world>.
+    if add_pad:
+        world_close = re.search(r"</world>", text)
+        if not world_close:
+            raise ValueError(f"{package_name}: no </world> closing tag found")
+        text = text[: world_close.start()] + _IMPORT_PAD_XML + text[world_close.start() :]
+
+    # Rename the <world name="..."> to match the output name if it differs.
+    if output_name != package_name:
+        text = re.sub(rf'<world name="{re.escape(package_name)}"', f'<world name="{output_name}"', text, count=1)
+
+    ET.fromstring(text)  # validate before writing anything
+
+    out_dir.mkdir(parents=True)
+    out_world.write_text(text)
+
+    # Carry model.config and the mesh/ assets along, matching the real
+    # imported directory's own layout exactly.
+    config_src = pkg_dir / "model.config"
+    if config_src.is_file():
+        shutil.copy2(config_src, out_dir / "model.config")
+    mesh_src = pkg_dir / "mesh"
+    if mesh_src.is_dir():
+        shutil.copytree(mesh_src, out_dir / "mesh")
+
+    lat_m = re.search(r"<latitude_deg>([^<]+)</latitude_deg>", text)
+    lon_m = re.search(r"<longitude_deg>([^<]+)</longitude_deg>", text)
+    elev_m = re.search(r"<elevation>([^<]+)</elevation>", text)
+    provenance = {
+        "source": "generated via gazebo_terrain_generator web UI by operator",
+        "tool_repo": "https://github.com/saiaravind19/gazebo_terrain_generator",
+        "imported_utc": datetime.now(timezone.utc).isoformat(),
+        "raw_package": str(pkg_dir.relative_to(PROJECT_ROOT)),
+        "spherical_coordinates": {
+            "lat_deg": float(lat_m.group(1)) if lat_m else None,
+            "lon_deg": float(lon_m.group(1)) if lon_m else None,
+            "elevation_m": float(elev_m.group(1)) if elev_m else None,
+        },
+        "import_preparation_applied": [
+            "gz-sim-air-pressure-system", "gz-sim-magnetometer-system",
+            "gz-sim-contact-system", "gz-sim-apply-link-wrench-system",
+            "render_engine: ogre2 -> ogre",
+        ] + (["databoss_launch_pad"] if add_pad else []),
+        "notes": "Imported via the dashboard's import_terrain_world(), reusing the exact "
+        "plugin/pad XML from the real serefli_koschisar import (phase_09a).",
+    }
+    (out_dir / "PROVENANCE.yaml").write_text(yaml.safe_dump(provenance, sort_keys=False))
+
+    return {
+        "name": output_name,
+        "kind": "terrain",
+        "sdf_path": str(out_world.relative_to(PROJECT_ROOT)),
+        "imported_from": package_name,
+    }
 
 
 def list_worlds() -> list[dict[str, Any]]:

@@ -550,6 +550,80 @@ async function renderCreate() {
   windSection.appendChild(awForm);
   windSection.appendChild(awResultDiv);
   app.appendChild(windSection);
+
+  // --- import a real terrain world ---
+  const terrainSection = el("section", {});
+  terrainSection.appendChild(el("h2", { text: "Import terrain world" }));
+  terrainSection.appendChild(el("p", { class: "help", text: "Real heightmap terrain (satellite imagery + elevation, not the flat generator above) comes from a separate tool, gazebo_terrain_generator, already running on this host. Generating a NEW location needs that tool's own web UI and a Mapbox key - it's a separate, external step this dashboard doesn't do. What this dashboard DOES do: take a package that tool already generated and apply the DATABOSS import steps (PX4 sensor plugins, render engine fix, launch pad) so it's actually flyable and shows up in the World picker above." }));
+  terrainSection.appendChild(el("p", { class: "help", text: "The generator's own UI is at http://127.0.0.1:8080 - bound to this host's loopback only, so it's reachable from a terminal/browser on this machine directly, not over Tailscale from another device." }));
+
+  const importListDiv = el("div", {});
+  terrainSection.appendChild(importListDiv);
+
+  const tForm = el("form", { class: "gen" });
+  const tPackageSelect = el("select", {});
+  const tNewName = el("input", { type: "text", placeholder: "leave blank to keep the package's own name" });
+  const tAddPad = el("select", {}, [
+    el("option", { value: "true", text: "true (recommended - terrain can be steep enough to tip the vehicle over)" }),
+    el("option", { value: "false", text: "false" }),
+  ]);
+  for (const [label, node] of [
+    ["Raw package", tPackageSelect], ["New name (optional)", tNewName], ["Add launch pad", tAddPad],
+  ]) {
+    tForm.appendChild(el("label", { text: label }));
+    tForm.appendChild(node);
+  }
+  const tSubmitBtn = el("button", { type: "submit", text: "Import" });
+  tForm.appendChild(tSubmitBtn);
+  const tResultDiv = el("div", {});
+
+  async function loadTerrainImports() {
+    const pkgs = await getJSON("/api/worlds/terrain_imports");
+    importListDiv.innerHTML = "";
+    if (!pkgs.length) {
+      importListDiv.appendChild(el("p", { class: "help", text: "No raw packages found under generated_worlds/terrain/_generator_output/." }));
+    } else {
+      const t = el("table", {}, [el("tr", {}, [
+        el("th", { text: "package" }), el("th", { text: "lat" }), el("th", { text: "lon" }), el("th", { text: "elev (m)" }), el("th", { text: "status" }),
+      ])]);
+      for (const p of pkgs) {
+        t.appendChild(el("tr", {}, [
+          el("td", { text: p.name }),
+          el("td", { text: p.home.lat_deg != null ? p.home.lat_deg.toFixed(5) : "" }),
+          el("td", { text: p.home.lon_deg != null ? p.home.lon_deg.toFixed(5) : "" }),
+          el("td", { text: p.home.elevation_m != null ? p.home.elevation_m.toFixed(1) : "" }),
+          el("td", { text: p.already_imported ? "already imported" : "available", class: p.already_imported ? "help" : "" }),
+        ]));
+      }
+      importListDiv.appendChild(t);
+    }
+    tPackageSelect.innerHTML = "";
+    for (const p of pkgs.filter(p => !p.already_imported)) {
+      tPackageSelect.appendChild(el("option", { value: p.name, text: p.name }));
+    }
+  }
+  await loadTerrainImports();
+
+  tForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    tResultDiv.innerHTML = "";
+    try {
+      const data = await postJSON("/api/worlds/import_terrain", {
+        package_name: tPackageSelect.value,
+        new_name: tNewName.value.trim() || null,
+        add_pad: tAddPad.value === "true",
+      });
+      tResultDiv.innerHTML = "";
+      tResultDiv.appendChild(el("p", { text: "Imported: " + data.sdf_path }));
+      tResultDiv.appendChild(el("p", { text: "Now selectable in the World picker above and windable via \"Apply wind to an existing world\"." }));
+      await loadTerrainImports();
+    } catch (e) {
+      tResultDiv.appendChild(el("p", { class: "err", text: (e.status || "") + " " + e.message }));
+    }
+  });
+  terrainSection.appendChild(tForm);
+  terrainSection.appendChild(tResultDiv);
+  app.appendChild(terrainSection);
 }
 
 function route() {

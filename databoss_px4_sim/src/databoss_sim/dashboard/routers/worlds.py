@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from databoss_sim.dashboard.deps import require_write_token
-from databoss_sim.dashboard.world_generation import apply_wind, generate_world, list_worlds
+from databoss_sim.dashboard.world_generation import (
+    apply_wind,
+    generate_world,
+    import_terrain_world,
+    list_unimported_terrain_packages,
+    list_worlds,
+)
 
 router = APIRouter()
 
@@ -17,6 +23,32 @@ router = APIRouter()
 @router.get("/api/worlds")
 def get_worlds() -> list[dict]:
     return list_worlds()
+
+
+@router.get("/api/worlds/terrain_imports")
+def get_terrain_imports() -> list[dict]:
+    """Raw gazebo_terrain_generator packages available to import - see
+    world_generation.list_unimported_terrain_packages()."""
+    return list_unimported_terrain_packages()
+
+
+class ImportTerrainRequest(BaseModel):
+    package_name: str
+    new_name: str | None = None
+    add_pad: bool = True
+
+
+@router.post("/api/worlds/import_terrain", dependencies=[Depends(require_write_token)])
+def create_terrain_import(req: ImportTerrainRequest) -> dict:
+    try:
+        result = import_terrain_world(req.package_name, req.new_name, req.add_pad)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"no such raw terrain package: {req.package_name}")
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return result
 
 
 class ApplyWindRequest(BaseModel):
