@@ -1,6 +1,6 @@
 import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
-import { buildFilesView } from "../files_view.js";
+import { buildFilesView, buildGallery } from "../files_view.js";
 
 export async function renderComparison(comparisonId) {
   const app = document.getElementById("app");
@@ -54,6 +54,17 @@ export async function renderComparison(comparisonId) {
     {
       label: "Files",
       render: async () => buildFilesView(await getFiles()),
+    },
+    {
+      label: "Plots",
+      render: async () => {
+        const entries = await getFiles();
+        const plots = entries.filter(e =>
+          e.dir === "plots" || e.dir.startsWith("plots/") ||
+          e.dir === "camera_samples" || e.dir.startsWith("camera_samples/")
+        );
+        return buildGallery(plots, "No plots recorded for this comparison.");
+      },
     },
   ];
 

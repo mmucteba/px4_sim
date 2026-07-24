@@ -1,6 +1,6 @@
 import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
-import { buildFilesView } from "../files_view.js";
+import { buildFilesView, buildGallery } from "../files_view.js";
 
 export async function renderRun(runId) {
   const app = document.getElementById("app");
@@ -74,6 +74,14 @@ export async function renderRun(runId) {
     {
       label: "Files",
       render: async () => buildFilesView(await getFiles()),
+    },
+    {
+      label: "Plots",
+      render: async () => {
+        const entries = await getFiles();
+        const plots = entries.filter(e => e.dir === "plots" || e.dir.startsWith("plots/"));
+        return buildGallery(plots, "No plots recorded for this run.");
+      },
     },
   ];
 

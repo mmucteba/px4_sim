@@ -64,6 +64,28 @@ function fileRow(entry) {
   return container;
 }
 
+// A grid of lazy-loaded thumbnails linking to full-res - used for the
+// Plots tab, and reused below for any Files-tab directory group that is
+// (mostly) images, e.g. flow_recording/frames/ (up to ~240 JPEGs).
+export function buildGallery(entries, emptyMessage) {
+  const images = entries.filter(e => e.kind === "image");
+  if (!images.length) {
+    return el("p", { class: "help", text: emptyMessage || "No images found." });
+  }
+  const grid = el("div", { class: "gallery" });
+  for (const img of images) {
+    const link = el("a", { href: img.url, target: "_blank", rel: "noopener" });
+    link.appendChild(el("img", { src: img.url, alt: img.name, loading: "lazy" }));
+    grid.appendChild(el("figure", {}, [link, el("figcaption", { text: img.path })]));
+  }
+  return grid;
+}
+
+// Directory groups with more than this many files, all images, render as
+// a gallery grid instead of one row per file (the flow_recording/frames/
+// worst case: ~240 JPEGs would otherwise be 240 near-identical rows).
+const GALLERY_THRESHOLD = 4;
+
 // entries: the raw list[dict] from /api/runs|comparisons/{id}/files
 export function buildFilesView(entries) {
   if (!entries.length) {
@@ -88,7 +110,12 @@ export function buildFilesView(entries) {
     details.appendChild(el("summary", {
       text: `${label} (${files.length} file${files.length === 1 ? "" : "s"}, ${humanSize(totalSize)})`,
     }));
-    for (const f of files) details.appendChild(fileRow(f));
+    const allImages = files.length > GALLERY_THRESHOLD && files.every(f => f.kind === "image");
+    if (allImages) {
+      details.appendChild(buildGallery(files));
+    } else {
+      for (const f of files) details.appendChild(fileRow(f));
+    }
     wrap.appendChild(details);
   }
   return wrap;
