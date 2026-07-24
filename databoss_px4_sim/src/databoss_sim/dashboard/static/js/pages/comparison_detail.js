@@ -31,9 +31,17 @@ export async function renderComparison(comparisonId) {
 
   const sections = [
     {
-      label: "Overview",
-      render: () => {
+      label: "Report",
+      render: async () => {
+        const { html } = await getJSON(`/api/comparisons/${encodeURIComponent(comp.comparison_id)}/report_html`);
         const wrap = el("div", {});
+        if (html) {
+          const reportDiv = el("div", { class: "report-html" });
+          reportDiv.innerHTML = html;
+          wrap.appendChild(reportDiv);
+        } else {
+          wrap.appendChild(el("p", { class: "help", text: "No report.md for this comparison." }));
+        }
         wrap.appendChild(kv([
           ["comparison_id", comp.comparison_id], ["case_count", comp.case_count],
         ]));
@@ -42,11 +50,16 @@ export async function renderComparison(comparisonId) {
             el("a", { href: `/artifacts/comparisons/${comp.comparison_id}/report.md`, text: "view report.md (raw)" }),
           ]));
         }
+        if (comp.has_summary_csv) {
+          wrap.appendChild(el("p", {}, [
+            el("a", { href: `/artifacts/comparisons/${comp.comparison_id}/summary.csv`, text: "view summary.csv (raw)" }),
+          ]));
+        }
         return wrap;
       },
     },
     {
-      label: `Runs (${comp.run_ids.length})`,
+      label: `Cases (${comp.run_ids.length})`,
       render: () => el("ul", {}, comp.run_ids.map(rid =>
         el("li", {}, [el("a", { href: `/runs/${rid}`, text: rid })])
       )),
