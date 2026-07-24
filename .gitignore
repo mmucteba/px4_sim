@@ -16,18 +16,28 @@
 /.claude/settings.local.json
 
 # Python virtual environments and caches
-databoss_px4_sim/venv/
-databoss_px4_sim/venv_bridge/
+# (no trailing slash: a dev worktree may symlink these back to the real
+# data directory to avoid duplicating gigabytes, and a trailing-slash
+# pattern only matches real directories, not symlinks - dropped 2026-07-24
+# after that exact gap let a worktree's symlinks slip past this file)
+databoss_px4_sim/venv
+databoss_px4_sim/venv_bridge
 __pycache__/
 *.pyc
 
 # DATABOSS generated/derived experiment output (reproducible via the
-# runner; not source, and currently ~8GB+)
-databoss_px4_sim/experiments/runs/
-databoss_px4_sim/experiments/batches/
-databoss_px4_sim/experiments/comparisons/
-databoss_px4_sim/experiments/inspections/
-databoss_px4_sim/generated_worlds/
+# runner; not source, and currently ~8GB+). No trailing slash, see note above.
+databoss_px4_sim/experiments/runs
+databoss_px4_sim/experiments/batches
+databoss_px4_sim/experiments/comparisons
+databoss_px4_sim/experiments/inspections
+databoss_px4_sim/generated_worlds
+
+# Phase 17 dashboard: generated index (regenerate with
+# build_experiments_index.py, never hand-edited) and the write-access
+# secret token (never shared, per-host).
+databoss_px4_sim/experiments/index.json
+databoss_px4_sim/.dashboard_token
 
 # Large binary artifacts (safety net)
 *.ulg

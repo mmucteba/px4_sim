@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "ErrorStats": {
+      "additionalProperties": true,
+      "properties": {
+        "max_m": {
+          "title": "Max M",
+          "type": "number"
+        },
+        "mean_m": {
+          "title": "Mean M",
+          "type": "number"
+        },
+        "median_m": {
+          "title": "Median M",
+          "type": "number"
+        },
+        "p95_m": {
+          "title": "P95 M",
+          "type": "number"
+        },
+        "end_m": {
+          "title": "End M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_m",
+        "mean_m",
+        "median_m",
+        "p95_m",
+        "end_m"
+      ],
+      "title": "ErrorStats",
+      "type": "object"
+    },
+    "StationKeeping": {
+      "additionalProperties": true,
+      "properties": {
+        "reference": {
+          "title": "Reference",
+          "type": "string"
+        },
+        "px4_horizontal_displacement_from_start": {
+          "$ref": "#/$defs/ErrorStats"
+        },
+        "gazebo_horizontal_displacement_from_start": {
+          "$ref": "#/$defs/ErrorStats"
+        }
+      },
+      "required": [
+        "reference",
+        "px4_horizontal_displacement_from_start",
+        "gazebo_horizontal_displacement_from_start"
+      ],
+      "title": "StationKeeping",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "created_utc": {
+      "title": "Created Utc",
+      "type": "string"
+    },
+    "run_dir": {
+      "title": "Run Dir",
+      "type": "string"
+    },
+    "takeoff_threshold_m": {
+      "title": "Takeoff Threshold M",
+      "type": "number"
+    },
+    "px4_takeoff_crossing_t_rel_s": {
+      "title": "Px4 Takeoff Crossing T Rel S",
+      "type": "number"
+    },
+    "gazebo_takeoff_crossing_t_rel_s": {
+      "title": "Gazebo Takeoff Crossing T Rel S",
+      "type": "number"
+    },
+    "time_offset_gazebo_minus_px4_s": {
+      "title": "Time Offset Gazebo Minus Px4 S",
+      "type": "number"
+    },
+    "comparison_window": {
+      "title": "Comparison Window",
+      "type": "string"
+    },
+    "comparison_end_reason": {
+      "title": "Comparison End Reason",
+      "type": "string"
+    },
+    "land_command_t_rel_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Land Command T Rel S"
+    },
+    "comparison_end_t_rel_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparison End T Rel S"
+    },
+    "comparison_window_ok": {
+      "title": "Comparison Window Ok",
+      "type": "boolean"
+    },
+    "uncropped_aligned_rows": {
+      "title": "Uncropped Aligned Rows",
+      "type": "integer"
+    },
+    "cropped_after_comparison_end_rows": {
+      "title": "Cropped After Comparison End Rows",
+      "type": "integer"
+    },
+    "aligned_rows": {
+      "title": "Aligned Rows",
+      "type": "integer"
+    },
+    "comparison_start_t_rel_s": {
+      "title": "Comparison Start T Rel S",
+      "type": "number"
+    },
+    "comparison_last_t_rel_s": {
+      "title": "Comparison Last T Rel S",
+      "type": "number"
+    },
+    "aligned_duration_s": {
+      "title": "Aligned Duration S",
+      "type": "number"
+    },
+    "horizontal_error": {
+      "$ref": "#/$defs/ErrorStats"
+    },
+    "height_abs_error": {
+      "$ref": "#/$defs/ErrorStats"
+    },
+    "error_3d": {
+      "$ref": "#/$defs/ErrorStats"
+    },
+    "station_keeping": {
+      "$ref": "#/$defs/StationKeeping"
+    },
+    "accepted": {
+      "title": "Accepted",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "created_utc",
+    "run_dir",
+    "takeoff_threshold_m",
+    "px4_takeoff_crossing_t_rel_s",
+    "gazebo_takeoff_crossing_t_rel_s",
+    "time_offset_gazebo_minus_px4_s",
+    "comparison_window",
+    "comparison_end_reason",
+    "comparison_window_ok",
+    "uncropped_aligned_rows",
+    "cropped_after_comparison_end_rows",
+    "aligned_rows",
+    "comparison_start_t_rel_s",
+    "comparison_last_t_rel_s",
+    "aligned_duration_s",
+    "horizontal_error",
+    "height_abs_error",
+    "error_3d",
+    "station_keeping",
+    "accepted"
+  ],
+  "title": "EkfVsTruthMetrics",
+  "type": "object"
+}

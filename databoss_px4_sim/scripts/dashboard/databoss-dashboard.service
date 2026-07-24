@@ -1,0 +1,28 @@
+[Unit]
+Description=DATABOSS dashboard (Phase 17)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=px4
+WorkingDirectory=/opt/databoss_px4_sim
+ExecStart=/opt/databoss_px4_sim/venv/bin/python /opt/databoss_px4_sim/scripts/dashboard/serve_dashboard.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+# Not installed by any script in this repo - install manually, deliberately,
+# once you've confirmed the dashboard works via a manual run:
+#
+#   sudo cp scripts/dashboard/databoss-dashboard.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now databoss-dashboard
+#   sudo systemctl status databoss-dashboard
+#
+# This makes the dashboard an always-on service reachable at
+# http://100.78.93.35:8600/ from any device on the tailnet. Confirm the
+# host is NOT reachable on this port via its public IP before relying on
+# this (see Phase 17A verification in the plan).

@@ -1,0 +1,191 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "created_utc": {
+      "title": "Created Utc",
+      "type": "string"
+    },
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "run_dir": {
+      "title": "Run Dir",
+      "type": "string"
+    },
+    "accepted": {
+      "title": "Accepted",
+      "type": "boolean"
+    },
+    "qgc_enabled": {
+      "title": "Qgc Enabled",
+      "type": "boolean"
+    },
+    "qgc_ip": {
+      "title": "Qgc Ip",
+      "type": "string"
+    },
+    "qgc_local_port": {
+      "title": "Qgc Local Port",
+      "type": "integer"
+    },
+    "qgc_remote_port": {
+      "title": "Qgc Remote Port",
+      "type": "integer"
+    },
+    "failsafe_profile": {
+      "title": "Failsafe Profile",
+      "type": "string"
+    },
+    "global_position_gate_enabled": {
+      "title": "Global Position Gate Enabled",
+      "type": "boolean"
+    },
+    "global_position_timeout_s": {
+      "title": "Global Position Timeout S",
+      "type": "number"
+    },
+    "global_position_stable_s": {
+      "title": "Global Position Stable S",
+      "type": "number"
+    },
+    "gnss_start_used": {
+      "title": "Gnss Start Used",
+      "type": "integer"
+    },
+    "gnss_loss_after_takeoff_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gnss Loss After Takeoff S"
+    },
+    "post_loss_hover_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Post Loss Hover S"
+    },
+    "steps": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "comparison_window": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparison Window"
+    },
+    "skip_landing_command": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Skip Landing Command"
+    },
+    "failsafe_profile_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failsafe Profile Source"
+    },
+    "gnss_loss_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gnss Loss Source"
+    },
+    "flow_velocity_sign_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Flow Velocity Sign Enabled"
+    },
+    "flow_velocity_sign_required": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Flow Velocity Sign Required"
+    },
+    "flow_velocity_sign_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Flow Velocity Sign Source"
+    }
+  },
+  "required": [
+    "created_utc",
+    "scenario",
+    "run_dir",
+    "accepted",
+    "qgc_enabled",
+    "qgc_ip",
+    "qgc_local_port",
+    "qgc_remote_port",
+    "failsafe_profile",
+    "global_position_gate_enabled",
+    "global_position_timeout_s",
+    "global_position_stable_s",
+    "gnss_start_used",
+    "steps"
+  ],
+  "title": "RunStatusCore",
+  "type": "object"
+}
