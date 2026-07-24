@@ -7,6 +7,7 @@ touches gz-sim/PX4 in any way.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -59,3 +60,65 @@ def generate_world(new_name: str, world_fields: dict[str, Any]) -> dict[str, str
         "world_config_path": str(config_path.relative_to(PROJECT_ROOT)),
         "sdf_path": str(sdf_path.relative_to(PROJECT_ROOT)),
     }
+
+
+def resolve_world_selection(world_name: str) -> dict[str, Any]:
+    """The scenario-facing `world` block bundle for picking an EXISTING
+    generated world - name/sdf_path/lighting/wind/texture/
+    condition_is_physical all set together (FIELD_CLASSIFICATION marks
+    each of these "derived", set only as this bundle, never individually).
+    lighting/texture/wind are display labels only (not read for logic -
+    the real physical wiring is world.sdf_path, confirmed Phase 17B), so
+    an approximate label is fine when a preset name wasn't recorded.
+    """
+    manifest_path = GENERATED_WORLDS_DIR / f"{world_name}.manifest.json"
+    sdf_path = GENERATED_WORLDS_DIR / f"{world_name}.sdf"
+    if not sdf_path.is_file():
+        raise FileNotFoundError(world_name)
+
+    manifest: dict[str, Any] = {}
+    if manifest_path.is_file():
+        with manifest_path.open() as f:
+            manifest = json.load(f)
+
+    wind_enabled = manifest.get("wind_enabled", False)
+    wind_mean = manifest.get("wind_mean_mps")
+    wind_label = "none" if not wind_enabled else (f"wind_{wind_mean}mps" if wind_mean else "wind_enabled")
+
+    return {
+        "name": world_name,
+        "sdf_path": str(sdf_path.relative_to(PROJECT_ROOT)),
+        "lighting": manifest.get("lighting_preset") or f"{world_name}_lighting",
+        "wind": wind_label,
+        "texture": manifest.get("texture_preset") or f"{world_name}_texture",
+        "condition_is_physical": True,
+    }
+
+
+def list_worlds() -> list[dict[str, Any]]:
+    """Every already-generated world (Tier A picker) - read from each
+    world's own .manifest.json sidecar, which build_gazebo_world.py's
+    write_manifest() already produces. The bundle returned per world
+    (name/sdf_path/lighting/wind/texture/condition_is_physical) matches
+    exactly the "derived as a group" fields in FIELD_CLASSIFICATION - a
+    scenario picks one of these, not the individual sub-fields."""
+    if not GENERATED_WORLDS_DIR.is_dir():
+        return []
+    out = []
+    for manifest_path in sorted(GENERATED_WORLDS_DIR.glob("*.manifest.json")):
+        try:
+            with manifest_path.open() as f:
+                manifest = json.load(f)
+        except Exception as e:
+            out.append({"name": manifest_path.stem, "error": str(e)})
+            continue
+        world_name = manifest.get("world_name", manifest_path.stem)
+        sdf_path = GENERATED_WORLDS_DIR / f"{world_name}.sdf"
+        out.append({
+            "name": world_name,
+            "sdf_path": str(sdf_path.relative_to(PROJECT_ROOT)) if sdf_path.is_file() else None,
+            "texture_preset": manifest.get("texture_preset"),
+            "lighting_preset": manifest.get("lighting_preset"),
+            "wind_enabled": manifest.get("wind_enabled"),
+        })
+    return out

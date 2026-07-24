@@ -9,9 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from databoss_sim.dashboard.deps import require_write_token
-from databoss_sim.dashboard.world_generation import generate_world
+from databoss_sim.dashboard.world_generation import generate_world, list_worlds
 
 router = APIRouter()
+
+
+@router.get("/api/worlds")
+def get_worlds() -> list[dict]:
+    return list_worlds()
 
 
 class GenerateWorldRequest(BaseModel):

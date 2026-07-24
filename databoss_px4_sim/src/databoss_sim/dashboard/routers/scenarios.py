@@ -16,25 +16,34 @@ from databoss_sim.dashboard.deps import require_write_token
 from databoss_sim.dashboard.scenario_editing import (
     SCENARIOS_DIR,
     apply_scenario_edits,
+    apply_world_selection,
     build_run_command,
     classify_scenario_fields,
     compute_confound_diff,
+    default_scenario_template,
     find_available_vehicle_models,
     load_scenario,
     write_new_scenario,
 )
+from databoss_sim.dashboard.world_generation import resolve_world_selection
 
 router = APIRouter()
 
 
 class CreateScenarioRequest(BaseModel):
-    source_scenario: str
+    # Optional (2026-07-24): omit to build from default_scenario_template()
+    # instead of cloning an existing file - "cover all the yaml options so
+    # we don't need a source yaml".
+    source_scenario: str | None = None
     new_name: str
     edits: dict[str, Any] = {}
     # Not a scenario YAML field (gnss.start_enabled is dead - see
     # FIELD_CLASSIFICATION) - the real control is the runner's
     # --gnss-start-used CLI flag, so it's request-level, not an "edit".
     gnss_start_used: int | None = None
+    # world.* fields are a derived bundle (see apply_world_selection) - not
+    # part of `edits`. Omit to keep the source/template's existing world.
+    world_name: str | None = None
 
 
 @router.get("/api/scenarios")
@@ -80,12 +89,23 @@ def get_scenario(name: str) -> dict:
 
 @router.post("/api/scenarios", dependencies=[Depends(require_write_token)])
 def create_scenario(req: CreateScenarioRequest) -> dict:
-    try:
-        source = load_scenario(req.source_scenario)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"no such source scenario: {req.source_scenario}")
+    if req.source_scenario is None:
+        source = default_scenario_template()
+    else:
+        try:
+            source = load_scenario(req.source_scenario)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"no such source scenario: {req.source_scenario}")
 
-    new_scenario, rejected = apply_scenario_edits(source, req.edits)
+    new_scenario, rejected = apply_scenario_edits(source, req.edits, req.new_name)
+
+    if req.world_name is not None:
+        try:
+            world_block = resolve_world_selection(req.world_name)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"no such generated world: {req.world_name}")
+        apply_world_selection(new_scenario, world_block)
+
     confound = compute_confound_diff(source, new_scenario)
 
     try:

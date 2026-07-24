@@ -35,6 +35,11 @@
   .err { color: #f77; }
   nav { margin-bottom: 1rem; }
   nav a { margin-right: 1rem; }
+  .help { color: #888; font-size: 0.85rem; margin: 0.2rem 0 0.8rem 0; }
+  fieldset.gen { border: 1px solid #2a2a2a; border-radius: 4px; margin-top: 1.5rem; padding: 0.8rem 1rem 1rem; }
+  fieldset.gen legend { padding: 0 0.5rem; font-weight: 600; color: #eee; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 0.6rem; }
 </style>
 </head>
 <body>
@@ -234,16 +239,16 @@ async function postJSON(url, body) {
 
 async function renderCreate() {
   const app = document.getElementById("app");
-  const scenarios = await getJSON("/api/scenarios");
   const vehicleModels = await getJSON("/api/vehicle_models");
+  const worlds = await getJSON("/api/worlds");
 
   app.innerHTML = "";
-  app.appendChild(el("p", { text: "Generates a scenario YAML / world SDF from these inputs and hands back the file plus the exact command to run it yourself. Nothing here starts or stops a simulation." }));
+  app.appendChild(el("p", { text: "Builds a complete scenario YAML from scratch - every field a real run needs, not a partial edit of an existing file - and hands back the file plus the exact command to run it yourself. Nothing here starts or stops a simulation. Fields not shown below are filled with the same safe defaults every accepted run uses (camera/rangefinder proof on, full logging, evidence-backed analysis) and aren't meant to be tuned per scenario." }));
 
   // --- token ---
   const tokenSection = el("section", {}, [
     el("h2", { text: "Write token" }),
-    el("p", { text: "Required for both forms below. Generate one on the host with scripts/dashboard/generate_token.py, then paste it here (stored only in this browser's localStorage)." }),
+    el("p", { class: "help", text: "Required for both forms below. Generate one on the host with scripts/dashboard/generate_token.py, then paste it here (stored only in this browser's localStorage, sent only to this dashboard)." }),
   ]);
   const tokenInput = el("input", { type: "text", value: getToken(), placeholder: "X-Databoss-Token" });
   tokenInput.addEventListener("change", () => setToken(tokenInput.value.trim()));
@@ -255,47 +260,111 @@ async function renderCreate() {
   scenarioSection.appendChild(el("h2", { text: "Create scenario" }));
   const form = el("form", { class: "gen" });
 
-  const sourceSelect = el("select", {}, scenarios.map(s => el("option", { value: s.name, text: s.name })));
-  const newNameInput = el("input", { type: "text", placeholder: "new_scenario_name (no .yaml)" });
-  const altInput = el("input", { type: "number", step: "0.1", placeholder: "leave blank to keep source value" });
-  const lossEnabledSelect = el("select", {}, [
-    el("option", { value: "", text: "(keep source value)" }),
-    el("option", { value: "true", text: "true" }),
-    el("option", { value: "false", text: "false" }),
+  function fieldset(legendText, helpText, rows) {
+    const fs = el("fieldset", { class: "gen" }, [el("legend", { text: legendText })]);
+    if (helpText) fs.appendChild(el("p", { class: "help", text: helpText }));
+    for (const [label, node] of rows) {
+      fs.appendChild(el("label", { text: label }));
+      fs.appendChild(node);
+    }
+    return fs;
+  }
+
+  // Basic
+  const newNameInput = el("input", { type: "text", placeholder: "e.g. my_test_hover_15m (no .yaml)" });
+  const descriptionInput = el("input", { type: "text", placeholder: "what is this run for / what's different about it" });
+  form.appendChild(fieldset("Basic", "Every generated scenario is a complete, standalone file - not tied to any template.", [
+    ["Scenario name", newNameInput],
+    ["Description", descriptionInput],
+  ]));
+
+  // Vehicle
+  const modelSelect = el("select", {}, vehicleModels.map(m => el("option", { value: m, text: m })));
+  const startX = el("input", { type: "number", step: "0.1", value: "0" });
+  const startY = el("input", { type: "number", step: "0.1", value: "0" });
+  form.appendChild(fieldset("Vehicle", "Which drone model to fly, and where it spawns. The PX4 airframe and Gazebo model name are derived automatically from the model you pick - you never set those directly.", [
+    ["Vehicle model", modelSelect],
+    ["Spawn x_m", startX], ["Spawn y_m", startY],
+  ]));
+
+  // World
+  const worldSelect = el("select", {}, worlds.map(w => el("option", {
+    value: w.name,
+    text: `${w.name}${w.wind_enabled ? " (wind)" : ""}`,
+  })));
+  form.appendChild(fieldset("World", "Pick one of the already-generated worlds below. Need a different one? Use the \"Create world\" form further down first, then come back and pick it here.", [
+    ["World", worldSelect],
+  ]));
+
+  // Route / altitude
+  const altInput = el("input", { type: "number", step: "0.1", value: "2.5" });
+  form.appendChild(fieldset("Altitude", "The hover altitude above ground. The hold-position controller's target height is kept in sync with this automatically - you never set them separately.", [
+    ["Altitude (m AGL)", altInput],
+  ]));
+
+  // GNSS
+  const gnssStartSelect = el("select", {}, [
+    el("option", { value: "10", text: "Available (10)" }),
+    el("option", { value: "0", text: "Unavailable from the start (0)" }),
   ]);
-  const lossAfterInput = el("input", { type: "number", step: "0.1", placeholder: "leave blank to keep source value" });
+  const lossEnabledSelect = el("select", {}, [
+    el("option", { value: "false", text: "No - GNSS stays on the whole flight" }),
+    el("option", { value: "true", text: "Yes - cut GNSS partway through" }),
+  ]);
+  const lossAfterInput = el("input", { type: "number", step: "0.1", placeholder: "seconds after takeoff, e.g. 20" });
+  form.appendChild(fieldset("GNSS", "Whether GPS is available when the flight starts, and whether it gets cut partway through to test GNSS-denied navigation.", [
+    ["GNSS at start", gnssStartSelect],
+    ["Cut GNSS mid-flight?", lossEnabledSelect],
+    ["Cut after how many seconds", lossAfterInput],
+  ]));
+
+  // Failsafe
   const failsafeSelect = el("select", {}, [
-    el("option", { value: "", text: "(keep source value)" }),
-    el("option", { value: "default", text: "default" }),
-    el("option", { value: "delayed_observation", text: "delayed_observation" }),
+    el("option", { value: "default", text: "default - standard PX4 failsafe timing" }),
+    el("option", { value: "delayed_observation", text: "delayed_observation - tolerant of long GNSS-denied stretches" }),
+  ]);
+  form.appendChild(fieldset("Failsafe", "How aggressively PX4 reacts to lost position estimates. \"default\" will RTL quickly during a GNSS-denied test; \"delayed_observation\" gives a GNSS-denied navigation method time to prove itself first.", [
+    ["Failsafe profile", failsafeSelect],
+  ]));
+
+  // Optical flow
+  const flowEnabledSelect = el("select", {}, [
+    el("option", { value: "false", text: "No" }),
+    el("option", { value: "true", text: "Yes" }),
   ]);
   const estimatorSelect = el("select", {}, [
-    el("option", { value: "", text: "(keep source value)" }),
-    el("option", { value: "lk", text: "lk" }),
+    el("option", { value: "lk", text: "lk (Lucas-Kanade)" }),
     el("option", { value: "sift", text: "sift" }),
   ]);
-  const modelSelect = el("select", {}, [
-    el("option", { value: "", text: "(keep source value)" }),
-    ...vehicleModels.map(m => el("option", { value: m, text: m })),
-  ]);
-  const gnssStartSelect = el("select", {}, [
-    el("option", { value: "", text: "(don't override --gnss-start-used)" }),
-    el("option", { value: "10", text: "10 (GNSS available at start)" }),
-    el("option", { value: "0", text: "0 (GNSS unavailable at start)" }),
-  ]);
-  const extraEditsInput = el("textarea", { placeholder: '{"control.vx_m_s": 0.5}  (raw JSON, dotted paths, merged in - any non-editable path is rejected and reported, not silently dropped)' });
+  form.appendChild(fieldset("Optical flow", "Whether the downward-camera optical-flow bridge is active as a GNSS-denied navigation aid. The camera's field of view is auto-derived from the vehicle model you picked above, not user-set - it must match the real camera hardware exactly or the flow math is silently wrong. Detailed tuning (axis_map, rate, EKF2 gate parameters) uses known-good defaults and isn't exposed here - see the run detail page's Connections panel to review what a generated run actually used.", [
+    ["Enable optical flow", flowEnabledSelect],
+    ["Estimator", estimatorSelect],
+  ]));
 
-  for (const [label, node] of [
-    ["Source scenario", sourceSelect], ["New scenario name", newNameInput],
-    ["route.altitude_agl_m", altInput], ["gnss.loss_enabled", lossEnabledSelect],
-    ["gnss.loss_after_takeoff_s", lossAfterInput], ["failsafe.profile", failsafeSelect],
-    ["flow_bridge.estimator", estimatorSelect], ["vehicle.model", modelSelect],
-    ["--gnss-start-used (CLI flag, not a YAML edit)", gnssStartSelect],
+  // Position hold
+  const gnssLossFloorInput = el("input", { type: "number", step: "0.5", value: "3" });
+  const vxInput = el("input", { type: "number", step: "0.1", value: "0" });
+  const vyInput = el("input", { type: "number", step: "0.1", value: "0" });
+  const vzInput = el("input", { type: "number", step: "0.1", value: "0" });
+  form.appendChild(fieldset("Hold-position motion", "Small velocity biases during the hover, and the minimum time after entering offboard mode before GNSS can be cut (a floor, not a fixed trigger - the real cut is gated on reaching a stable altitude).", [
+    ["vx (m/s)", vxInput], ["vy (m/s)", vyInput], ["vz (m/s)", vzInput],
+    ["Min. seconds before GNSS cut", gnssLossFloorInput],
+  ]));
+
+  // Visualization
+  const gzwebEnabledSelect = el("select", {}, [
+    el("option", { value: "true", text: "Yes (default - keeps QGC + the web viewer live)" }),
+    el("option", { value: "false", text: "No" }),
+  ]);
+  form.appendChild(fieldset("Visualization", "Whether the browser-based Gazebo viewer bridge is enabled for this run. Leave on unless you have a specific reason not to - it's the standing operator policy.", [
+    ["gz-web bridge enabled", gzwebEnabledSelect],
+  ]));
+
+  // Advanced
+  const extraEditsInput = el("textarea", { placeholder: '{"aiding.mode": "synthetic_external_odometry"}  (raw JSON, dotted paths - anything not in the real editable whitelist is rejected and reported, never silently applied or ignored)' });
+  form.appendChild(fieldset("Advanced (optional)", "Anything editable not covered by the fields above - merged in as extra edits. Rejected paths are reported back, not silently dropped.", [
     ["Additional edits (raw JSON)", extraEditsInput],
-  ]) {
-    form.appendChild(el("label", { text: label }));
-    form.appendChild(node);
-  }
+  ]));
 
   const submitBtn = el("button", { type: "submit", text: "Create scenario" });
   form.appendChild(submitBtn);
@@ -303,13 +372,24 @@ async function renderCreate() {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     resultDiv.innerHTML = "";
-    const edits = {};
-    if (altInput.value !== "") edits["route.altitude_agl_m"] = parseFloat(altInput.value);
-    if (lossEnabledSelect.value !== "") edits["gnss.loss_enabled"] = lossEnabledSelect.value === "true";
-    if (lossAfterInput.value !== "") edits["gnss.loss_after_takeoff_s"] = parseFloat(lossAfterInput.value);
-    if (failsafeSelect.value !== "") edits["failsafe.profile"] = failsafeSelect.value;
-    if (estimatorSelect.value !== "") edits["flow_bridge.estimator"] = estimatorSelect.value;
-    if (modelSelect.value !== "") edits["vehicle.model"] = modelSelect.value;
+    const edits = {
+      "vehicle.model": modelSelect.value,
+      "vehicle.start_pose": { x_m: parseFloat(startX.value), y_m: parseFloat(startY.value), z_m: 0, yaw_deg: 0 },
+      "route.altitude_agl_m": parseFloat(altInput.value),
+      "gnss.loss_enabled": lossEnabledSelect.value === "true",
+      "failsafe.profile": failsafeSelect.value,
+      "flow_bridge.enabled": flowEnabledSelect.value === "true",
+      "flow_bridge.estimator": estimatorSelect.value,
+      "control.gnss_loss_after_offboard_s": parseFloat(gnssLossFloorInput.value),
+      "control.vx_m_s": parseFloat(vxInput.value),
+      "control.vy_m_s": parseFloat(vyInput.value),
+      "control.vz_m_s": parseFloat(vzInput.value),
+      "visualization.gazebo_web.enabled": gzwebEnabledSelect.value === "true",
+    };
+    if (descriptionInput.value.trim() !== "") edits["run.description"] = descriptionInput.value.trim();
+    if (lossEnabledSelect.value === "true" && lossAfterInput.value !== "") {
+      edits["gnss.loss_after_takeoff_s"] = parseFloat(lossAfterInput.value);
+    }
     if (extraEditsInput.value.trim() !== "") {
       try {
         Object.assign(edits, JSON.parse(extraEditsInput.value));
@@ -319,11 +399,11 @@ async function renderCreate() {
       }
     }
     const body = {
-      source_scenario: sourceSelect.value,
       new_name: newNameInput.value.trim(),
       edits,
+      world_name: worldSelect.value,
+      gnss_start_used: parseInt(gnssStartSelect.value, 10),
     };
-    if (gnssStartSelect.value !== "") body.gnss_start_used = parseInt(gnssStartSelect.value, 10);
 
     try {
       const data = await postJSON("/api/scenarios", body);
@@ -333,7 +413,7 @@ async function renderCreate() {
         resultDiv.appendChild(el("p", { class: "warn", text: "Rejected (not editable, left unchanged): " + data.rejected_edits.join(", ") }));
       }
       if (data.confound.is_confounded) {
-        resultDiv.appendChild(el("p", { class: "warn", text: "Confound warning: multiple field groups changed at once (" + data.confound.blocks_changed.join(", ") + ") - not a single-variable diff from the source scenario." }));
+        resultDiv.appendChild(el("p", { class: "warn", text: "Note: multiple field groups changed at once (" + data.confound.blocks_changed.join(", ") + ") - fine for a fresh scenario, but if you meant this as a one-variable comparison against another run, double check." }));
       }
       resultDiv.appendChild(el("p", { text: "Run this yourself:" }));
       resultDiv.appendChild(el("div", { class: "run-command", text: data.run_command }));
