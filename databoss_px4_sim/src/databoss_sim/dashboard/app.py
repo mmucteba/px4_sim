@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from databoss_sim.dashboard.config import EXPERIMENTS_ROOT
 from databoss_sim.dashboard.routers import checks, comparisons, runs, scenarios, worlds
+from databoss_sim.dashboard.terrain_generator_proxy import router as terrain_generator_proxy_router
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(checks.router)
     app.include_router(scenarios.router)
     app.include_router(worlds.router)
+    app.include_router(terrain_generator_proxy_router)
 
     @app.get("/", include_in_schema=False)
     def serve_index() -> FileResponse:

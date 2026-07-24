@@ -554,8 +554,10 @@ async function renderCreate() {
   // --- import a real terrain world ---
   const terrainSection = el("section", {});
   terrainSection.appendChild(el("h2", { text: "Import terrain world" }));
-  terrainSection.appendChild(el("p", { class: "help", text: "Real heightmap terrain (satellite imagery + elevation, not the flat generator above) comes from a separate tool, gazebo_terrain_generator, already running on this host. Generating a NEW location needs that tool's own web UI and a Mapbox key - it's a separate, external step this dashboard doesn't do. What this dashboard DOES do: take a package that tool already generated and apply the DATABOSS import steps (PX4 sensor plugins, render engine fix, launch pad) so it's actually flyable and shows up in the World picker above." }));
-  terrainSection.appendChild(el("p", { class: "help", text: "The generator's own UI is at http://127.0.0.1:8080 - bound to this host's loopback only, so it's reachable from a terminal/browser on this machine directly, not over Tailscale from another device." }));
+  terrainSection.appendChild(el("p", { class: "help", text: "Real heightmap terrain (satellite imagery + elevation, not the flat generator above) comes from a separate tool, gazebo_terrain_generator, proxied in below. Draw an area, generate it there, then import it here - the DATABOSS import step (PX4 sensor plugins, render engine fix, launch pad) makes it actually flyable and puts it in the World picker above. You'll still need your own Mapbox key inside that tool - that part is unchanged, this dashboard doesn't hold or proxy Mapbox credentials." }));
+  terrainSection.appendChild(el("p", {}, [
+    el("a", { href: "/terrain-generator/", target: "_blank", text: "Open the terrain generator" }),
+  ]));
 
   const importListDiv = el("div", {});
   terrainSection.appendChild(importListDiv);
