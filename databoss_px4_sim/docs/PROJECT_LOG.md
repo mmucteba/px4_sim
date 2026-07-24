@@ -4641,3 +4641,68 @@ Results:
 After each run, the ULog and raw Gazebo-truth text were gzipped losslessly and
 verified with `gzip -t`. Free space after report generation and compression:
 about `426M` on `/opt`.
+
+## 2026-07-24 — Found and fixed: Phase 14G/14H dim-terrain scenarios were flying against a browser-only visual substitute, not real terrain
+
+While building Phase 17 dashboard support for picking terrain worlds and
+applying wind to them, traced why one terrain world
+(`generated_worlds/terrain/serefli_koschisar_flowtex_dim/`) had a
+colored-tiles fingerprint (1024 `terrain_tile_<row>_<col>` visuals, a
+32x32 grid) identical to the confirmed browser-visualization-only
+substitute pattern documented in Phase 17B. Its own
+`PROVENANCE.yaml` confirms it: `generator:
+scripts/worlds/heightmap_to_web_mesh_world.py`, `terrain_visual:
+{visual_mode: colored_tiles, tile_count: 32, ...}`. That script's own
+docstring is explicit about why this mode exists: gzweb (the *browser*
+viewer) cannot reliably render real heightmap materials/textures, so
+this mode substitutes a grid of flat colored boxes for the browser view
+only - "the source heightmap remains available as the collision
+geometry; this script only replaces the browser-facing visual in a
+separate output world."
+
+That substitute was never meant to be flown in. It was, though: all 10
+Phase 14G/14H scenarios needing the dim/overcast lighting condition
+point `world.sdf_path` directly at it (LK/SIFT/stock/no-aid, both GNSS
+states, both 15 m and 60 m altitude - see
+`phase_14g_terrain_baseline_15m`/`phase_14h_terrain_endgame_60m` and
+their batch/comparison docs). No non-substitute dim-lighting terrain
+world existed to use instead - it isn't that the wrong file was picked
+by mistake, the correct one was never generated. Collision physics used
+the real heightmap regardless (confirmed: the substitute's own
+`<collision><geometry><heightmap>` is unchanged from the source terrain,
+per that script's own design), so GNSS-loss dead-reckoning and IMU/EKF
+conclusions from these runs are not affected. What every one of these
+runs' downward/optical-flow camera actually saw for its whole flight was
+the blocky 32x32 substitute, not the real aerial-textured terrain - this
+matters specifically for the LK/SIFT optical-flow quality being tested.
+
+Fix: generated `generated_worlds/terrain/serefli_koschisar_flowtex_dim_real/`
+by applying the exact same `dim_overcast_no_shadows` lighting preset
+(same `LIGHTING_PRESETS` dict, same `apply_lighting_preset()` function,
+reused directly - not reinvented) to the real, non-substitute
+`serefli_koschisar_flowtex.world` instead of going through the
+colored_tiles pipeline at all. Confirmed the result: 0 `terrain_tile_`
+visuals, 4 `<heightmap>` references (real terrain unchanged), sun
+direction keeps the source world's documented X=0 constraint (gz-sim/
+OGRE2 shadow-map artifact when both horizontal components are nonzero).
+See its `PROVENANCE.yaml` for the full record.
+
+Updated all 10 affected scenario YAMLs' `world.name`/`world.sdf_path` to
+point at the corrected world (surgical two-line diff per file, nothing
+else touched). **Historical run results in `experiments/runs/` and
+already-published phase docs/comparisons are untouched** - they remain
+an accurate record of what actually happened (camera saw the
+substitute). This fix only changes what a *future* re-run of these
+scenario files will do. Whether the affected Phase 14G/14H optical-flow
+conclusions need to be re-run against the corrected world, or footnoted
+as substitute-terrain results, is a call for whoever owns that phase's
+acceptance - not made here.
+
+Also fixed two related dashboard bugs found while building this: the
+`is_browser_substitute` detector was a loose substring match on the
+provenance `generator` field, which false-flagged the new corrected
+world (its own provenance truthfully mentions the same script name in a
+different context) - narrowed to the authoritative
+`terrain_visual.visual_mode == "colored_tiles"` field instead. And a
+missing `ValueError` handler in the scenario-creation endpoint turned a
+substitute-world rejection into a raw 500 instead of a clean 422.

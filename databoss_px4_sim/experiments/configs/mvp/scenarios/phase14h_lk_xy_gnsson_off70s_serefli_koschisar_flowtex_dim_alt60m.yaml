@@ -11,8 +11,8 @@ vehicle:
     z_m: 1.65
     yaw_deg: 0
 world:
-  name: serefli_koschisar_flowtex_dim
-  sdf_path: generated_worlds/terrain/serefli_koschisar_flowtex_dim/serefli_koschisar_flowtex_dim.world
+  name: serefli_koschisar_flowtex_dim_real
+  sdf_path: generated_worlds/terrain/serefli_koschisar_flowtex_dim_real/serefli_koschisar_flowtex_dim_real.world
   home:
     lat_deg: 38.9667425790774
     lon_deg: 33.564598215693906
