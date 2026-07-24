@@ -1,5 +1,6 @@
 import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
+import { buildFilesView } from "../files_view.js";
 
 export async function renderComparison(comparisonId) {
   const app = document.getElementById("app");
@@ -19,6 +20,14 @@ export async function renderComparison(comparisonId) {
   app.innerHTML = "";
   app.appendChild(el("p", {}, [el("a", { href: "/", text: "< back to run list" })]));
   app.appendChild(el("h1", { text: comp.title }));
+
+  let filesPromise = null;
+  const getFiles = () => {
+    if (!filesPromise) {
+      filesPromise = getJSON(`/api/comparisons/${encodeURIComponent(comp.comparison_id)}/files`);
+    }
+    return filesPromise;
+  };
 
   const sections = [
     {
@@ -41,6 +50,10 @@ export async function renderComparison(comparisonId) {
       render: () => el("ul", {}, comp.run_ids.map(rid =>
         el("li", {}, [el("a", { href: `/runs/${rid}`, text: rid })])
       )),
+    },
+    {
+      label: "Files",
+      render: async () => buildFilesView(await getFiles()),
     },
   ];
 

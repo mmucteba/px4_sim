@@ -1,5 +1,6 @@
 import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
+import { buildFilesView } from "../files_view.js";
 
 export async function renderRun(runId) {
   const app = document.getElementById("app");
@@ -19,6 +20,16 @@ export async function renderRun(runId) {
   app.innerHTML = "";
   app.appendChild(el("p", {}, [el("a", { href: "/", text: "< back to run list" })]));
   app.appendChild(el("h1", { text: run.run_id }));
+
+  // Fetched once, lazily, on first activation of either Files or Plots -
+  // Plots filters this same tree instead of making a second API call.
+  let filesPromise = null;
+  const getFiles = () => {
+    if (!filesPromise) {
+      filesPromise = getJSON(`/api/runs/${encodeURIComponent(run.run_id)}/files`);
+    }
+    return filesPromise;
+  };
 
   const sections = [
     {
@@ -59,6 +70,10 @@ export async function renderRun(runId) {
       render: () => el("ul", {}, Object.entries(run.artifacts).map(([k, v]) =>
         el("li", {}, [el("a", { href: `/artifacts/runs/${run.run_id}/${v}`, text: `${k}: ${v}` })])
       )),
+    },
+    {
+      label: "Files",
+      render: async () => buildFilesView(await getFiles()),
     },
   ];
 
