@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from databoss_sim.dashboard.config import EXPERIMENTS_ROOT
-from databoss_sim.dashboard.routers import checks, comparisons, runs
+from databoss_sim.dashboard.routers import checks, comparisons, runs, scenarios, worlds
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
@@ -31,6 +31,8 @@ def create_app() -> FastAPI:
     app.include_router(runs.router)
     app.include_router(comparisons.router)
     app.include_router(checks.router)
+    app.include_router(scenarios.router)
+    app.include_router(worlds.router)
 
     @app.get("/", include_in_schema=False)
     def serve_index() -> FileResponse:
@@ -42,6 +44,10 @@ def create_app() -> FastAPI:
 
     @app.get("/comparisons/{comparison_id}", include_in_schema=False)
     def serve_comparison_page(comparison_id: str) -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/create", include_in_schema=False)
+    def serve_create_page() -> FileResponse:
         return FileResponse(INDEX_HTML)
 
     # Direct filesystem serving of existing run/comparison artifacts

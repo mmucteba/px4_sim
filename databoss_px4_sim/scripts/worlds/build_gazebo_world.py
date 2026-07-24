@@ -247,6 +247,62 @@ def ground_model(world: dict) -> str:
 """
 
 
+def launch_pad_model(world: dict) -> str:
+    """Default takeoff/landing pad (Phase 17C, user-requested 2026-07-24):
+    build_gazebo_world.py had zero concept of a physical pad before this -
+    the drone spawned at a bare coordinate on the flat ground plane. Named
+    `databoss_launch_pad` to match the naming convention already referenced
+    (but never defined on disk) by scripts/worlds/add_serefli_flow_texture_overlay.py
+    for a different, special-case terrain world - no existing SDF markup
+    was found to copy visually, so this is a new, simple static platform
+    matching this file's own box-model conventions.
+
+    world.pad: {enabled: true, pose_m: [x, y], size_m: [w, d]} - all
+    optional, defaults to a 1.2x1.2 m pad at the world origin (matches the
+    (0,0) start_pose used by essentially every real scenario today).
+    Emitted by default; set world.pad.enabled: false to omit.
+    """
+    pad = world.get("pad")
+    pad = pad if isinstance(pad, dict) else {}
+    if not pad.get("enabled", True):
+        return ""
+
+    pose_xy = pad.get("pose_m", [0.0, 0.0])
+    if not isinstance(pose_xy, list) or len(pose_xy) != 2:
+        raise ValueError("world.pad.pose_m must have two values: x y")
+    size_xy = pad.get("size_m", [1.2, 1.2])
+    if not isinstance(size_xy, list) or len(size_xy) != 2:
+        raise ValueError("world.pad.size_m must have two values: width depth")
+
+    x, y = float(pose_xy[0]), float(pose_xy[1])
+    w, d = float(size_xy[0]), float(size_xy[1])
+    thickness = 0.02
+    # Sits just above the ground-tile visuals (which top out around z=0.004,
+    # see ground_model()) so it never z-fights with them.
+    center_z = 0.006 + thickness / 2
+    color = pad.get("color", [0.85, 0.78, 0.15, 1.0])  # pad-yellow, distinct from ground
+
+    return f"""
+    <model name="databoss_launch_pad">
+      <static>true</static>
+      <pose>{x:.6g} {y:.6g} {center_z:.6g} 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>{w:.6g} {d:.6g} {thickness:.6g}</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>{w:.6g} {d:.6g} {thickness:.6g}</size></box>
+          </geometry>
+{material("databoss_launch_pad", color)}
+        </visual>
+      </link>
+    </model>
+"""
+
+
 def object_models(world: dict) -> str:
     chunks: list[str] = []
     for item in world.get("objects", []):
@@ -313,6 +369,7 @@ def build_sdf(config_path: Path) -> tuple[str, dict]:
 {scene(world)}
 {sun_light(world)}
 {ground_model(world)}
+{launch_pad_model(world)}
 {object_models(world)}
   </world>
 </sdf>
