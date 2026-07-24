@@ -64,4 +64,12 @@ def create_app() -> FastAPI:
         name="artifacts",
     )
 
+    # CSS/JS for the dashboard's own frontend (ES modules, no bundler).
+    # Referenced with absolute paths (/static/...) because index.html is
+    # served from several different route paths (/, /runs/{id}, /create,
+    # ...) - a relative asset path would resolve differently depending on
+    # which route served the page (the exact bug already found and fixed
+    # once this session for the terrain-generator proxy).
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
     return app
