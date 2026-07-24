@@ -287,12 +287,25 @@ async function renderCreate() {
     ["Spawn x_m", startX], ["Spawn y_m", startY],
   ]));
 
-  // World
-  const worldSelect = el("select", {}, worlds.map(w => el("option", {
-    value: w.name,
-    text: `${w.name}${w.wind_enabled ? " (wind)" : ""}`,
-  })));
-  form.appendChild(fieldset("World", "Pick one of the already-generated worlds below. Need a different one? Use the \"Create world\" form further down first, then come back and pick it here.", [
+  // World - flat and terrain worlds shown as separate groups; browser-only
+  // visualization substitutes (colored_tiles) are excluded here since the
+  // backend refuses to fly them - see the "Apply wind" section for how
+  // those are detected.
+  const flyableWorlds = worlds.filter(w => !w.is_browser_substitute);
+  const flatWorlds = flyableWorlds.filter(w => w.kind === "flat");
+  const terrainWorlds = flyableWorlds.filter(w => w.kind === "terrain");
+  const substituteCount = worlds.length - flyableWorlds.length;
+  const worldSelect = el("select", {}, [
+    el("optgroup", { label: "Flat worlds" }, flatWorlds.map(w => el("option", {
+      value: w.name, text: `${w.name}${w.wind_enabled ? " (wind)" : ""}`,
+    }))),
+    el("optgroup", { label: "Terrain worlds (real heightmap)" }, terrainWorlds.map(w => el("option", {
+      value: w.name, text: w.name,
+    }))),
+  ]);
+  const worldHelp = "Pick one of the already-generated worlds below. Need a different one? Use the \"Create world\" form further down first, then come back and pick it here." +
+    (substituteCount ? ` (${substituteCount} browser-visualization-only world${substituteCount > 1 ? "s" : ""} hidden here - never flyable, see docs/architecture/mvp_backend_contract.md.)` : "");
+  form.appendChild(fieldset("World", worldHelp, [
     ["World", worldSelect],
   ]));
 
@@ -439,9 +452,11 @@ async function renderCreate() {
   ]);
   const wWind = el("select", {}, [
     el("option", { value: "false", text: "false" }),
-    el("option", { value: "true", text: "true (only works if this world generator supports wind - check before relying on it)" }),
+    el("option", { value: "true", text: "true (steady wind only, no gusts)" }),
   ]);
   const wWindMean = el("input", { type: "number", step: "0.1", placeholder: "wind mean_mps (only used if wind=true)" });
+  const wWindEast = el("input", { type: "number", step: "0.1", value: "1", placeholder: "direction: east component" });
+  const wWindNorth = el("input", { type: "number", step: "0.1", value: "0", placeholder: "direction: north component" });
   const wPadEnabled = el("select", {}, [
     el("option", { value: "true", text: "true (default, at world origin 0,0)" }),
     el("option", { value: "false", text: "false" }),
@@ -449,6 +464,7 @@ async function renderCreate() {
   for (const [label, node] of [
     ["New world name", wNewName], ["size_m.x", wSizeX], ["size_m.y", wSizeY],
     ["texture.visual_pattern", wPattern], ["wind.enabled", wWind], ["wind.mean_mps", wWindMean],
+    ["wind direction (east)", wWindEast], ["wind direction (north)", wWindNorth],
     ["pad.enabled", wPadEnabled],
   ]) {
     wform.appendChild(el("label", { text: label }));
@@ -465,9 +481,13 @@ async function renderCreate() {
       size_m: { x: parseFloat(wSizeX.value), y: parseFloat(wSizeY.value) },
       texture: { visual_pattern: wPattern.value },
       lighting: {},
-      wind: wWindMean.value !== ""
-        ? { enabled: wWind.value === "true", mean_mps: parseFloat(wWindMean.value) }
-        : { enabled: wWind.value === "true" },
+      wind: wWind.value === "true"
+        ? {
+            enabled: true,
+            mean_mps: parseFloat(wWindMean.value || "0"),
+            direction_vector_enu: [parseFloat(wWindEast.value || "1"), parseFloat(wWindNorth.value || "0")],
+          }
+        : { enabled: false },
       pad: { enabled: wPadEnabled.value === "true" },
     };
     try {
@@ -482,6 +502,54 @@ async function renderCreate() {
   worldSection.appendChild(wform);
   worldSection.appendChild(wResultDiv);
   app.appendChild(worldSection);
+
+  // --- apply wind to an existing world (flat OR terrain, separately from
+  // how that world's ground/terrain was generated) ---
+  const windSection = el("section", {});
+  windSection.appendChild(el("h2", { text: "Apply wind to an existing world" }));
+  windSection.appendChild(el("p", { class: "help", text: "Adds wind to any already-existing world - flat or real terrain - as a new, separately-named world. Never modifies the source. Wind on a flat world is proven (Phase 16); wind on a terrain world is mechanically the same fix but has not actually been flown yet - treat it as experimental until a real run confirms it." }));
+  const awForm = el("form", { class: "gen" });
+  const awSource = el("select", {}, [
+    el("optgroup", { label: "Flat worlds" }, flatWorlds.map(w => el("option", { value: w.name, text: w.name }))),
+    el("optgroup", { label: "Terrain worlds" }, terrainWorlds.map(w => el("option", { value: w.name, text: w.name }))),
+  ]);
+  const awNewName = el("input", { type: "text", placeholder: "new_world_name" });
+  const awMean = el("input", { type: "number", step: "0.1", value: "5" });
+  const awEast = el("input", { type: "number", step: "0.1", value: "1" });
+  const awNorth = el("input", { type: "number", step: "0.1", value: "0" });
+  for (const [label, node] of [
+    ["Source world", awSource], ["New world name", awNewName],
+    ["Wind mean speed (m/s)", awMean],
+    ["Direction (east)", awEast], ["Direction (north)", awNorth],
+  ]) {
+    awForm.appendChild(el("label", { text: label }));
+    awForm.appendChild(node);
+  }
+  const awSubmitBtn = el("button", { type: "submit", text: "Apply wind" });
+  awForm.appendChild(awSubmitBtn);
+  const awResultDiv = el("div", {});
+  awForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    awResultDiv.innerHTML = "";
+    try {
+      const data = await postJSON("/api/worlds/apply_wind", {
+        source_world: awSource.value,
+        new_name: awNewName.value.trim(),
+        mean_mps: parseFloat(awMean.value),
+        direction_vector_enu: [parseFloat(awEast.value), parseFloat(awNorth.value)],
+      });
+      awResultDiv.innerHTML = "";
+      awResultDiv.appendChild(el("p", { text: "Created: " + data.sdf_path }));
+      if (data.terrain_wind_untested) {
+        awResultDiv.appendChild(el("p", { class: "warn", text: "This is a terrain world - wind here is mechanically consistent with the proven flat-world fix but has not actually been flown. Treat as experimental." }));
+      }
+    } catch (e) {
+      awResultDiv.appendChild(el("p", { class: "err", text: (e.status || "") + " " + e.message }));
+    }
+  });
+  windSection.appendChild(awForm);
+  windSection.appendChild(awResultDiv);
+  app.appendChild(windSection);
 }
 
 function route() {

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -353,6 +354,53 @@ def sun_light(world: dict) -> str:
 """
 
 
+def wind_config(world: dict) -> dict:
+    """Ported verbatim from the Phase 16 wind mechanism (found live but
+    uncommitted on the main checkout, 2026-07-24) - already validated
+    there, not reinvented here."""
+    wind = require_mapping(world.get("wind", {}), "world.wind")
+    if not wind.get("enabled", False):
+        return {"enabled": False}
+    if wind.get("gusts_enabled", False):
+        raise ValueError(
+            "world.wind.gusts_enabled=true is not implemented (Phase 16 scope: steady wind only)"
+        )
+    mean_mps = float(wind.get("mean_mps", 0))
+    direction = wind.get("direction_vector_enu")
+    if not isinstance(direction, list) or len(direction) != 2:
+        raise ValueError("world.wind.direction_vector_enu must have two values [east, north]")
+    east, north = float(direction[0]), float(direction[1])
+    norm = (east**2 + north**2) ** 0.5
+    if norm == 0:
+        raise ValueError("world.wind.direction_vector_enu must not be zero-length")
+    return {
+        "enabled": True,
+        "mean_mps": mean_mps,
+        "vx": mean_mps * east / norm,
+        "vy": mean_mps * north / norm,
+        "direction_vector_enu": [east / norm, north / norm],
+    }
+
+
+def wind_block(wind: dict) -> str:
+    if not wind.get("enabled", False):
+        return ""
+    # The gz-sim WindEffects *system* is loaded globally via PX4's
+    # server.config (same mechanism as Physics/SceneBroadcaster/etc), not
+    # embedded as a per-world <plugin> here. Mixing an SDF-embedded
+    # WindEffects plugin with server-config-supplied systems on the same
+    # world entity was found to deadlock gz-sim during system startup
+    # (SystemManager never got past loading WindEffects, so SceneBroadcaster
+    # never advertised /world/.../scene/info and the world hung forever) --
+    # reproduced and fixed 2026-07-22 (Phase 16). This tag only supplies the
+    # wind *data* the globally-loaded system reads.
+    return f"""
+    <wind>
+      <linear_velocity>{wind['vx']:.6g} {wind['vy']:.6g} 0</linear_velocity>
+    </wind>
+"""
+
+
 def build_sdf(config_path: Path) -> tuple[str, dict]:
     data = yaml.safe_load(config_path.read_text())
     root = require_mapping(data, "config")
@@ -360,14 +408,14 @@ def build_sdf(config_path: Path) -> tuple[str, dict]:
     name = str(world.get("name", config_path.stem))
     generator = require_mapping(world.get("generator", {}), "world.generator")
     sdf_version = str(generator.get("sdf_version", "1.9"))
-    if require_mapping(world.get("wind", {}), "world.wind").get("enabled", False):
-        raise ValueError("Phase 8B world builder currently supports wind.enabled=false only")
+    wind = wind_config(world)
 
     sdf = f"""<?xml version="1.0" ?>
 <sdf version="{html.escape(sdf_version)}">
   <world name="{html.escape(name)}">
 {scene(world)}
 {sun_light(world)}
+{wind_block(wind)}
 {ground_model(world)}
 {launch_pad_model(world)}
 {object_models(world)}
@@ -379,15 +427,78 @@ def build_sdf(config_path: Path) -> tuple[str, dict]:
 
 
 def write_manifest(out_path: Path, config_path: Path, world: dict):
+    wind = wind_config(world)
     manifest = {
         "generated_sdf": str(out_path),
         "source_yaml": str(config_path),
         "world_name": world.get("name"),
         "texture_preset": require_mapping(world.get("texture"), "world.texture").get("preset"),
         "lighting_preset": require_mapping(world.get("lighting"), "world.lighting").get("preset"),
-        "wind_enabled": require_mapping(world.get("wind"), "world.wind").get("enabled", False),
+        "wind_enabled": wind["enabled"],
+        "wind_mean_mps": wind.get("mean_mps"),
+        "wind_direction_vector_enu": wind.get("direction_vector_enu"),
     }
     out_path.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def apply_wind_to_world_file(source_path: Path, mean_mps: float, direction_vector_enu: list[float]) -> str:
+    """Inject a <wind> block into an EXISTING world SDF/.world file's text,
+    regardless of which pipeline generated it (Phase 17C, user-requested
+    2026-07-24: "is it feasible to separate [terrain choice] and wind" -
+    yes, because <wind> is just a sibling element of <world>'s ground
+    content, not something build_gazebo_world.py's flat-ground generator
+    owns). Returns the new SDF text; never modifies source_path itself -
+    callers write it to a new file.
+
+    Two different world architectures exist in this codebase and are
+    handled differently here:
+    - build_gazebo_world.py's own flat-ground output relies on PX4's
+      server.config to globally load every gz-sim system (Physics,
+      SceneBroadcaster, WindEffects, ...) - confirmed embedding a
+      per-world <plugin> for WindEffects deadlocks startup (Phase 16,
+      2026-07-22). For these, only the <wind> data tag is added.
+    - Terrain-pipeline worlds (generated_worlds/terrain/*/*.world) embed
+      their OWN full <plugin> list directly as children of <world> - a
+      self-contained architecture, confirmed by inspecting a real one
+      (14 embedded plugin blocks, Physics/SceneBroadcaster/etc.). For
+      these, a WindEffects <plugin> is embedded to match that same
+      self-contained pattern, since they don't rely on server.config the
+      same way.
+
+    IMPORTANT: only the flat-world case has actually been run with wind
+    and proven not to deadlock (Phase 16). The terrain-world case is
+    mechanically consistent with the same architecture but has not been
+    run - treat it as unverified until a real run confirms it.
+    """
+    text = source_path.read_text()
+    if "<wind>" in text:
+        raise ValueError(f"{source_path} already has a <wind> block - refusing to double-inject")
+
+    wind = wind_config({"wind": {
+        "enabled": True, "mean_mps": mean_mps, "direction_vector_enu": direction_vector_enu,
+    }})
+    wind_xml = wind_block(wind)
+
+    has_embedded_plugins = bool(re.search(r"<plugin\b", text))
+    insertion = wind_xml
+    if has_embedded_plugins:
+        insertion = (
+            """
+    <plugin filename="gz-sim-wind-effects-system" name="gz::sim::systems::WindEffects">
+    </plugin>
+"""
+            + wind_xml
+        )
+
+    # Insert right before the closing </world> tag - valid regardless of
+    # the file's internal structure/ordering, never touches existing content.
+    match = re.search(r"</world>", text)
+    if not match:
+        raise ValueError(f"{source_path}: no </world> closing tag found - not a valid world SDF")
+    new_text = text[: match.start()] + insertion + text[match.start() :]
+
+    ET.fromstring(new_text)  # validate before returning
+    return new_text
 
 
 def main() -> int:

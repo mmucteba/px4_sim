@@ -104,6 +104,8 @@ def create_scenario(req: CreateScenarioRequest) -> dict:
             world_block = resolve_world_selection(req.world_name)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"no such generated world: {req.world_name}")
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         apply_world_selection(new_scenario, world_block)
 
     confound = compute_confound_diff(source, new_scenario)
