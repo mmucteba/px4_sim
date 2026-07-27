@@ -450,25 +450,22 @@ def apply_wind_to_world_file(source_path: Path, mean_mps: float, direction_vecto
     owns). Returns the new SDF text; never modifies source_path itself -
     callers write it to a new file.
 
-    Two different world architectures exist in this codebase and are
-    handled differently here:
-    - build_gazebo_world.py's own flat-ground output relies on PX4's
-      server.config to globally load every gz-sim system (Physics,
-      SceneBroadcaster, WindEffects, ...) - confirmed embedding a
-      per-world <plugin> for WindEffects deadlocks startup (Phase 16,
-      2026-07-22). For these, only the <wind> data tag is added.
-    - Terrain-pipeline worlds (generated_worlds/terrain/*/*.world) embed
-      their OWN full <plugin> list directly as children of <world> - a
-      self-contained architecture, confirmed by inspecting a real one
-      (14 embedded plugin blocks, Physics/SceneBroadcaster/etc.). For
-      these, a WindEffects <plugin> is embedded to match that same
-      self-contained pattern, since they don't rely on server.config the
-      same way.
-
-    IMPORTANT: only the flat-world case has actually been run with wind
-    and proven not to deadlock (Phase 16). The terrain-world case is
-    mechanically consistent with the same architecture but has not been
-    run - treat it as unverified until a real run confirms it.
+    Only ever inject the bare <wind> data tag - never a per-world
+    <plugin> block for WindEffects. PX4's own server.config
+    (src/modules/simulation/gz_bridge/server.config) already globally
+    loads gz-sim-wind-effects-system for every world
+    (entity_name="*" entity_type="world"), and GZ_SIM_SERVER_CONFIG_PATH
+    is set in the shared subprocess env for standalone Gazebo launches
+    too (auto_takeoff_land_pxh_truth.py) - so terrain worlds get it just
+    as much as flat-ground ones, even though terrain worlds otherwise
+    embed their own full self-contained <plugin> list. Embedding a
+    second, per-world WindEffects <plugin> on top of that duplicates the
+    system and deadlocks Gazebo startup - confirmed for the flat-ground
+    case in Phase 16 (2026-07-22), and confirmed again for a terrain
+    world (2026-07-26): the identical terrain loads in ~9s with only the
+    <wind> tag added, but hangs indefinitely (no progress for 240+s, no
+    crash, no error) with a duplicate <plugin> block also present. Fixed
+    by never adding that block, for either world architecture.
     """
     text = source_path.read_text()
     if "<wind>" in text:
@@ -477,18 +474,7 @@ def apply_wind_to_world_file(source_path: Path, mean_mps: float, direction_vecto
     wind = wind_config({"wind": {
         "enabled": True, "mean_mps": mean_mps, "direction_vector_enu": direction_vector_enu,
     }})
-    wind_xml = wind_block(wind)
-
-    has_embedded_plugins = bool(re.search(r"<plugin\b", text))
-    insertion = wind_xml
-    if has_embedded_plugins:
-        insertion = (
-            """
-    <plugin filename="gz-sim-wind-effects-system" name="gz::sim::systems::WindEffects">
-    </plugin>
-"""
-            + wind_xml
-        )
+    insertion = wind_block(wind)
 
     # Insert right before the closing </world> tag - valid regardless of
     # the file's internal structure/ordering, never touches existing content.

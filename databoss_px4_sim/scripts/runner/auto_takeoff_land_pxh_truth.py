@@ -1951,6 +1951,14 @@ def main() -> int:
 
     start_ts = time.time()
     px4_proc = None
+    # Only ever assigned inside `if px4_proc is not None:` below (PX4 startup
+    # wait) - default them here so a standalone-Gazebo readiness failure
+    # (px4_proc never spawned) fails cleanly via `accepted=False` downstream
+    # instead of an UnboundLocalError crash (confirmed 2026-07-26: a terrain
+    # world whose Gazebo process hung past the readiness timeout hit exactly
+    # this crash instead of a clean rejection).
+    startup_pattern = None
+    flight_ready_pattern = None
     truth_proc = None
     truth_raw_path = None
     truth_err_path = None

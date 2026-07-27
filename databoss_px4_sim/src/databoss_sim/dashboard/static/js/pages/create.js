@@ -89,11 +89,21 @@ export async function renderCreate() {
     el("option", { value: "true", text: "Yes - cut GNSS partway through" }),
   ]);
   const lossAfterInput = el("input", { type: "number", step: "0.1", placeholder: "seconds after takeoff, e.g. 20" });
-  form.appendChild(fieldset("GNSS", "Whether GPS is available when the flight starts, and whether it gets cut partway through to test GNSS-denied navigation.", [
-    ["GNSS at start", gnssStartSelect],
-    ["Cut GNSS mid-flight?", lossEnabledSelect],
-    ["Cut after how many seconds", lossAfterInput],
-  ]));
+  const postLossHoverInput = el("input", { type: "number", step: "0.1", placeholder: "e.g. 50" });
+  form.appendChild(fieldset(
+    "GNSS",
+    "Whether GPS is available when the flight starts, and whether it gets cut partway through to test " +
+    "GNSS-denied navigation. Note: \"cut after how many seconds\" only enables/disables the cut for this " +
+    "runner's control mode - it isn't a precise timer (the actual cut fires once the vehicle is stable at " +
+    "altitude). \"GNSS-denied hold duration\" is the real, load-bearing knob for how long the flight actually " +
+    "stays in the GNSS-denied state - leave it blank only if you're fine with the runner's own leftover-time default.",
+    [
+      ["GNSS at start", gnssStartSelect],
+      ["Cut GNSS mid-flight?", lossEnabledSelect],
+      ["Cut after how many seconds", lossAfterInput],
+      ["GNSS-denied hold duration (s)", postLossHoverInput],
+    ],
+  ));
 
   // Failsafe
   const failsafeSelect = el("select", {}, [
@@ -181,6 +191,9 @@ export async function renderCreate() {
       world_name: worldSelect.value,
       gnss_start_used: parseInt(gnssStartSelect.value, 10),
     };
+    if (postLossHoverInput.value.trim() !== "") {
+      body.post_loss_hover_s = parseFloat(postLossHoverInput.value);
+    }
 
     try {
       const data = await postJSON("/api/scenarios", body);
@@ -304,9 +317,6 @@ export async function renderCreate() {
       });
       awResultDiv.innerHTML = "";
       awResultDiv.appendChild(el("p", { text: "Created: " + data.sdf_path }));
-      if (data.terrain_wind_untested) {
-        awResultDiv.appendChild(el("p", { class: "warn", text: "This is a terrain world - wind here is mechanically consistent with the proven flat-world fix but has not actually been flown. Treat as experimental." }));
-      }
     } catch (e) {
       awResultDiv.appendChild(el("p", { class: "err", text: (e.status || "") + " " + e.message }));
     }

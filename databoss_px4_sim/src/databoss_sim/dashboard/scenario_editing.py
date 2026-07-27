@@ -352,8 +352,21 @@ def apply_world_selection(scenario: dict[str, Any], world_block: dict[str, Any])
     """Set the world.* bundle in place - world.name/sdf_path/lighting/wind/
     texture/condition_is_physical are all "derived" (FIELD_CLASSIFICATION),
     set together by picking a world (world_generation.resolve_world_selection),
-    never edited individually."""
-    scenario["world"] = dict(world_block)
+    never edited individually.
+
+    launch_pad_vehicle_start_z_m is not a world.* field - it's
+    resolve_world_selection()'s way of saying "this terrain world has the
+    standard launch pad, spawn the vehicle above it" (real gap found
+    2026-07-27: leaving vehicle.start_pose.z_m at the template default of
+    0 spawns the vehicle at bare heightfield level, not on the pad, and it
+    never reaches a stable airborne state). Popped out here and applied to
+    vehicle.start_pose.z_m instead of leaking into the world block.
+    """
+    world_block = dict(world_block)
+    launch_pad_z_m = world_block.pop("launch_pad_vehicle_start_z_m", None)
+    scenario["world"] = world_block
+    if launch_pad_z_m is not None:
+        _set_path(scenario, "vehicle.start_pose.z_m", launch_pad_z_m)
 
 
 def compute_confound_diff(source: dict[str, Any], new_scenario: dict[str, Any]) -> dict[str, list[str]]:
@@ -384,13 +397,27 @@ def compute_confound_diff(source: dict[str, Any], new_scenario: dict[str, Any]) 
     return changed
 
 
-def build_run_command(scenario_relpath: str, gnss_start_used: int | None = None) -> str:
+def build_run_command(
+    scenario_relpath: str,
+    gnss_start_used: int | None = None,
+    post_loss_hover_s: float | None = None,
+) -> str:
     """The exact manual invocation to copy-paste and run - the dashboard's
     actual deliverable for Phase 17C. Matches the real wrapper script's CLI
     (scripts/runner/run_scenario_pxh_end_to_end.py) exactly: a positional
     scenario path, plus --gnss-start-used only when explicitly set (the
     real control for GNSS-start state, since gnss.start_enabled in the
     scenario YAML itself is dead - see FIELD_CLASSIFICATION).
+
+    post_loss_hover_s is request-level for the same reason gnss_start_used
+    is: it isn't a scenario YAML field at all. Real gap found 2026-07-27:
+    for the only control mode this runner actually exercises
+    (offboard_local_position_hold), gnss.loss_after_takeoff_s only acts as
+    a presence flag - the real GNSS-denied hold duration is this CLI-only
+    flag, defaulting (if omitted here) to whatever's left of --hover-s
+    after the pre-loss stabilization window, which is rarely what anyone
+    actually wants for a deliberate GNSS-denied duration test. Omitted
+    from the command when not given, matching gnss_start_used's pattern.
     """
     parts = [
         "venv/bin/python", "scripts/runner/run_scenario_pxh_end_to_end.py",
@@ -398,6 +425,8 @@ def build_run_command(scenario_relpath: str, gnss_start_used: int | None = None)
     ]
     if gnss_start_used is not None:
         parts.append(f"--gnss-start-used {gnss_start_used}")
+    if post_loss_hover_s is not None:
+        parts.append(f"--post-loss-hover-s {post_loss_hover_s}")
     return " ".join(parts)
 
 

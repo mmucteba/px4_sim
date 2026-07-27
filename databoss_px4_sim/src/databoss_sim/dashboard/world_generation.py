@@ -185,7 +185,6 @@ def apply_wind(source_world_name: str, new_name: str, mean_mps: float, direction
         "kind": source["kind"],
         "sdf_path": str(out_path.relative_to(PROJECT_ROOT)),
         "derived_from": source_world_name,
-        "terrain_wind_untested": is_terrain,
     }
 
 
@@ -274,7 +273,8 @@ def resolve_world_selection(world_name: str) -> dict[str, Any]:
             home = provenance.get("spherical_coordinates") or (provenance.get("world") or {}).get(
                 "spherical_coordinates", {}
             )
-        return {
+
+        world_block: dict[str, Any] = {
             "name": world_name,
             "sdf_path": world["sdf_path"],
             "home": {
@@ -284,6 +284,29 @@ def resolve_world_selection(world_name: str) -> dict[str, Any]:
             },
             "condition_is_physical": True,
         }
+
+        # Real gap found 2026-07-27: a terrain world with the standard
+        # launch pad (_IMPORT_PAD_XML, world_generation.py) needs the
+        # vehicle spawned ABOVE the pad, not at the vehicle template's
+        # default z_m=0 (world Z=0 is not "ground" on a heightfield -
+        # it's an arbitrary datum, and the pad itself sits at Z~1.05-1.3).
+        # Every real accepted serefli_koschisar run since the pad was
+        # added uses vehicle.start_pose.z_m=1.65 - confirmed by direct
+        # comparison against the one run before the pad existed (z_m=0.4,
+        # the rejected tip-over incident this pad was built to fix) and
+        # against a run with no pad at all (Joshimath, z_m=3.3, its own
+        # unrelated empirical value - no pad there to reason from). This
+        # was never wired into resolve_world_selection()/
+        # apply_world_selection() before, so a scenario built against a
+        # freshly-imported terrain (e.g. odtu) silently kept z_m=0 and the
+        # vehicle spawned near bare ground level instead of on the pad,
+        # never reaching a stable airborne state at all - reproduced
+        # directly (run 20260727_070843: pad present, z_m left at 0,
+        # vehicle settled at truth Z~-0.02, takeoff never cleared 0.5m).
+        if "databoss_launch_pad" in sdf_path.read_text():
+            world_block["launch_pad_vehicle_start_z_m"] = 1.65
+
+        return world_block
 
     wind_enabled = world.get("wind_enabled", False)
     wind_mean = None  # not carried in list_flat_worlds() today; re-read manifest for it

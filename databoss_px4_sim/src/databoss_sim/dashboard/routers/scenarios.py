@@ -41,6 +41,13 @@ class CreateScenarioRequest(BaseModel):
     # FIELD_CLASSIFICATION) - the real control is the runner's
     # --gnss-start-used CLI flag, so it's request-level, not an "edit".
     gnss_start_used: int | None = None
+    # Also not a scenario YAML field. Real gap found 2026-07-27: for
+    # offboard_local_position_hold (the only control mode this runner
+    # exercises), gnss.loss_after_takeoff_s only flags that GNSS loss
+    # happens at all - the actual GNSS-denied hold duration is this
+    # CLI-only flag. Omit to keep the runner's own default (see
+    # build_run_command).
+    post_loss_hover_s: float | None = None
     # world.* fields are a derived bundle (see apply_world_selection) - not
     # part of `edits`. Omit to keep the source/template's existing world.
     world_name: str | None = None
@@ -126,5 +133,5 @@ def create_scenario(req: CreateScenarioRequest) -> dict:
             "is_confounded": len(confound) > 1,
             "detail": confound,
         },
-        "run_command": build_run_command(scenario_relpath, req.gnss_start_used),
+        "run_command": build_run_command(scenario_relpath, req.gnss_start_used, req.post_loss_hover_s),
     }
