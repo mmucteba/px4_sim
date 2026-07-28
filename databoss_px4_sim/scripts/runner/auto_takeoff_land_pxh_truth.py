@@ -1397,6 +1397,7 @@ def analyze_ulog_distance_sensor(
     required: bool,
     min_rows: int,
     height_agreement_tolerance_m: float,
+    rangefinder_max_tilt_deg: float = 10.0,
     is_heightfield: bool = False,
     takeoff_alt_m: float | None = None,
     terrain_relief_span_m: float | None = None,
@@ -1416,6 +1417,16 @@ def analyze_ulog_distance_sensor(
         "climb_window_s": None,
         "horizontal_excursion_m": None,
         "rangefinder_gate_mode": "absolute",
+        "rangefinder_tilt_p95_deg": None,
+        "rangefinder_level_sample_count": 0,
+        "rangefinder_level_median_diff_m": None,
+        "rangefinder_climb_span_m": None,
+        "rangefinder_differential_diff_m": None,
+        "rangefinder_slope": None,
+        "rangefinder_scale_verified": False,
+        "rangefinder_horizontal_excursion_m": None,
+        "rangefinder_max_tilt_deg": rangefinder_max_tilt_deg,
+        "rangefinder_gate_reason": None,
     }
 
     if not required:
@@ -1462,20 +1473,149 @@ def analyze_ulog_distance_sensor(
                 <= 0.75 + float(terrain_height_offset_tolerance_m)
             )
 
-        if not is_heightfield:
-            result["ulog_distance_sensor_ok"] = absolute_ok
-            if not absolute_ok and declared_offset_ok:
+        def apply_declared_offset_escape_hatch() -> None:
+            if not result["ulog_distance_sensor_ok"] and declared_offset_ok:
                 result["ulog_distance_sensor_ok"] = True
                 result["rangefinder_gate_mode"] = "declared_offset"
+                result["rangefinder_gate_reason"] = None
+
+        def apply_no_attitude_fallback() -> None:
+            result["rangefinder_gate_mode"] = "absolute_no_attitude"
+            if not is_heightfield:
+                result["ulog_distance_sensor_ok"] = absolute_ok
+                if not result["ulog_distance_sensor_ok"]:
+                    result["rangefinder_gate_reason"] = (
+                        "too_few_rows" if not rows_ok else "height_agreement"
+                    )
+                apply_declared_offset_escape_hatch()
+                return
+
+            result["ulog_distance_sensor_ok"] = False
+            result["rangefinder_gate_reason"] = (
+                "too_few_rows" if not rows_ok else "height_agreement"
+            )
+
+            distance_ts = np.asarray(dist["timestamp"], dtype=float)
+            local_ts = np.asarray(local_pos["timestamp"], dtype=float)
+            local_z = np.asarray(local_pos["z"], dtype=float)
+            local_x = np.asarray(local_pos["x"], dtype=float)
+            local_y = np.asarray(local_pos["y"], dtype=float)
+
+            distance_mask = np.isfinite(distance_ts) & np.isfinite(distances)
+            local_mask = (
+                np.isfinite(local_ts)
+                & np.isfinite(local_z)
+                & np.isfinite(local_x)
+                & np.isfinite(local_y)
+            )
+
+            distance_ts = distance_ts[distance_mask]
+            distance_values = distances[distance_mask]
+            local_ts = local_ts[local_mask]
+            height_up = -local_z[local_mask]
+            local_x = local_x[local_mask]
+            local_y = local_y[local_mask]
+
+            if (
+                rows_ok
+                and takeoff_alt_m is not None
+                and takeoff_alt_m > 0.0
+                and len(distance_ts) >= 2
+                and len(local_ts) >= 2
+            ):
+                distance_order = np.argsort(distance_ts)
+                local_order = np.argsort(local_ts)
+                distance_ts = distance_ts[distance_order]
+                distance_values = distance_values[distance_order]
+                local_ts = local_ts[local_order]
+                height_up = height_up[local_order]
+                local_x = local_x[local_order]
+                local_y = local_y[local_order]
+
+                in_range = (distance_ts >= local_ts[0]) & (distance_ts <= local_ts[-1])
+                aligned_ts = distance_ts[in_range]
+                aligned_distances = distance_values[in_range]
+                if len(aligned_ts) >= 2:
+                    aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
+                    aligned_x = np.interp(aligned_ts, local_ts, local_x)
+                    aligned_y = np.interp(aligned_ts, local_ts, local_y)
+                    aligned_radius = np.sqrt(aligned_x ** 2 + aligned_y ** 2)
+                    residual = aligned_distances - aligned_height_up
+
+                    initial_mask = aligned_height_up < 0.5
+                    initial_residual = residual[initial_mask]
+                    base_radius = (
+                        float(np.nanmedian(aligned_radius[initial_mask]))
+                        if len(initial_residual)
+                        else 0.0
+                    )
+                    hover_mask = aligned_height_up >= 0.9 * takeoff_alt_m
+                    post_pad_hover_mask = hover_mask & (aligned_radius >= base_radius + 2.0)
+                    hover_residual = residual[post_pad_hover_mask]
+                    if not len(hover_residual):
+                        hover_residual = residual[hover_mask]
+                    if len(initial_residual) and len(hover_residual):
+                        result["pad_step_estimate_m"] = float(
+                            np.nanmedian(hover_residual) - np.nanmedian(initial_residual)
+                        )
+
+                    start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
+                    if len(start_candidates):
+                        start_idx = int(start_candidates[0])
+                        end_candidates = np.flatnonzero(
+                            (np.arange(len(aligned_height_up)) >= start_idx)
+                            & (aligned_height_up >= 0.9 * takeoff_alt_m)
+                        )
+                        if len(end_candidates):
+                            end_idx = int(end_candidates[0])
+                            climb_slice = slice(start_idx, end_idx + 1)
+                            radii = aligned_radius[climb_slice]
+                            horizontal_excursion_m = float(np.nanmax(radii) - np.nanmin(radii))
+                            result["horizontal_excursion_m"] = horizontal_excursion_m
+                            result["rangefinder_horizontal_excursion_m"] = horizontal_excursion_m
+                            result["climb_window_s"] = float(
+                                (aligned_ts[end_idx] - aligned_ts[start_idx]) / 1_000_000.0
+                            )
+
+                            if horizontal_excursion_m <= 2.0:
+                                delta_distance = aligned_distances[end_idx] - aligned_distances[start_idx]
+                                delta_height = aligned_height_up[end_idx] - aligned_height_up[start_idx]
+                                result["rangefinder_differential_diff_m"] = float(
+                                    abs(delta_distance - delta_height)
+                                )
+                                result["ulog_distance_sensor_ok"] = bool(
+                                    result["rangefinder_differential_diff_m"]
+                                    <= height_agreement_tolerance_m
+                                )
+                                if result["ulog_distance_sensor_ok"]:
+                                    result["rangefinder_gate_reason"] = None
+                                else:
+                                    result["rangefinder_gate_reason"] = "height_agreement"
+
+            apply_declared_offset_escape_hatch()
+
+        try:
+            attitude = ulog.get_dataset("vehicle_attitude").data
+        except Exception:
+            apply_no_attitude_fallback()
             return result
 
-        result["rangefinder_gate_mode"] = "unknown"
+        if not rows_ok:
+            result["rangefinder_gate_mode"] = "tilt_differential"
+            result["rangefinder_gate_reason"] = "too_few_rows"
+            apply_declared_offset_escape_hatch()
+            return result
 
-        distance_ts = np.asarray(dist["timestamp"], dtype=float)
-        local_ts = np.asarray(local_pos["timestamp"], dtype=float)
+        distance_ts = np.asarray(dist["timestamp"], dtype=float) / 1_000_000.0
+        local_ts = np.asarray(local_pos["timestamp"], dtype=float) / 1_000_000.0
+        attitude_ts_key = "timestamp_sample" if "timestamp_sample" in attitude else "timestamp"
+        attitude_ts = np.asarray(attitude[attitude_ts_key], dtype=float) / 1_000_000.0
         local_z = np.asarray(local_pos["z"], dtype=float)
         local_x = np.asarray(local_pos["x"], dtype=float)
         local_y = np.asarray(local_pos["y"], dtype=float)
+        q1 = np.asarray(attitude["q[1]"], dtype=float)
+        q2 = np.asarray(attitude["q[2]"], dtype=float)
+        attitude_cos_tilt = 1.0 - 2.0 * (q1 ** 2 + q2 ** 2)
 
         distance_mask = np.isfinite(distance_ts) & np.isfinite(distances)
         local_mask = (
@@ -1484,6 +1624,7 @@ def analyze_ulog_distance_sensor(
             & np.isfinite(local_x)
             & np.isfinite(local_y)
         )
+        attitude_mask = np.isfinite(attitude_ts) & np.isfinite(attitude_cos_tilt)
 
         distance_ts = distance_ts[distance_mask]
         distance_values = distances[distance_mask]
@@ -1491,79 +1632,121 @@ def analyze_ulog_distance_sensor(
         height_up = -local_z[local_mask]
         local_x = local_x[local_mask]
         local_y = local_y[local_mask]
+        attitude_ts = attitude_ts[attitude_mask]
+        attitude_cos_tilt = attitude_cos_tilt[attitude_mask]
 
-        if (
-            rows_ok
-            and takeoff_alt_m is not None
-            and takeoff_alt_m > 0.0
-            and len(distance_ts) >= 2
-            and len(local_ts) >= 2
-        ):
-            distance_order = np.argsort(distance_ts)
-            local_order = np.argsort(local_ts)
-            distance_ts = distance_ts[distance_order]
-            distance_values = distance_values[distance_order]
-            local_ts = local_ts[local_order]
-            height_up = height_up[local_order]
-            local_x = local_x[local_order]
-            local_y = local_y[local_order]
+        if len(distance_ts) < 2 or len(local_ts) < 2 or len(attitude_ts) < 2:
+            result["rangefinder_gate_mode"] = "tilt_differential"
+            result["rangefinder_gate_reason"] = "too_few_level_samples"
+            apply_declared_offset_escape_hatch()
+            return result
 
-            in_range = (distance_ts >= local_ts[0]) & (distance_ts <= local_ts[-1])
-            aligned_ts = distance_ts[in_range]
-            aligned_distances = distance_values[in_range]
-            if len(aligned_ts) >= 2:
-                aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
-                aligned_x = np.interp(aligned_ts, local_ts, local_x)
-                aligned_y = np.interp(aligned_ts, local_ts, local_y)
-                aligned_radius = np.sqrt(aligned_x ** 2 + aligned_y ** 2)
-                residual = aligned_distances - aligned_height_up
+        distance_order = np.argsort(distance_ts)
+        local_order = np.argsort(local_ts)
+        attitude_order = np.argsort(attitude_ts)
+        distance_ts = distance_ts[distance_order]
+        distance_values = distance_values[distance_order]
+        local_ts = local_ts[local_order]
+        height_up = height_up[local_order]
+        local_x = local_x[local_order]
+        local_y = local_y[local_order]
+        attitude_ts = attitude_ts[attitude_order]
+        attitude_cos_tilt = attitude_cos_tilt[attitude_order]
 
-                initial_mask = aligned_height_up < 0.5
-                initial_residual = residual[initial_mask]
-                base_radius = (
-                    float(np.nanmedian(aligned_radius[initial_mask]))
-                    if len(initial_residual)
-                    else 0.0
-                )
-                hover_mask = aligned_height_up >= 0.9 * takeoff_alt_m
-                post_pad_hover_mask = hover_mask & (aligned_radius >= base_radius + 2.0)
-                hover_residual = residual[post_pad_hover_mask]
-                if not len(hover_residual):
-                    hover_residual = residual[hover_mask]
-                if len(initial_residual) and len(hover_residual):
-                    result["pad_step_estimate_m"] = float(
-                        np.nanmedian(hover_residual) - np.nanmedian(initial_residual)
-                    )
+        range_start_s = max(float(local_ts[0]), float(attitude_ts[0]))
+        range_end_s = min(float(local_ts[-1]), float(attitude_ts[-1]))
+        in_range = (distance_ts >= range_start_s) & (distance_ts <= range_end_s)
+        aligned_ts = distance_ts[in_range]
+        aligned_distances = distance_values[in_range]
+        if len(aligned_ts) < 2:
+            result["rangefinder_gate_mode"] = "tilt_differential"
+            result["rangefinder_gate_reason"] = "too_few_level_samples"
+            apply_declared_offset_escape_hatch()
+            return result
 
-                start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
-                if len(start_candidates):
-                    start_idx = int(start_candidates[0])
-                    end_candidates = np.flatnonzero(
-                        (np.arange(len(aligned_height_up)) >= start_idx)
-                        & (aligned_height_up >= 0.9 * takeoff_alt_m)
-                    )
-                    if len(end_candidates):
-                        end_idx = int(end_candidates[0])
-                        climb_slice = slice(start_idx, end_idx + 1)
-                        radii = aligned_radius[climb_slice]
-                        horizontal_excursion_m = float(np.nanmax(radii) - np.nanmin(radii))
-                        result["horizontal_excursion_m"] = horizontal_excursion_m
-                        result["climb_window_s"] = float(
-                            (aligned_ts[end_idx] - aligned_ts[start_idx]) / 1_000_000.0
-                        )
+        aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
+        aligned_x = np.interp(aligned_ts, local_ts, local_x)
+        aligned_y = np.interp(aligned_ts, local_ts, local_y)
+        aligned_cos_tilt = np.interp(aligned_ts, attitude_ts, attitude_cos_tilt)
+        aligned_tilt_deg = np.degrees(
+            np.arccos(np.clip(aligned_cos_tilt, -1.0, 1.0))
+        )
+        vertical_projection = aligned_distances * aligned_cos_tilt
+        finite_tilt = aligned_tilt_deg[np.isfinite(aligned_tilt_deg)]
+        if len(finite_tilt):
+            result["rangefinder_tilt_p95_deg"] = float(np.nanpercentile(finite_tilt, 95.0))
 
-                        if horizontal_excursion_m <= 2.0:
-                            delta_distance = aligned_distances[end_idx] - aligned_distances[start_idx]
-                            delta_height = aligned_height_up[end_idx] - aligned_height_up[start_idx]
-                            result["rangefinder_gate_mode"] = "differential"
-                            result["ulog_distance_sensor_ok"] = bool(
-                                abs(delta_distance - delta_height)
-                                <= height_agreement_tolerance_m
-                            )
+        max_height_window_m = float(np.nanmax(aligned_height_up))
+        start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
+        end_candidates = np.flatnonzero(aligned_height_up >= 0.9 * max_height_window_m)
+        result["rangefinder_gate_mode"] = "tilt_differential"
+        if not len(start_candidates) or not len(end_candidates):
+            result["rangefinder_gate_reason"] = "too_few_level_samples"
+            apply_declared_offset_escape_hatch()
+            return result
 
-        if not result["ulog_distance_sensor_ok"] and declared_offset_ok:
-            result["ulog_distance_sensor_ok"] = True
-            result["rangefinder_gate_mode"] = "declared_offset"
+        start_idx = int(start_candidates[0])
+        end_candidates = end_candidates[end_candidates >= start_idx]
+        if not len(end_candidates):
+            result["rangefinder_gate_reason"] = "too_few_level_samples"
+            apply_declared_offset_escape_hatch()
+            return result
+        end_idx = int(end_candidates[0])
+        result["climb_window_s"] = float(aligned_ts[end_idx] - aligned_ts[start_idx])
+
+        level_mask = (
+            (aligned_tilt_deg < rangefinder_max_tilt_deg)
+            & (aligned_distances > 0.0)
+            & np.isfinite(vertical_projection)
+            & np.isfinite(aligned_height_up)
+            & np.isfinite(aligned_x)
+            & np.isfinite(aligned_y)
+        )
+        climb_indices = np.arange(start_idx, end_idx + 1)
+        level_indices = climb_indices[level_mask[climb_indices]]
+        result["rangefinder_level_sample_count"] = int(len(level_indices))
+        if len(level_indices) < 20:
+            result["rangefinder_gate_reason"] = "too_few_level_samples"
+            apply_declared_offset_escape_hatch()
+            return result
+
+        v_window = vertical_projection[level_indices]
+        z_window = aligned_height_up[level_indices]
+        x_window = aligned_x[level_indices]
+        y_window = aligned_y[level_indices]
+        result["rangefinder_level_median_diff_m"] = float(
+            np.nanmedian(np.abs(v_window - z_window))
+        )
+        result["rangefinder_climb_span_m"] = float(np.nanmax(z_window) - np.nanmin(z_window))
+        result["rangefinder_differential_diff_m"] = float(
+            abs((v_window[-1] - v_window[0]) - (z_window[-1] - z_window[0]))
+        )
+        horizontal_excursion_m = float(
+            np.nanmax(np.hypot(x_window - x_window[0], y_window - y_window[0]))
+        )
+        result["rangefinder_horizontal_excursion_m"] = horizontal_excursion_m
+        result["horizontal_excursion_m"] = horizontal_excursion_m
+
+        if is_heightfield and horizontal_excursion_m > 2.0:
+            result["rangefinder_gate_reason"] = "horizontal_excursion"
+            apply_declared_offset_escape_hatch()
+            return result
+
+        if result["rangefinder_climb_span_m"] >= 5.0:
+            result["rangefinder_slope"] = float(np.polyfit(z_window, v_window, 1)[0])
+            result["rangefinder_scale_verified"] = True
+            if abs(result["rangefinder_slope"] - 1.0) > 0.15:
+                result["rangefinder_gate_reason"] = "slope"
+                apply_declared_offset_escape_hatch()
+                return result
+
+        if result["rangefinder_differential_diff_m"] > height_agreement_tolerance_m:
+            result["rangefinder_gate_reason"] = "height_agreement"
+            apply_declared_offset_escape_hatch()
+            return result
+
+        result["ulog_distance_sensor_ok"] = True
+        result["rangefinder_gate_reason"] = None
 
     except Exception as exc:
         result["ulog_distance_sensor_error"] = str(exc)
@@ -1808,6 +1991,12 @@ def main() -> int:
     rangefinder_xvfb_enabled = bool(rangefinder_cfg.get("xvfb_enabled", False))
     rangefinder_min_ulog_rows = int(rangefinder_cfg.get("min_ulog_rows", 50))
     rangefinder_height_tolerance_m = float(rangefinder_cfg.get("height_agreement_tolerance_m", 0.75))
+    rangefinder_max_tilt_deg = float(
+        rangefinder_cfg.get(
+            "rangefinder_max_tilt_deg",
+            rangefinder_cfg.get("max_tilt_deg", 10.0),
+        )
+    )
     rangefinder_terrain_height_offset_tolerance_m = rangefinder_cfg.get(
         "terrain_height_offset_tolerance_m",
         None,
@@ -3250,6 +3439,7 @@ def main() -> int:
             required=rangefinder_proof_enabled,
             min_rows=rangefinder_min_ulog_rows,
             height_agreement_tolerance_m=rangefinder_height_tolerance_m,
+            rangefinder_max_tilt_deg=rangefinder_max_tilt_deg,
             is_heightfield=is_heightfield,
             takeoff_alt_m=takeoff_alt_m,
             terrain_relief_span_m=terrain_relief_span_m,
@@ -3271,6 +3461,16 @@ def main() -> int:
             "climb_window_s": None,
             "horizontal_excursion_m": None,
             "rangefinder_gate_mode": "absolute" if not is_heightfield else "unknown",
+            "rangefinder_tilt_p95_deg": None,
+            "rangefinder_level_sample_count": 0,
+            "rangefinder_level_median_diff_m": None,
+            "rangefinder_climb_span_m": None,
+            "rangefinder_differential_diff_m": None,
+            "rangefinder_slope": None,
+            "rangefinder_scale_verified": False,
+            "rangefinder_horizontal_excursion_m": None,
+            "rangefinder_max_tilt_deg": rangefinder_max_tilt_deg,
+            "rangefinder_gate_reason": None,
         }
         flight_analysis = {
             "ulog_flight_analysis_ok": False,
@@ -3557,6 +3757,7 @@ def main() -> int:
         "rangefinder_xvfb_enabled": rangefinder_xvfb_enabled,
         "rangefinder_min_ulog_rows": rangefinder_min_ulog_rows,
         "rangefinder_height_agreement_tolerance_m": rangefinder_height_tolerance_m,
+        "rangefinder_max_tilt_deg": rangefinder_max_tilt_deg,
         "sensor_render_engine": sensor_render_engine,
         **rangefinder_probe_result,
         **rangefinder_ulog_analysis,
