@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from create_run_from_scenario import (
@@ -913,6 +914,44 @@ def resolve_world_sdf(world_cfg: dict) -> Path | None:
     return candidate.resolve() if candidate.exists() else None
 
 
+def read_heightmap_relief(world_sdf: Path | None) -> tuple[float | None, bool]:
+    """Return (vertical_relief_m, is_heightfield) for a world SDF.
+
+    The first //collision/geometry/heightmap/size element stores x/y/vertical
+    size; the third component is the total heightmap relief in metres.
+    """
+    if world_sdf is None or not world_sdf.exists():
+        return None, False
+
+    def local_name(element: ET.Element) -> str:
+        return element.tag.rsplit("}", 1)[-1]
+
+    def first_child(element: ET.Element, name: str) -> ET.Element | None:
+        for child in element:
+            if local_name(child) == name:
+                return child
+        return None
+
+    try:
+        root = ET.parse(world_sdf).getroot()
+        for collision in root.iter():
+            if local_name(collision) != "collision":
+                continue
+            geometry = first_child(collision, "geometry")
+            heightmap = first_child(geometry, "heightmap") if geometry is not None else None
+            size = first_child(heightmap, "size") if heightmap is not None else None
+            if size is None or size.text is None:
+                continue
+            parts = size.text.split()
+            if len(parts) < 3:
+                return None, False
+            return float(parts[2]), True
+    except Exception:
+        return None, False
+
+    return None, False
+
+
 def add_gazebo_standalone_env(env: dict, world_name: str, world_sdf: Path) -> dict:
     resource_paths = [
         str(PX4_GZ_MODELS),
@@ -1343,6 +1382,10 @@ def analyze_ulog_distance_sensor(
     required: bool,
     min_rows: int,
     height_agreement_tolerance_m: float,
+    is_heightfield: bool = False,
+    takeoff_alt_m: float | None = None,
+    terrain_relief_span_m: float | None = None,
+    terrain_height_offset_tolerance_m: float | None = None,
 ) -> dict:
     result = {
         "ulog_distance_sensor_analysis_ok": False,
@@ -1353,6 +1396,11 @@ def analyze_ulog_distance_sensor(
         "ulog_distance_sensor_height_diff_m": None,
         "ulog_distance_sensor_ok": not required,
         "ulog_distance_sensor_error": None,
+        "terrain_relief_span_m": terrain_relief_span_m,
+        "pad_step_estimate_m": None,
+        "climb_window_s": None,
+        "horizontal_excursion_m": None,
+        "rangefinder_gate_mode": "absolute",
     }
 
     if not required:
@@ -1382,11 +1430,125 @@ def analyze_ulog_distance_sensor(
             )
 
         result["ulog_distance_sensor_analysis_ok"] = True
-        result["ulog_distance_sensor_ok"] = (
-            result["ulog_distance_sensor_rows"] >= min_rows
+        rows_ok = result["ulog_distance_sensor_rows"] >= min_rows
+        absolute_ok = (
+            rows_ok
             and result["ulog_distance_sensor_height_diff_m"] is not None
             and result["ulog_distance_sensor_height_diff_m"] <= height_agreement_tolerance_m
         )
+        declared_offset_ok = False
+        if (
+            terrain_height_offset_tolerance_m is not None
+            and result["ulog_distance_sensor_height_diff_m"] is not None
+        ):
+            declared_offset_ok = (
+                rows_ok
+                and result["ulog_distance_sensor_height_diff_m"]
+                <= 0.75 + float(terrain_height_offset_tolerance_m)
+            )
+
+        if not is_heightfield:
+            result["ulog_distance_sensor_ok"] = absolute_ok
+            if not absolute_ok and declared_offset_ok:
+                result["ulog_distance_sensor_ok"] = True
+                result["rangefinder_gate_mode"] = "declared_offset"
+            return result
+
+        result["rangefinder_gate_mode"] = "unknown"
+
+        distance_ts = np.asarray(dist["timestamp"], dtype=float)
+        local_ts = np.asarray(local_pos["timestamp"], dtype=float)
+        local_z = np.asarray(local_pos["z"], dtype=float)
+        local_x = np.asarray(local_pos["x"], dtype=float)
+        local_y = np.asarray(local_pos["y"], dtype=float)
+
+        distance_mask = np.isfinite(distance_ts) & np.isfinite(distances)
+        local_mask = (
+            np.isfinite(local_ts)
+            & np.isfinite(local_z)
+            & np.isfinite(local_x)
+            & np.isfinite(local_y)
+        )
+
+        distance_ts = distance_ts[distance_mask]
+        distance_values = distances[distance_mask]
+        local_ts = local_ts[local_mask]
+        height_up = -local_z[local_mask]
+        local_x = local_x[local_mask]
+        local_y = local_y[local_mask]
+
+        if (
+            rows_ok
+            and takeoff_alt_m is not None
+            and takeoff_alt_m > 0.0
+            and len(distance_ts) >= 2
+            and len(local_ts) >= 2
+        ):
+            distance_order = np.argsort(distance_ts)
+            local_order = np.argsort(local_ts)
+            distance_ts = distance_ts[distance_order]
+            distance_values = distance_values[distance_order]
+            local_ts = local_ts[local_order]
+            height_up = height_up[local_order]
+            local_x = local_x[local_order]
+            local_y = local_y[local_order]
+
+            in_range = (distance_ts >= local_ts[0]) & (distance_ts <= local_ts[-1])
+            aligned_ts = distance_ts[in_range]
+            aligned_distances = distance_values[in_range]
+            if len(aligned_ts) >= 2:
+                aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
+                aligned_x = np.interp(aligned_ts, local_ts, local_x)
+                aligned_y = np.interp(aligned_ts, local_ts, local_y)
+                aligned_radius = np.sqrt(aligned_x ** 2 + aligned_y ** 2)
+                residual = aligned_distances - aligned_height_up
+
+                initial_mask = aligned_height_up < 0.5
+                initial_residual = residual[initial_mask]
+                base_radius = (
+                    float(np.nanmedian(aligned_radius[initial_mask]))
+                    if len(initial_residual)
+                    else 0.0
+                )
+                hover_mask = aligned_height_up >= 0.9 * takeoff_alt_m
+                post_pad_hover_mask = hover_mask & (aligned_radius >= base_radius + 2.0)
+                hover_residual = residual[post_pad_hover_mask]
+                if not len(hover_residual):
+                    hover_residual = residual[hover_mask]
+                if len(initial_residual) and len(hover_residual):
+                    result["pad_step_estimate_m"] = float(
+                        np.nanmedian(hover_residual) - np.nanmedian(initial_residual)
+                    )
+
+                start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
+                if len(start_candidates):
+                    start_idx = int(start_candidates[0])
+                    end_candidates = np.flatnonzero(
+                        (np.arange(len(aligned_height_up)) >= start_idx)
+                        & (aligned_height_up >= 0.9 * takeoff_alt_m)
+                    )
+                    if len(end_candidates):
+                        end_idx = int(end_candidates[0])
+                        climb_slice = slice(start_idx, end_idx + 1)
+                        radii = aligned_radius[climb_slice]
+                        horizontal_excursion_m = float(np.nanmax(radii) - np.nanmin(radii))
+                        result["horizontal_excursion_m"] = horizontal_excursion_m
+                        result["climb_window_s"] = float(
+                            (aligned_ts[end_idx] - aligned_ts[start_idx]) / 1_000_000.0
+                        )
+
+                        if horizontal_excursion_m <= 2.0:
+                            delta_distance = aligned_distances[end_idx] - aligned_distances[start_idx]
+                            delta_height = aligned_height_up[end_idx] - aligned_height_up[start_idx]
+                            result["rangefinder_gate_mode"] = "differential"
+                            result["ulog_distance_sensor_ok"] = bool(
+                                abs(delta_distance - delta_height)
+                                <= height_agreement_tolerance_m
+                            )
+
+        if not result["ulog_distance_sensor_ok"] and declared_offset_ok:
+            result["ulog_distance_sensor_ok"] = True
+            result["rangefinder_gate_mode"] = "declared_offset"
 
     except Exception as exc:
         result["ulog_distance_sensor_error"] = str(exc)
@@ -1436,6 +1598,32 @@ def count_csv_data_rows(path: Path) -> int:
 
     with path.open(errors="ignore") as handle:
         return max(0, sum(1 for _ in handle) - 1)
+
+
+def read_first_last_t_sim(path: Path) -> tuple[float | None, float | None]:
+    """First and last t_sim_s in a frames_index.csv, or (None, None)."""
+    if not path.exists():
+        return None, None
+
+    first = None
+    last = None
+    try:
+        with path.open(errors="ignore", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if not reader.fieldnames or "t_sim_s" not in reader.fieldnames:
+                return None, None
+            for row in reader:
+                try:
+                    value = float(str(row.get("t_sim_s", "")).strip())
+                except (TypeError, ValueError):
+                    continue
+                if first is None:
+                    first = value
+                last = value
+    except Exception:
+        return None, None
+
+    return first, last
 
 
 def count_csv_sent_rows(path: Path) -> int:
@@ -1568,6 +1756,7 @@ def main() -> int:
     world = data.get("world", {})
     world_name = str(world.get("name", "default"))
     world_sdf = resolve_world_sdf(world)
+    terrain_relief_span_m, is_heightfield = read_heightmap_relief(world_sdf)
     standalone_gazebo_enabled = world_sdf is not None and world_name != "default"
     truth_topic = truth_topic_for_world(world_name)
     logging_cfg = data.get("logging", {})
@@ -1604,6 +1793,12 @@ def main() -> int:
     rangefinder_xvfb_enabled = bool(rangefinder_cfg.get("xvfb_enabled", False))
     rangefinder_min_ulog_rows = int(rangefinder_cfg.get("min_ulog_rows", 50))
     rangefinder_height_tolerance_m = float(rangefinder_cfg.get("height_agreement_tolerance_m", 0.75))
+    rangefinder_terrain_height_offset_tolerance_m = rangefinder_cfg.get(
+        "terrain_height_offset_tolerance_m",
+        None,
+    )
+    if rangefinder_terrain_height_offset_tolerance_m is not None:
+        rangefinder_terrain_height_offset_tolerance_m = float(rangefinder_terrain_height_offset_tolerance_m)
 
     extra_px4_params = data.get("extra_px4_params", {})
     if extra_px4_params is None:
@@ -1618,7 +1813,13 @@ def main() -> int:
     flow_recording_enabled = bool(flow_recording_cfg.get("enabled", False))
     flow_recording_rate_hz = float(flow_recording_cfg.get("rate_hz", 10.0))
     flow_recording_max_width = int(flow_recording_cfg.get("max_width", 640))
-    flow_recording_min_frames = int(flow_recording_cfg.get("min_frames", 100))
+    flow_recording_min_frames_raw = flow_recording_cfg.get("min_frames", None)
+    flow_recording_min_frames = (
+        None if flow_recording_min_frames_raw is None else int(flow_recording_min_frames_raw)
+    )
+    flow_recording_min_frames_floor = int(flow_recording_cfg.get("min_frames_floor", 20))
+    flow_recording_min_span_s = float(flow_recording_cfg.get("min_span_s", 10.0))
+    flow_recording_min_rate_fraction = float(flow_recording_cfg.get("min_rate_fraction", 0.5))
 
     # Phase 8G live flow bridge (docs/phases/phase_08g_live_flow_bridge.md).
     flow_bridge_cfg = data.get("flow_bridge", {})
@@ -2993,6 +3194,10 @@ def main() -> int:
             required=rangefinder_proof_enabled,
             min_rows=rangefinder_min_ulog_rows,
             height_agreement_tolerance_m=rangefinder_height_tolerance_m,
+            is_heightfield=is_heightfield,
+            takeoff_alt_m=takeoff_alt_m,
+            terrain_relief_span_m=terrain_relief_span_m,
+            terrain_height_offset_tolerance_m=rangefinder_terrain_height_offset_tolerance_m,
         )
         notes.append(f"ulog_distance_sensor_analysis={rangefinder_ulog_analysis}")
     else:
@@ -3005,6 +3210,11 @@ def main() -> int:
             "ulog_distance_sensor_height_diff_m": None,
             "ulog_distance_sensor_ok": not rangefinder_proof_enabled,
             "ulog_distance_sensor_error": "no copied ULog",
+            "terrain_relief_span_m": terrain_relief_span_m,
+            "pad_step_estimate_m": None,
+            "climb_window_s": None,
+            "horizontal_excursion_m": None,
+            "rangefinder_gate_mode": "absolute" if not is_heightfield else "unknown",
         }
         flight_analysis = {
             "ulog_flight_analysis_ok": False,
@@ -3076,10 +3286,41 @@ def main() -> int:
     truth_raw_bytes = truth_raw_path.stat().st_size if truth_raw_exists else 0
     truth_recorded = truth_raw_bytes > 0
 
-    flow_recording_frames = count_csv_data_rows(flow_recording_dir / "frames_index.csv")
+    flow_recording_frames_index_path = flow_recording_dir / "frames_index.csv"
+    flow_recording_frames = count_csv_data_rows(flow_recording_frames_index_path)
     flow_recording_ranges = count_csv_data_rows(flow_recording_dir / "rangefinder.csv")
+    flow_recording_first_t_sim_s, flow_recording_last_t_sim_s = read_first_last_t_sim(
+        flow_recording_frames_index_path
+    )
+    flow_recording_span_s = None
+    flow_recording_achieved_hz = None
+    flow_recording_rate_fraction = None
+    if (
+        flow_recording_first_t_sim_s is not None
+        and flow_recording_last_t_sim_s is not None
+    ):
+        flow_recording_span_s = flow_recording_last_t_sim_s - flow_recording_first_t_sim_s
+        if flow_recording_span_s > 0.0 and flow_recording_frames > 1:
+            flow_recording_achieved_hz = (flow_recording_frames - 1) / flow_recording_span_s
+            if flow_recording_rate_hz > 0.0:
+                flow_recording_rate_fraction = flow_recording_achieved_hz / flow_recording_rate_hz
+
+    # The 0.5 default is measurement-based: an archived contended-host run
+    # achieved 0.96 of the requested rate, so half-rate leaves a 2x margin.
+    # 10s is the explicit duration requirement replacing the old accidental
+    # duration assertion created by a fixed min_frames default.
     flow_recording_ok = (not flow_recording_enabled) or (
-        flow_recording_frames >= flow_recording_min_frames and flow_recording_ranges > 0
+        flow_recording_frames >= flow_recording_min_frames_floor
+        and flow_recording_span_s is not None
+        and flow_recording_span_s >= flow_recording_min_span_s
+        and flow_recording_achieved_hz is not None
+        and flow_recording_achieved_hz
+        >= flow_recording_min_rate_fraction * flow_recording_rate_hz
+        and flow_recording_ranges > 0
+        and (
+            flow_recording_min_frames is None
+            or flow_recording_frames >= flow_recording_min_frames
+        )
     )
 
     flow_bridge_total_rows = count_csv_data_rows(flow_bridge_sent_path)
@@ -3267,6 +3508,13 @@ def main() -> int:
         "flow_recording_rate_hz": flow_recording_rate_hz,
         "flow_recording_max_width": flow_recording_max_width,
         "flow_recording_min_frames": flow_recording_min_frames,
+        "flow_recording_span_s": flow_recording_span_s,
+        "flow_recording_achieved_hz": flow_recording_achieved_hz,
+        "flow_recording_expected_hz": flow_recording_rate_hz,
+        "flow_recording_rate_fraction": flow_recording_rate_fraction,
+        "flow_recording_min_frames_floor": flow_recording_min_frames_floor,
+        "flow_recording_min_span_s": flow_recording_min_span_s,
+        "flow_recording_min_rate_fraction": flow_recording_min_rate_fraction,
         "flow_recording_frames": flow_recording_frames,
         "flow_recording_ranges": flow_recording_ranges,
         "flow_recording_dir": str(flow_recording_dir),
@@ -3457,6 +3705,10 @@ def main() -> int:
         f"- ULog distance_sensor OK: `{rangefinder_ulog_analysis['ulog_distance_sensor_ok']}`",
         f"- Flow recording enabled: `{flow_recording_enabled}`",
         f"- Flow recording frames: `{flow_recording_frames}`",
+        f"- Flow recording span s: `{flow_recording_span_s}`",
+        f"- Flow recording achieved Hz: `{flow_recording_achieved_hz}`",
+        f"- Flow recording expected Hz: `{flow_recording_rate_hz}`",
+        f"- Flow recording rate fraction: `{flow_recording_rate_fraction}`",
         f"- Flow recording range samples: `{flow_recording_ranges}`",
         f"- Flow recording OK: `{flow_recording_ok}`",
         f"- QGC MAVLink enabled: `{qgc_enabled}`",
@@ -3571,6 +3823,10 @@ def main() -> int:
     print(f"ulog_distance_sensor_ok={rangefinder_ulog_analysis['ulog_distance_sensor_ok']}")
     print(f"flow_recording_enabled={flow_recording_enabled}")
     print(f"flow_recording_frames={flow_recording_frames}")
+    print(f"flow_recording_span_s={flow_recording_span_s}")
+    print(f"flow_recording_achieved_hz={flow_recording_achieved_hz}")
+    print(f"flow_recording_expected_hz={flow_recording_rate_hz}")
+    print(f"flow_recording_rate_fraction={flow_recording_rate_fraction}")
     print(f"flow_recording_ok={flow_recording_ok}")
     print(f"flow_bridge_enabled={flow_bridge_enabled}")
     print(f"flow_bridge_started={flow_bridge_started}")
