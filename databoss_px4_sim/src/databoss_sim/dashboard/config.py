@@ -10,6 +10,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS_ROOT = PROJECT_ROOT / "experiments"
 RUNS_DIR = EXPERIMENTS_ROOT / "runs"
 COMPARISONS_DIR = EXPERIMENTS_ROOT / "comparisons"
+JOBS_DIR = EXPERIMENTS_ROOT / "jobs"
+JOB_LOCK_PATH = JOBS_DIR / ".active.lock"
+RUN_AS_USER = "px4"
+MIN_AVAILABLE_MEM_MB = 1200
+CANCEL_GRACE_S = 180.0
+JOB_LOG_CHUNK_BYTES = 65536
+JOB_REAPER_INTERVAL_S = 5.0
 
 # Live in-process rescan cache TTL (Phase 17A plan: "not reading the static
 # index.json file at request time" - short enough to reflect an in-progress
