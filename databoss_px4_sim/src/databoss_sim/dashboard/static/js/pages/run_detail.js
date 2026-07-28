@@ -2,6 +2,34 @@ import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
 import { buildFilesView, buildGallery } from "../files_view.js";
 
+const GZ_PROXY_CMD = "venv/bin/python scripts/sim/gz_websocket_enum_patch_proxy.py --listen-port 9002 --upstream ws://127.0.0.1:9003";
+
+function renderConnectionLinks(conn) {
+  const wrap = el("div", {});
+  wrap.appendChild(kv([
+    ["QGC enabled", conn.qgc_enabled], ["QGC ip", conn.qgc_ip],
+    ["QGC local UDP port", conn.qgc_local_port], ["QGC remote UDP port", conn.qgc_remote_port],
+    ["QGC source", conn.qgc_source], ["QGC target", "UDP MAVLink target, not a URL"],
+    ["gz-web enabled", conn.gazebo_web_enabled], ["gz-web raw bridge port", conn.gazebo_web_port || 9003],
+    ["gz-web raw bridge note", "9003 is reference only; browsers should use the 9002 enum-patch proxy"],
+    ["gz-web publication Hz", conn.gazebo_web_publication_hz],
+    ["viewer", "https://app.gazebosim.org/visualization"],
+    ["paste URL", "ws://localhost:9002"],
+    ["SSH tunnel", "ssh -N -L 9002:127.0.0.1:9002 root@100.78.93.35"],
+    ["proxy start command", GZ_PROXY_CMD],
+    ["flow_bridge enabled", conn.flow_bridge_enabled], ["estimator", conn.flow_bridge_estimator],
+    ["flow_bridge rate Hz", conn.flow_bridge_rate_hz], ["axis_map", conn.axis_map],
+    ["hfov_rad", conn.hfov_rad],
+    ["EKF2_OF_CTRL", conn.ekf2_of_ctrl], ["EKF2_OF_QMIN", conn.ekf2_of_qmin],
+    ["EKF2_OF_N_MIN", conn.ekf2_of_n_min], ["EKF2_OF_DELAY", conn.ekf2_of_delay],
+    ["aiding mode", conn.aiding_mode], ["EKF2_EV_CTRL", conn.ekf2_ev_ctrl],
+  ]));
+  wrap.appendChild(el("p", {}, [
+    el("a", { href: "https://app.gazebosim.org/visualization", text: "Open Gazebo visualization" }),
+  ]));
+  return wrap;
+}
+
 export async function renderRun(runId) {
   const app = document.getElementById("app");
   app.innerHTML = "";
@@ -49,20 +77,7 @@ export async function renderRun(runId) {
     {
       label: "Connections",
       render: () => {
-        const conn = run.connections;
-        return kv([
-          ["QGC enabled", conn.qgc_enabled], ["QGC ip", conn.qgc_ip],
-          ["QGC local port", conn.qgc_local_port], ["QGC remote port", conn.qgc_remote_port],
-          ["QGC source", conn.qgc_source],
-          ["gz-web enabled", conn.gazebo_web_enabled], ["gz-web port", conn.gazebo_web_port],
-          ["gz-web publication Hz", conn.gazebo_web_publication_hz],
-          ["flow_bridge enabled", conn.flow_bridge_enabled], ["estimator", conn.flow_bridge_estimator],
-          ["flow_bridge rate Hz", conn.flow_bridge_rate_hz], ["axis_map", conn.axis_map],
-          ["hfov_rad", conn.hfov_rad],
-          ["EKF2_OF_CTRL", conn.ekf2_of_ctrl], ["EKF2_OF_QMIN", conn.ekf2_of_qmin],
-          ["EKF2_OF_N_MIN", conn.ekf2_of_n_min], ["EKF2_OF_DELAY", conn.ekf2_of_delay],
-          ["aiding mode", conn.aiding_mode], ["EKF2_EV_CTRL", conn.ekf2_ev_ctrl],
-        ]);
+        return renderConnectionLinks(run.connections);
       },
     },
     {

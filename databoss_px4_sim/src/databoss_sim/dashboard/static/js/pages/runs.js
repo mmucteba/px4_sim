@@ -1,5 +1,6 @@
 import { el } from "../dom.js";
 import { getJSON } from "../api.js";
+import { mountActiveJobBanner } from "../components/active_job_banner.js";
 
 const COLUMNS = [
   { key: "run_id", label: "run_id" },
@@ -157,6 +158,9 @@ export async function renderList() {
     render();
   });
 
+  const bannerHost = el("div", {});
+  app.appendChild(bannerHost);
+  mountActiveJobBanner(bannerHost);
   app.appendChild(el("div", { class: "filters" }, [searchInput, algoSelect, gnssSelect, statusSelect]));
   app.appendChild(summary);
   app.appendChild(tableWrap);

@@ -108,6 +108,10 @@ tr:hover td { background: var(--color-bg-hover); }
 .status-legacy, .badge-caution { color: var(--color-caution); background: color-mix(in srgb, var(--color-caution) 15%, transparent); }
 .status-in_progress, .badge-info { color: var(--color-info); background: color-mix(in srgb, var(--color-info) 15%, transparent); }
 .status-incomplete, .badge-err { color: var(--color-err); background: color-mix(in srgb, var(--color-err) 15%, transparent); }
+.status-starting, .status-running { color: var(--color-info); background: color-mix(in srgb, var(--color-info) 15%, transparent); }
+.status-succeeded { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 15%, transparent); }
+.status-cancelling, .status-cancelled { color: var(--color-caution); background: color-mix(in srgb, var(--color-caution) 15%, transparent); }
+.status-failed, .status-crashed { color: var(--color-err); background: color-mix(in srgb, var(--color-err) 15%, transparent); }
 
 .filters { margin: var(--space-3) 0; display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .filters select, .filters input { margin-right: 0.5rem; }
@@ -158,7 +162,7 @@ form.gen button:focus-visible { outline: 2px solid var(--color-link); outline-of
 
 .run-command {
   background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-  padding: 0.7rem 0.9rem; margin-top: var(--space-2); word-break: break-all; font-family: var(--font-mono); font-size: 0.85rem;
+  padding: 0.7rem 0.9rem; margin-top: var(--space-2); word-break: break-all; white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.85rem;
 }
 .warn { color: var(--color-warn); }
 .err { color: var(--color-err); }
@@ -178,6 +182,24 @@ fieldset.gen legend { padding: 0 0.5rem; font-weight: 600; color: var(--color-te
   background: color-mix(in srgb, var(--color-err) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-err) 40%, transparent);
   color: var(--color-err); border-radius: var(--radius); padding: var(--space-3);
+}
+
+.banner {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-3); margin-bottom: var(--space-3);
+}
+.job-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.job-actions h1 { margin-right: var(--space-2); }
+.job-actions button, .banner button {
+  background: var(--color-bg-alt); color: var(--color-text); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: 0.35rem 0.7rem; cursor: pointer; font: inherit;
+}
+.job-actions button:hover:not(:disabled), .banner button:hover:not(:disabled) { border-color: var(--color-link); color: var(--color-link); }
+.job-actions button:disabled, .banner button:disabled { cursor: not-allowed; opacity: 0.6; }
+.log-tail {
+  max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-family: var(--font-mono);
 }
 
 /* Tabs */
