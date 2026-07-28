@@ -4641,3 +4641,174 @@ Results:
 After each run, the ULog and raw Gazebo-truth text were gzipped losslessly and
 verified with `gzip -t`. Free space after report generation and compression:
 about `426M` on `/opt`.
+
+## 2026-07-22/23 — Phase 16 wind mechanism built, `AUTO_TAKEOFF` stall found and worked around, two runner bugs fixed
+
+Physical wind support implemented (`docs/phases/phase_16_wind_roadmap.md`
+"Wind mechanism"): `build_gazebo_world.py` now emits a `WindEffects`
+gz-sim system + world-level `<wind>` block when `world.wind.enabled: true`;
+`x500_base/model.sdf`'s `base_link` got `<enable_wind>true</enable_wind>`,
+reaching every Phase 14/16 vehicle variant.
+
+Debug probes at 15 m bisecting a 2-7 m/s wind range found PX4's
+`AUTO_TAKEOFF` mode has an unresolved setpoint-generation stall: EKF and
+Gazebo truth both correctly track ~0 m height together, but
+`trajectory_setpoint.position[2]` stays pinned near 0 instead of ramping
+to the commanded altitude, for 90-220+ s, before suddenly resolving.
+7 m/s triggers this reliably; extensive PX4 source investigation (ruled
+out `COM_WIND_MAX`, emergency-braking latch, EKF wind-state flag,
+mission-item reached-check) did not find the exact mechanism. Stall
+probability rises with wind speed but is not a deterministic cutoff --
+6 m/s looked clean on one debug probe but then failed 3 of 4 real batch
+attempts. A delayed-wind workaround (apply wind only after takeoff, via
+Gazebo `ApplyLinkWrench`, `scripts/sim/apply_delayed_wind_force.py`) was
+built and validated but rejected per project decision in favor of simply
+choosing wind speeds that don't trigger the stall. **Final wind speeds
+for the Phase 16 roadmap: 2 m/s and 5 m/s** (replacing the original 2/7,
+then 2/6, plan).
+
+Two runner bugs found and fixed in
+`scripts/runner/auto_takeoff_land_pxh_truth.py` (shared across all
+phases) during this investigation:
+
+1. Takeoff-detection blind spot -- `wait_for_airborne_duration()` only
+   gated on the land-detector flag, so a vehicle stuck in the
+   `AUTO_TAKEOFF` stall (never actually left the ground) could still be
+   counted "airborne." Fixed with a `min_altitude_m` gate (0.5 m) plus an
+   `OFFBOARD`-mode confirmation retry loop (3 attempts) that aborts
+   loudly instead of silently streaming setpoints into a mode PX4 never
+   entered.
+2. GCS-connection-loss failsafe (`NAV_DLL_ACT`/`COM_DL_LOSS_T`) triggering
+   an unwanted mid-flight `AUTO_RTL` unrelated to the GNSS-loss
+   experiment. Fixed by adding `NAV_DLL_ACT: 0` to every Phase 16
+   scenario's `extra_px4_params`.
+
+Known residual limitation: the abort paths for both fixes above raise
+`RuntimeError` without a `try`/`finally`, so an aborted run can leave
+orphaned PX4/Gazebo processes that block the next case's ports (observed
+once in a batch run, worked around operationally rather than fixed at
+the source).
+
+New tool: `scripts/analysis/plot_route_single_run.py` -- per-run
+truth-vs-EKF route plot + automated anomaly checker, run after every
+single flight going forward (ground strikes, truth teleports, GNSS-on
+course deviation, unexplained `nav_state` departures from `OFFBOARD`;
+GNSS-loss drift and failsafe-driven mode changes are reported as
+`info:`, not flagged `unusual`).
+
+## 2026-07-23 — Phase 16a (15 m altitude wind batch) accepted with limitations
+
+`experiments/configs/mvp/batches/phase16a_wind_15m.yaml`, 6 cases (LK
+GNSS-on reference / SIFT GNSS-loss aided / unaided GNSS-loss baseline x
+2 m/s and 5 m/s crosswind), run via `run_batch_matrix_pxh.py
+--continue-on-fail`. Full writeup: `docs/phases/phase_16a_wind_15m.md`.
+Comparison report: `experiments/comparisons/20260723_phase16a_wind_15m/report.md`.
+
+6/6 flew cleanly (`ULog flight OK: True`, no `AUTO_TAKEOFF` stall).
+Runner-level gate: `accepted_count=1, failed_count=5` -- the 5 are a
+pre-existing, non-blocking rangefinder-tolerance gate and flow-sign
+sentinel, not flight failures; `postprocess`/`align` were run manually
+for the 4 cases the runner short-circuited before those steps.
+
+Horizontal drift (H mean / max), 2 m/s -> 5 m/s: LK (GNSS-on) 0.08/0.20 m
+-> 0.13/0.70 m; SIFT (GNSS-loss, aided) 1.69/5.34 m -> 8.97/24.41 m;
+unaided (GNSS-loss) 21.10/138.62 m -> 20.18/80.42 m. Clean expected
+ordering -- GNSS-on stays near zero, SIFT aiding bounds drift with
+wind-dependent growth, unaided dead-reckons badly (route overlay shows it
+looping while its own EKF position estimate freezes near origin).
+
+## 2026-07-24 — Phase 16b (35 m altitude wind batch) accepted with limitations; climb-phase EKF height transient found, anomaly checker enhanced
+
+`experiments/configs/mvp/batches/phase16b_wind_35m.yaml`, same 6-case
+matrix at 35 m. First launch omitted `--continue-on-fail` and stopped
+after case 1 hit the same non-blocking flow-sign-sentinel gate Phase 16a's
+clean cases also hit; relaunched correctly. Full writeup:
+`docs/phases/phase_16b_wind_35m.md`. Comparison report:
+`experiments/comparisons/20260724_phase16b_wind_35m/report.md`.
+
+6/6 flew cleanly, same two non-blocking gates as 16a
+(`accepted_count=1, failed_count=5`). Horizontal drift followed the same
+ordering as 16a (GNSS-on tightest, SIFT middle, unaided worst).
+
+New finding: the LK GNSS-on 2 m/s case showed `height_abs_error` peaking
+at 23.2 m around t=25s during the climb to 35 m -- investigated directly
+from the raw ULog (ruled out the rangefinder, which tracked the climb
+continuously and correctly). `vehicle_local_position.z` (PX4's own EKF
+height estimate) climbs far slower than Gazebo truth during ascent, then
+rapidly "catches up" once cruise altitude is reached. Same shape appears
+smaller in the SIFT 2 m/s (~1.3 m) and LK 5 m/s (~2.9 m) cases -- a
+general, usually-small, wind-correlated climb transient (absent in the
+accepted wind-off Phase 14b 35m reference, max 0.98 m there), not unique
+to one run; all instances self-correct by cruise altitude. Root cause not
+characterized beyond "EKF lags truth during a fast climb, then
+reconverges" -- distinct from the `AUTO_TAKEOFF` stall (there, EKF and
+truth track together at ~0; here they diverge from each other then
+reconverge).
+
+Added a climb-phase height-transient detector to
+`plot_route_single_run.py`'s `check_anomalies()` (flags
+`abs_height_error_m` peaks >5 m, classifies as `info:`/self-correcting or
+a real finding based on whether the last-15s residual settles). Applied
+retroactively to all 12 Phase 16a/16b runs: correctly explains the LK
+35m/2m/s transient, and correctly flags the 3 unaided GNSS-loss cases
+(16a-5m/s-15m, 16b-2m/s-35m, 16b-5m/s-35m) as persistent height
+divergence -- all 3 already carried an explained `nav_state` departure to
+`AUTO_RTL`/`AUTO_LAND`, so this is the same known failsafe-driven
+divergence surfaced more precisely, not a new problem.
+
+Next: Phase 16c (60 m altitude, `flat_rural_phototex_600m_noon` world),
+same 2/5 m/s matrix.
+
+## 2026-07-24 — Phase 16c (60 m altitude wind batch) accepted with limitations; Phase 16 wind roadmap complete
+
+`experiments/configs/mvp/batches/phase16c_wind_60m.yaml`, same 6-case
+matrix at 60 m on the larger `flat_rural_phototex_600m_noon` world. Full
+writeup: `docs/phases/phase_16c_wind_60m.md`. Comparison report:
+`experiments/comparisons/20260724_phase16c_wind_60m/report.md`.
+
+6/6 flew cleanly (`ULog flight OK: True`, no stall, reached 60 m).
+Runner-level gate: `accepted_count=0, failed_count=6` -- all 6 hit the
+same pre-existing rangefinder-tolerance gate, expected to bite harder at
+60 m than at 15/35 m; `postprocess`/`align` run manually for all 6.
+
+Horizontal drift (H mean / max), 2 m/s -> 5 m/s: LK (GNSS-on) 0.12/0.48 m
+-> 0.18/1.07 m; SIFT (GNSS-loss, aided) 3.79/18.12 m -> 7.92/32.45 m;
+unaided (GNSS-loss) 14.36/124.60 m -> 11.06/87.63 m. Same ordering as
+16a/16b. Both SIFT GNSS-loss cases flagged `unusual=True` by the
+height-transient detector (peaks 30.0 m and 20.2 m, not settling) --
+both co-occur with an already-explained offboard-signal-loss failsafe
+transition to `AUTO_LAND`/`DESCEND`, i.e. the vehicle is legitimately
+descending when the comparison window ends, not a new fault.
+
+**Phase 16 wind roadmap complete** (18 runs across 3 altitudes x 2 wind
+speeds): consistent result at every altitude -- GNSS-on reference stays
+tight (H mean <1 m), SIFT-aided GNSS-loss bounds drift with wind-dependent
+growth (~2-5x from 2 to 5 m/s), unaided GNSS-loss dead-reckons badly
+(H max 78-139 m across all 6 unaided runs). The Phase 14 LK/SIFT stack
+continues to hold under a steady crosswind. Two new mechanisms
+characterized along the way (`AUTO_TAKEOFF` wind-speed stall, worked
+around via speed selection; climb-phase/persistent EKF height-estimation
+transient, self-corrects during climbs but not when it coincides with a
+post-failsafe descent) -- see `docs/phases/phase_16_wind_roadmap.md`
+"Roadmap conclusion" for the full summary. Neither changes the
+horizontal-drift conclusion above.
+
+## 2026-07-24 — Altitude-sweep cross-cut comparison (all 18 Phase 16 runs)
+
+New comparison, cutting the Phase 16a/16b/16c data the other way: instead
+of comparing algorithms within one altitude, holds algorithm+wind-speed
+fixed and compares the same case across all three altitudes (15/35/60m)
+on one graph. New script `scripts/analysis/plot_altitude_sweep_comparison.py`
++ manifest `experiments/comparisons/20260724_phase16_altitude_sweep/`
+(6 case-types x 3 altitudes = all 18 runs; per-case single graphs, a 2x3
+grid overview, and grouped summary bars). Altitude rendered as a
+single-hue sequential ramp (light=15m, dark=60m), not arbitrary
+categorical colors, since it's an ordered quantity.
+
+SIFT (aided GNSS-loss) max horizontal error grows with altitude at 2 m/s
+(5.3 -> 6.9 -> 18.1 m) but not monotonically at 5 m/s (24.4 -> 21.0 ->
+32.5 m); unaided GNSS-loss drift shows no clean altitude trend at all
+(dominated by which direction the dead-reckoning happens to walk, not by
+altitude). LK (GNSS-on) stays under ~1m mean at every altitude/speed
+combination, confirming altitude alone (independent of wind) isn't what
+drives the SIFT/unaided drift growth seen in the per-altitude batches.
