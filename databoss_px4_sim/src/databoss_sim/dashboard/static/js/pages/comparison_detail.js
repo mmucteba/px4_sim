@@ -37,6 +37,7 @@ export async function renderComparison(comparisonId) {
         const wrap = el("div", {});
         if (html) {
           const reportDiv = el("div", { class: "report-html" });
+          // Safe because report_rendering.py applies _sanitize_html before returning report HTML.
           reportDiv.innerHTML = html;
           wrap.appendChild(reportDiv);
         } else {

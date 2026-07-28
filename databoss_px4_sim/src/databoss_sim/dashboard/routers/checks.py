@@ -8,9 +8,10 @@ from __future__ import annotations
 import sys
 import threading
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
-from databoss_sim.dashboard.config import PROJECT_ROOT
+from databoss_sim.dashboard.config import JOB_LOCK_PATH, PROJECT_ROOT
+from databoss_sim.dashboard.deps import require_write_token
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -38,4 +39,14 @@ def get_model_sync_check() -> dict:
     with _lock:
         if _cached_result is not None:
             return _cached_result
+    return refresh_model_sync_cache()
+
+
+@router.post("/api/checks/model_sync/refresh", dependencies=[Depends(require_write_token)])
+def refresh_model_sync_check() -> dict:
+    if JOB_LOCK_PATH.exists():
+        raise HTTPException(status_code=409, detail="refusing model-sync refresh while a dashboard job lock is held")
+    # The check reads model SDFs and PX4 airframe files, which change on an
+    # operator event, not a clock; shortening the cache TTL would just re-shell
+    # on a timer on a memory-tight host.
     return refresh_model_sync_cache()

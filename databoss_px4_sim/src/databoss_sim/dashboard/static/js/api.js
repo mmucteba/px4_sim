@@ -20,8 +20,11 @@ export async function postJSON(url, body) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const err = new Error(data.detail || `${url}: ${r.status}`);
+    const detail = data.detail;
+    const message = typeof detail === "string" ? detail : detail ? JSON.stringify(detail) : `${url}: ${r.status}`;
+    const err = new Error(message);
     err.status = r.status;
+    err.detail = detail;
     throw err;
   }
   return data;
