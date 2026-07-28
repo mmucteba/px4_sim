@@ -97,7 +97,13 @@ async def redirect_terrain_generator_ui() -> RedirectResponse:
     return RedirectResponse(url="/terrain-generator/")
 
 
-@router.api_route("/terrain-generator/{path:path}", methods=["GET", "POST"])
+# GET only, deliberately. This catch-all exists to serve the upstream app's
+# static page and relative assets; per the module docstring above, every POST
+# main.js makes goes to an absolute root path in PROXIED_API_PATHS instead, so
+# allowing POST here buys nothing. It did cost something: it turned the
+# dashboard into an unauthenticated arbitrary-POST relay into a loopback-only
+# service that was unreachable from the tailnet before this proxy existed.
+@router.api_route("/terrain-generator/{path:path}", methods=["GET"])
 async def proxy_terrain_generator_ui(request: Request, path: str = "") -> Response:
     upstream_path = f"/{path}" if path else "/"
     return await _proxy(request, upstream_path)

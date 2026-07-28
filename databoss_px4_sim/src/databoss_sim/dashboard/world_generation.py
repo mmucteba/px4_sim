@@ -160,6 +160,13 @@ def apply_wind(source_world_name: str, new_name: str, mean_mps: float, direction
         raise FileExistsError(f"world already exists: {new_name}")
 
     new_text = apply_wind_to_world_file(source_path, mean_mps, direction_vector_enu)
+    # Rename the top-level <world name="..."> to new_name. Without this the wind
+    # variant keeps the SOURCE world's name, so the running sim registers its
+    # topics/services under the old name (e.g. /world/refika/...) while the
+    # generated scenario's world.name - and the runner's scene/info readiness
+    # probe - use new_name (refika_wind2ms). The probe never matches and every
+    # wind run aborts with a "standalone gazebo world readiness timeout".
+    new_text = re.sub(r'<world name="[^"]*"', f'<world name="{new_name}"', new_text, count=1)
     out_path.write_text(new_text)
 
     if not is_terrain:

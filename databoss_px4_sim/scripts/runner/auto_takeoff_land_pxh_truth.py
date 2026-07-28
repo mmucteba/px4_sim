@@ -1440,6 +1440,14 @@ def main() -> int:
     parser.add_argument("scenario", help="Path to scenario YAML")
     parser.add_argument("--hover-s", type=float, default=25.0)
     parser.add_argument("--startup-timeout-s", type=float, default=150.0)
+    parser.add_argument(
+        "--world-ready-timeout-s", type=float, default=120.0,
+        help="Max seconds to wait for a standalone Gazebo terrain world's scene/info "
+             "service before proceeding. Raised from the old hard-coded 45s: large "
+             "heightfield terrains (e.g. odtu 589x488m) load correctly but can exceed "
+             "45s to become ready under host CPU/memory contention, which previously "
+             "caused a false 'world not ready' failure. Still bounded by "
+             "--startup-timeout-s.")
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
     parser.add_argument("--qgc-ip", default="100.109.200.5", help="QGroundControl Tailscale/IP target")
     parser.add_argument("--qgc-local-port", type=int, default=14555)
@@ -2101,7 +2109,7 @@ def main() -> int:
                 world_name,
                 standalone_gazebo_proc,
                 env,
-                timeout_s=min(45.0, args.startup_timeout_s),
+                timeout_s=min(args.world_ready_timeout_s, args.startup_timeout_s),
                 notes=notes,
             )
 
