@@ -2107,10 +2107,7 @@ def main() -> int:
     # gpu_lidar needs the render engine just like the camera.
     sensor_rendering_enabled = camera_proof_enabled or rangefinder_proof_enabled
     sensor_render_engine = camera_render_engine or rangefinder_render_engine
-    sensor_xvfb_enabled = (
-        (camera_proof_enabled and camera_xvfb_enabled)
-        or (rangefinder_proof_enabled and rangefinder_xvfb_enabled)
-    )
+    sensor_xvfb_enabled = camera_xvfb_enabled or rangefinder_xvfb_enabled
 
     visualization_cfg = data.get("visualization", {})
     if not isinstance(visualization_cfg, dict):
