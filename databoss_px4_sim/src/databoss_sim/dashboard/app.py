@@ -84,6 +84,22 @@ def create_app() -> FastAPI:
     def serve_comparison_page(comparison_id: str) -> FileResponse:
         return FileResponse(INDEX_HTML)
 
+    @app.get("/comparisons", include_in_schema=False)
+    def serve_comparisons_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/scenarios", include_in_schema=False)
+    def serve_scenarios_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/scenarios/{name}", include_in_schema=False)
+    def serve_scenario_page(name: str) -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/health", include_in_schema=False)
+    def serve_health_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
     @app.get("/create", include_in_schema=False)
     def serve_create_page() -> FileResponse:
         return FileResponse(INDEX_HTML)
