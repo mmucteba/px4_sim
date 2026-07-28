@@ -1,0 +1,60 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "comparison_id": {
+      "title": "Comparison Id",
+      "type": "string"
+    },
+    "comparison_dir": {
+      "title": "Comparison Dir",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "case_count": {
+      "title": "Case Count",
+      "type": "integer"
+    },
+    "run_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Run Ids",
+      "type": "array"
+    },
+    "has_report_md": {
+      "title": "Has Report Md",
+      "type": "boolean"
+    },
+    "has_summary_csv": {
+      "title": "Has Summary Csv",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "comparison_id",
+    "comparison_dir",
+    "name",
+    "title",
+    "case_count",
+    "run_ids",
+    "has_report_md",
+    "has_summary_csv",
+    "warnings"
+  ],
+  "title": "ComparisonIndexEntry",
+  "type": "object"
+}

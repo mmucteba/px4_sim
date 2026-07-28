@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "TruthSummary": {
+      "additionalProperties": true,
+      "properties": {
+        "truth_csv": {
+          "title": "Truth Csv",
+          "type": "string"
+        },
+        "truth_rows": {
+          "title": "Truth Rows",
+          "type": "integer"
+        },
+        "truth_duration_s": {
+          "title": "Truth Duration S",
+          "type": "number"
+        },
+        "truth_first_time_s": {
+          "title": "Truth First Time S",
+          "type": "number"
+        },
+        "truth_last_time_s": {
+          "title": "Truth Last Time S",
+          "type": "number"
+        },
+        "truth_model_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Truth Model Name"
+        }
+      },
+      "required": [
+        "truth_csv",
+        "truth_rows",
+        "truth_duration_s",
+        "truth_first_time_s",
+        "truth_last_time_s"
+      ],
+      "title": "TruthSummary",
+      "type": "object"
+    },
+    "UlogSummary": {
+      "additionalProperties": true,
+      "properties": {
+        "ulog_exists": {
+          "title": "Ulog Exists",
+          "type": "boolean"
+        },
+        "extract_ok": {
+          "title": "Extract Ok",
+          "type": "boolean"
+        },
+        "extract_method": {
+          "title": "Extract Method",
+          "type": "string"
+        },
+        "csv_count": {
+          "title": "Csv Count",
+          "type": "integer"
+        },
+        "csv_files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Csv Files",
+          "type": "array"
+        },
+        "available_dataset_count": {
+          "title": "Available Dataset Count",
+          "type": "integer"
+        },
+        "available_datasets_sample": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Available Datasets Sample",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ulog_exists",
+        "extract_ok",
+        "extract_method",
+        "csv_count",
+        "csv_files",
+        "available_dataset_count",
+        "available_datasets_sample"
+      ],
+      "title": "UlogSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "created_utc": {
+      "title": "Created Utc",
+      "type": "string"
+    },
+    "run_dir": {
+      "title": "Run Dir",
+      "type": "string"
+    },
+    "accepted": {
+      "title": "Accepted",
+      "type": "boolean"
+    },
+    "truth": {
+      "$ref": "#/$defs/TruthSummary"
+    },
+    "ulog": {
+      "$ref": "#/$defs/UlogSummary"
+    }
+  },
+  "required": [
+    "created_utc",
+    "run_dir",
+    "accepted",
+    "truth",
+    "ulog"
+  ],
+  "title": "PostprocessSummary",
+  "type": "object"
+}

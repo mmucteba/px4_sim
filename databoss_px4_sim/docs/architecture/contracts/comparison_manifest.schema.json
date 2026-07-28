@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "ComparisonCase": {
+      "additionalProperties": true,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "short": {
+          "title": "Short",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "gnss_state": {
+          "title": "Gnss State",
+          "type": "string"
+        },
+        "world_variant": {
+          "title": "World Variant",
+          "type": "string"
+        },
+        "run_dir": {
+          "title": "Run Dir",
+          "type": "string"
+        },
+        "replicate_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replicate Of"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "short",
+        "kind",
+        "gnss_state",
+        "world_variant",
+        "run_dir"
+      ],
+      "title": "ComparisonCase",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/ComparisonCase"
+      },
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "title",
+    "cases"
+  ],
+  "title": "ComparisonManifestModel",
+  "type": "object"
+}

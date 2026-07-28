@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -247,6 +248,62 @@ def ground_model(world: dict) -> str:
 """
 
 
+def launch_pad_model(world: dict) -> str:
+    """Default takeoff/landing pad (Phase 17C, user-requested 2026-07-24):
+    build_gazebo_world.py had zero concept of a physical pad before this -
+    the drone spawned at a bare coordinate on the flat ground plane. Named
+    `databoss_launch_pad` to match the naming convention already referenced
+    (but never defined on disk) by scripts/worlds/add_serefli_flow_texture_overlay.py
+    for a different, special-case terrain world - no existing SDF markup
+    was found to copy visually, so this is a new, simple static platform
+    matching this file's own box-model conventions.
+
+    world.pad: {enabled: true, pose_m: [x, y], size_m: [w, d]} - all
+    optional, defaults to a 1.2x1.2 m pad at the world origin (matches the
+    (0,0) start_pose used by essentially every real scenario today).
+    Emitted by default; set world.pad.enabled: false to omit.
+    """
+    pad = world.get("pad")
+    pad = pad if isinstance(pad, dict) else {}
+    if not pad.get("enabled", True):
+        return ""
+
+    pose_xy = pad.get("pose_m", [0.0, 0.0])
+    if not isinstance(pose_xy, list) or len(pose_xy) != 2:
+        raise ValueError("world.pad.pose_m must have two values: x y")
+    size_xy = pad.get("size_m", [1.2, 1.2])
+    if not isinstance(size_xy, list) or len(size_xy) != 2:
+        raise ValueError("world.pad.size_m must have two values: width depth")
+
+    x, y = float(pose_xy[0]), float(pose_xy[1])
+    w, d = float(size_xy[0]), float(size_xy[1])
+    thickness = 0.02
+    # Sits just above the ground-tile visuals (which top out around z=0.004,
+    # see ground_model()) so it never z-fights with them.
+    center_z = 0.006 + thickness / 2
+    color = pad.get("color", [0.85, 0.78, 0.15, 1.0])  # pad-yellow, distinct from ground
+
+    return f"""
+    <model name="databoss_launch_pad">
+      <static>true</static>
+      <pose>{x:.6g} {y:.6g} {center_z:.6g} 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>{w:.6g} {d:.6g} {thickness:.6g}</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>{w:.6g} {d:.6g} {thickness:.6g}</size></box>
+          </geometry>
+{material("databoss_launch_pad", color)}
+        </visual>
+      </link>
+    </model>
+"""
+
+
 def object_models(world: dict) -> str:
     chunks: list[str] = []
     for item in world.get("objects", []):
@@ -357,6 +414,7 @@ def build_sdf(config_path: Path) -> tuple[str, dict]:
 {sun_light(world)}
 {wind_block(wind)}
 {ground_model(world)}
+{launch_pad_model(world)}
 {object_models(world)}
   </world>
 </sdf>
@@ -378,6 +436,52 @@ def write_manifest(out_path: Path, config_path: Path, world: dict):
         "wind_direction_vector_enu": wind.get("direction_vector_enu"),
     }
     out_path.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def apply_wind_to_world_file(source_path: Path, mean_mps: float, direction_vector_enu: list[float]) -> str:
+    """Inject a <wind> block into an EXISTING world SDF/.world file's text,
+    regardless of which pipeline generated it (Phase 17C, user-requested
+    2026-07-24: "is it feasible to separate [terrain choice] and wind" -
+    yes, because <wind> is just a sibling element of <world>'s ground
+    content, not something build_gazebo_world.py's flat-ground generator
+    owns). Returns the new SDF text; never modifies source_path itself -
+    callers write it to a new file.
+
+    Only ever inject the bare <wind> data tag - never a per-world
+    <plugin> block for WindEffects. PX4's own server.config
+    (src/modules/simulation/gz_bridge/server.config) already globally
+    loads gz-sim-wind-effects-system for every world
+    (entity_name="*" entity_type="world"), and GZ_SIM_SERVER_CONFIG_PATH
+    is set in the shared subprocess env for standalone Gazebo launches
+    too (auto_takeoff_land_pxh_truth.py) - so terrain worlds get it just
+    as much as flat-ground ones, even though terrain worlds otherwise
+    embed their own full self-contained <plugin> list. Embedding a
+    second, per-world WindEffects <plugin> on top of that duplicates the
+    system and deadlocks Gazebo startup - confirmed for the flat-ground
+    case in Phase 16 (2026-07-22), and confirmed again for a terrain
+    world (2026-07-26): the identical terrain loads in ~9s with only the
+    <wind> tag added, but hangs indefinitely (no progress for 240+s, no
+    crash, no error) with a duplicate <plugin> block also present. Fixed
+    by never adding that block, for either world architecture.
+    """
+    text = source_path.read_text()
+    if "<wind>" in text:
+        raise ValueError(f"{source_path} already has a <wind> block - refusing to double-inject")
+
+    wind = wind_config({"wind": {
+        "enabled": True, "mean_mps": mean_mps, "direction_vector_enu": direction_vector_enu,
+    }})
+    insertion = wind_block(wind)
+
+    # Insert right before the closing </world> tag - valid regardless of
+    # the file's internal structure/ordering, never touches existing content.
+    match = re.search(r"</world>", text)
+    if not match:
+        raise ValueError(f"{source_path}: no </world> closing tag found - not a valid world SDF")
+    new_text = text[: match.start()] + insertion + text[match.start() :]
+
+    ET.fromstring(new_text)  # validate before returning
+    return new_text
 
 
 def main() -> int:

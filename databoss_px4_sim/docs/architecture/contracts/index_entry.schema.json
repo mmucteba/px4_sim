@@ -1,0 +1,413 @@
+{
+  "$defs": {
+    "RunConnections": {
+      "additionalProperties": true,
+      "properties": {
+        "qgc_enabled": {
+          "title": "Qgc Enabled",
+          "type": "boolean"
+        },
+        "qgc_ip": {
+          "title": "Qgc Ip",
+          "type": "string"
+        },
+        "qgc_local_port": {
+          "title": "Qgc Local Port",
+          "type": "integer"
+        },
+        "qgc_remote_port": {
+          "title": "Qgc Remote Port",
+          "type": "integer"
+        },
+        "qgc_source": {
+          "title": "Qgc Source",
+          "type": "string"
+        },
+        "gazebo_web_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gazebo Web Enabled"
+        },
+        "gazebo_web_port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gazebo Web Port"
+        },
+        "gazebo_web_publication_hz": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gazebo Web Publication Hz"
+        },
+        "gazebo_web_host": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gazebo Web Host"
+        },
+        "flow_bridge_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Bridge Enabled"
+        },
+        "flow_bridge_estimator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Bridge Estimator"
+        },
+        "flow_bridge_rate_hz": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Bridge Rate Hz"
+        },
+        "axis_map": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Map"
+        },
+        "hfov_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hfov Rad"
+        },
+        "ekf2_of_ctrl": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Of Ctrl"
+        },
+        "ekf2_of_qmin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Of Qmin"
+        },
+        "ekf2_of_n_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Of N Min"
+        },
+        "ekf2_of_delay": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Of Delay"
+        },
+        "aiding_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aiding Mode"
+        },
+        "aiding_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aiding Enabled"
+        },
+        "ekf2_ev_ctrl": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Ev Ctrl"
+        },
+        "ekf2_ev_delay_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ekf2 Ev Delay Ms"
+        },
+        "aiding_rate_hz": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aiding Rate Hz"
+        }
+      },
+      "required": [
+        "qgc_enabled",
+        "qgc_ip",
+        "qgc_local_port",
+        "qgc_remote_port",
+        "qgc_source"
+      ],
+      "title": "RunConnections",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "run_dir": {
+      "title": "Run Dir",
+      "type": "string"
+    },
+    "phase": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Phase"
+    },
+    "scenario_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Name"
+    },
+    "algorithm": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Algorithm"
+    },
+    "gnss_state": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gnss State"
+    },
+    "world_variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "World Variant"
+    },
+    "tag_source": {
+      "title": "Tag Source",
+      "type": "string"
+    },
+    "contract_status": {
+      "title": "Contract Status",
+      "type": "string"
+    },
+    "accepted": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accepted"
+    },
+    "created_utc": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Utc"
+    },
+    "last_modified_utc": {
+      "title": "Last Modified Utc",
+      "type": "string"
+    },
+    "key_metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Key Metrics",
+      "type": "object"
+    },
+    "artifacts": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Artifacts",
+      "type": "object"
+    },
+    "connections": {
+      "$ref": "#/$defs/RunConnections"
+    },
+    "comparisons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Comparisons",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "run_dir",
+    "tag_source",
+    "contract_status",
+    "last_modified_utc",
+    "key_metrics",
+    "artifacts",
+    "connections",
+    "comparisons",
+    "warnings"
+  ],
+  "title": "IndexEntry",
+  "type": "object"
+}

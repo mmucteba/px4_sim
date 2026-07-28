@@ -24,14 +24,21 @@ RUNS_DIR = PROJECT_ROOT / "experiments" / "runs"
 
 
 def run_cmd(cmd: list[str], cwd: Path) -> tuple[int, str]:
-    result = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         cwd=str(cwd),
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        bufsize=1,
     )
-    return result.returncode, result.stdout
+    chunks: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        chunks.append(line)
+    return proc.wait(), "".join(chunks)
 
 
 def latest_truth_run_after(start_ts: float) -> Path | None:
@@ -54,6 +61,7 @@ def main() -> int:
     parser.add_argument("scenario", help="Scenario YAML path")
     parser.add_argument("--hover-s", type=float, default=25.0)
     parser.add_argument("--startup-timeout-s", type=float, default=150.0)
+    parser.add_argument("--world-ready-timeout-s", type=float, default=120.0)
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
     parser.add_argument("--qgc-ip", default="100.109.200.5")
     parser.add_argument("--qgc-local-port", type=int, default=14555)
@@ -68,6 +76,7 @@ def main() -> int:
     parser.add_argument("--global-position-timeout-s", type=float, default=90.0)
     parser.add_argument("--global-position-stable-s", type=float, default=5.0)
     parser.add_argument("--no-global-position-gate", action="store_true")
+    parser.add_argument("--allow-experimental-ev-velocity", action="store_true")
     args = parser.parse_args()
 
     scenario = Path(args.scenario).resolve()
@@ -121,6 +130,8 @@ def main() -> int:
         str(args.hover_s),
         "--startup-timeout-s",
         str(args.startup_timeout_s),
+        "--world-ready-timeout-s",
+        str(args.world_ready_timeout_s),
         "--land-timeout-s",
         str(args.land_timeout_s),
         "--gnss-start-used",
@@ -135,6 +146,9 @@ def main() -> int:
 
     if args.no_global_position_gate:
         flight_cmd.append("--no-global-position-gate")
+
+    if args.allow_experimental_ev_velocity:
+        flight_cmd.append("--allow-experimental-ev-velocity")
 
     if args.no_qgc:
         flight_cmd.append("--no-qgc")
@@ -164,7 +178,6 @@ def main() -> int:
 
     print("== Step 1: automated PX4/Gazebo flight with truth ==")
     rc, out = run_cmd(flight_cmd, PROJECT_ROOT)
-    print(out)
     step_results.append({"step": "flight_with_truth", "returncode": rc, "output_tail": out[-4000:]})
     if rc != 0:
         print("ERROR: flight step failed", file=sys.stderr)
@@ -185,7 +198,6 @@ def main() -> int:
         str(run_dir),
     ]
     rc, out = run_cmd(post_cmd, PROJECT_ROOT)
-    print(out)
     step_results.append({"step": "postprocess", "returncode": rc, "output_tail": out[-4000:]})
     if rc != 0:
         print("ERROR: postprocess step failed", file=sys.stderr)
@@ -201,7 +213,6 @@ def main() -> int:
         "full" if skip_landing_command else "until-land-command",
     ]
     rc, out = run_cmd(align_cmd, PROJECT_ROOT)
-    print(out)
     step_results.append({"step": "align", "returncode": rc, "output_tail": out[-4000:]})
     if rc != 0:
         print("ERROR: align step failed", file=sys.stderr)
@@ -219,7 +230,6 @@ def main() -> int:
             str(run_dir / "flow_velocity_sign.json"),
         ]
         rc, out = run_cmd(sign_cmd, PROJECT_ROOT)
-        print(out)
         step_results.append({"step": "flow_velocity_sign", "returncode": rc, "output_tail": out[-4000:]})
         if rc != 0 and flow_velocity_sign_required:
             print("ERROR: flow velocity sign sentinel failed", file=sys.stderr)
@@ -236,7 +246,6 @@ def main() -> int:
             sensor_contract_gate,
         ]
         rc, out = run_cmd(report_cmd, PROJECT_ROOT)
-        print(out)
         step_results.append({"step": "sensor_contract_report", "returncode": rc, "output_tail": out[-4000:]})
         if rc != 0 and sensor_contract_gate_required:
             print("ERROR: sensor contract gate failed", file=sys.stderr)

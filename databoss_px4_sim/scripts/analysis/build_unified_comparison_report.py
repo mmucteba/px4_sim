@@ -16,7 +16,6 @@ import argparse
 import csv
 import json
 import math
-import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +25,7 @@ import numpy as np
 import yaml
 
 from comparison_manifest import Case, Manifest, load_manifest, open_ulog
+from sdf_inspect import extract_sensor_block, sdf_tag_block, sdf_value
 
 ROOT = Path("/opt/databoss_px4_sim")
 
@@ -458,23 +458,6 @@ def markdown_table(headers: list[str], rows: list[list[Any]]) -> str:
 def case_link(path: str) -> str:
     p = Path(path)
     return f"[{p.name}]({p})"
-
-
-def extract_sensor_block(text: str, sensor_type: str) -> str | None:
-    """First <sensor ... type='sensor_type'> ... </sensor> block, whole text."""
-    pattern = re.compile(r"<sensor\s[^>]*type=['\"]" + re.escape(sensor_type) + r"['\"][^>]*>.*?</sensor>", re.DOTALL)
-    m = pattern.search(text)
-    return m.group(0) if m else None
-
-
-def sdf_tag_block(text: str, tag: str) -> str:
-    m = re.search(rf"<{tag}[ >].*?</{tag}>", text, re.DOTALL)
-    return m.group(0) if m else ""
-
-
-def sdf_value(text: str, tag: str) -> str | None:
-    m = re.search(rf"<{tag}>([^<]*)</{tag}>", text)
-    return m.group(1).strip() if m else None
 
 
 def read_raw_sensor_block(path: Path, sensor_type: str) -> str:

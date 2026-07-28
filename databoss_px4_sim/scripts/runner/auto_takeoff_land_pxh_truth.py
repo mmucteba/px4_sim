@@ -10,10 +10,12 @@ import os
 import platform
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from create_run_from_scenario import (
@@ -927,6 +929,44 @@ def resolve_world_sdf(world_cfg: dict) -> Path | None:
     return candidate.resolve() if candidate.exists() else None
 
 
+def read_heightmap_relief(world_sdf: Path | None) -> tuple[float | None, bool]:
+    """Return (vertical_relief_m, is_heightfield) for a world SDF.
+
+    The first //collision/geometry/heightmap/size element stores x/y/vertical
+    size; the third component is the total heightmap relief in metres.
+    """
+    if world_sdf is None or not world_sdf.exists():
+        return None, False
+
+    def local_name(element: ET.Element) -> str:
+        return element.tag.rsplit("}", 1)[-1]
+
+    def first_child(element: ET.Element, name: str) -> ET.Element | None:
+        for child in element:
+            if local_name(child) == name:
+                return child
+        return None
+
+    try:
+        root = ET.parse(world_sdf).getroot()
+        for collision in root.iter():
+            if local_name(collision) != "collision":
+                continue
+            geometry = first_child(collision, "geometry")
+            heightmap = first_child(geometry, "heightmap") if geometry is not None else None
+            size = first_child(heightmap, "size") if heightmap is not None else None
+            if size is None or size.text is None:
+                continue
+            parts = size.text.split()
+            if len(parts) < 3:
+                return None, False
+            return float(parts[2]), True
+    except Exception:
+        return None, False
+
+    return None, False
+
+
 def add_gazebo_standalone_env(env: dict, world_name: str, world_sdf: Path) -> dict:
     resource_paths = [
         str(PX4_GZ_MODELS),
@@ -1040,6 +1080,42 @@ def tcp_port_open(host: str, port: int, timeout_s: float = 0.2) -> bool:
             return True
     except OSError:
         return False
+
+
+class RunnerInterrupted(Exception):
+    """Raised in-band on SIGTERM/SIGINT so child teardown and evidence writing still run."""
+
+
+def install_interrupt_handlers() -> None:
+    """Install SIGTERM/SIGINT handlers that raise for normal cleanup.
+
+    Children are spawned in their own process groups, so a signal sent only to
+    this process never reaches them. Raising lets the normal try/finally unwind
+    tear those children down and still write status.json. Raising from this
+    handler is safe here because every wait in this runner is time.sleep(),
+    proc.wait(), or a file read, all of which are interruptible.
+    """
+
+    def _raise_interrupt(signum, _frame):
+        raise RunnerInterrupted(signal.Signals(signum).name)
+
+    signal.signal(signal.SIGTERM, _raise_interrupt)
+    signal.signal(signal.SIGINT, _raise_interrupt)
+
+
+def ignore_interrupts() -> None:
+    """Stop honouring SIGTERM/SIGINT for the remainder of the run.
+
+    Called at the top of teardown_children(). Once teardown has begun there is
+    nothing useful left for a signal to interrupt: the children are being
+    stopped, and everything after them (the ULog copy, the ULog analyses,
+    status.json and validation.md) is local evidence writing that takes seconds
+    and must complete. Honouring a second signal here would either skip the
+    remaining children, orphaning gz sim or the websocket bridge, or discard the
+    run evidence. SIGKILL still works if an operator must abandon the process.
+    """
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def gazebo_command_with_display(
@@ -1321,6 +1397,10 @@ def analyze_ulog_distance_sensor(
     required: bool,
     min_rows: int,
     height_agreement_tolerance_m: float,
+    is_heightfield: bool = False,
+    takeoff_alt_m: float | None = None,
+    terrain_relief_span_m: float | None = None,
+    terrain_height_offset_tolerance_m: float | None = None,
 ) -> dict:
     result = {
         "ulog_distance_sensor_analysis_ok": False,
@@ -1331,6 +1411,11 @@ def analyze_ulog_distance_sensor(
         "ulog_distance_sensor_height_diff_m": None,
         "ulog_distance_sensor_ok": not required,
         "ulog_distance_sensor_error": None,
+        "terrain_relief_span_m": terrain_relief_span_m,
+        "pad_step_estimate_m": None,
+        "climb_window_s": None,
+        "horizontal_excursion_m": None,
+        "rangefinder_gate_mode": "absolute",
     }
 
     if not required:
@@ -1360,11 +1445,125 @@ def analyze_ulog_distance_sensor(
             )
 
         result["ulog_distance_sensor_analysis_ok"] = True
-        result["ulog_distance_sensor_ok"] = (
-            result["ulog_distance_sensor_rows"] >= min_rows
+        rows_ok = result["ulog_distance_sensor_rows"] >= min_rows
+        absolute_ok = (
+            rows_ok
             and result["ulog_distance_sensor_height_diff_m"] is not None
             and result["ulog_distance_sensor_height_diff_m"] <= height_agreement_tolerance_m
         )
+        declared_offset_ok = False
+        if (
+            terrain_height_offset_tolerance_m is not None
+            and result["ulog_distance_sensor_height_diff_m"] is not None
+        ):
+            declared_offset_ok = (
+                rows_ok
+                and result["ulog_distance_sensor_height_diff_m"]
+                <= 0.75 + float(terrain_height_offset_tolerance_m)
+            )
+
+        if not is_heightfield:
+            result["ulog_distance_sensor_ok"] = absolute_ok
+            if not absolute_ok and declared_offset_ok:
+                result["ulog_distance_sensor_ok"] = True
+                result["rangefinder_gate_mode"] = "declared_offset"
+            return result
+
+        result["rangefinder_gate_mode"] = "unknown"
+
+        distance_ts = np.asarray(dist["timestamp"], dtype=float)
+        local_ts = np.asarray(local_pos["timestamp"], dtype=float)
+        local_z = np.asarray(local_pos["z"], dtype=float)
+        local_x = np.asarray(local_pos["x"], dtype=float)
+        local_y = np.asarray(local_pos["y"], dtype=float)
+
+        distance_mask = np.isfinite(distance_ts) & np.isfinite(distances)
+        local_mask = (
+            np.isfinite(local_ts)
+            & np.isfinite(local_z)
+            & np.isfinite(local_x)
+            & np.isfinite(local_y)
+        )
+
+        distance_ts = distance_ts[distance_mask]
+        distance_values = distances[distance_mask]
+        local_ts = local_ts[local_mask]
+        height_up = -local_z[local_mask]
+        local_x = local_x[local_mask]
+        local_y = local_y[local_mask]
+
+        if (
+            rows_ok
+            and takeoff_alt_m is not None
+            and takeoff_alt_m > 0.0
+            and len(distance_ts) >= 2
+            and len(local_ts) >= 2
+        ):
+            distance_order = np.argsort(distance_ts)
+            local_order = np.argsort(local_ts)
+            distance_ts = distance_ts[distance_order]
+            distance_values = distance_values[distance_order]
+            local_ts = local_ts[local_order]
+            height_up = height_up[local_order]
+            local_x = local_x[local_order]
+            local_y = local_y[local_order]
+
+            in_range = (distance_ts >= local_ts[0]) & (distance_ts <= local_ts[-1])
+            aligned_ts = distance_ts[in_range]
+            aligned_distances = distance_values[in_range]
+            if len(aligned_ts) >= 2:
+                aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
+                aligned_x = np.interp(aligned_ts, local_ts, local_x)
+                aligned_y = np.interp(aligned_ts, local_ts, local_y)
+                aligned_radius = np.sqrt(aligned_x ** 2 + aligned_y ** 2)
+                residual = aligned_distances - aligned_height_up
+
+                initial_mask = aligned_height_up < 0.5
+                initial_residual = residual[initial_mask]
+                base_radius = (
+                    float(np.nanmedian(aligned_radius[initial_mask]))
+                    if len(initial_residual)
+                    else 0.0
+                )
+                hover_mask = aligned_height_up >= 0.9 * takeoff_alt_m
+                post_pad_hover_mask = hover_mask & (aligned_radius >= base_radius + 2.0)
+                hover_residual = residual[post_pad_hover_mask]
+                if not len(hover_residual):
+                    hover_residual = residual[hover_mask]
+                if len(initial_residual) and len(hover_residual):
+                    result["pad_step_estimate_m"] = float(
+                        np.nanmedian(hover_residual) - np.nanmedian(initial_residual)
+                    )
+
+                start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
+                if len(start_candidates):
+                    start_idx = int(start_candidates[0])
+                    end_candidates = np.flatnonzero(
+                        (np.arange(len(aligned_height_up)) >= start_idx)
+                        & (aligned_height_up >= 0.9 * takeoff_alt_m)
+                    )
+                    if len(end_candidates):
+                        end_idx = int(end_candidates[0])
+                        climb_slice = slice(start_idx, end_idx + 1)
+                        radii = aligned_radius[climb_slice]
+                        horizontal_excursion_m = float(np.nanmax(radii) - np.nanmin(radii))
+                        result["horizontal_excursion_m"] = horizontal_excursion_m
+                        result["climb_window_s"] = float(
+                            (aligned_ts[end_idx] - aligned_ts[start_idx]) / 1_000_000.0
+                        )
+
+                        if horizontal_excursion_m <= 2.0:
+                            delta_distance = aligned_distances[end_idx] - aligned_distances[start_idx]
+                            delta_height = aligned_height_up[end_idx] - aligned_height_up[start_idx]
+                            result["rangefinder_gate_mode"] = "differential"
+                            result["ulog_distance_sensor_ok"] = bool(
+                                abs(delta_distance - delta_height)
+                                <= height_agreement_tolerance_m
+                            )
+
+        if not result["ulog_distance_sensor_ok"] and declared_offset_ok:
+            result["ulog_distance_sensor_ok"] = True
+            result["rangefinder_gate_mode"] = "declared_offset"
 
     except Exception as exc:
         result["ulog_distance_sensor_error"] = str(exc)
@@ -1384,12 +1583,62 @@ def close_truth_recorder(proc: subprocess.Popen, notes: list[str]) -> None:
                 pass
 
 
+def teardown_children(notes, children) -> None:
+    """Stop runner children without one failure skipping later cleanup.
+
+    Before this was extracted, a raise from the first stop_process_group call
+    skipped every later child, leaving gz sim and the websocket bridge orphaned.
+    This helper is safe to call twice because stop_process_group already no-ops
+    on an already-exited process.
+    """
+
+    ignore_interrupts()
+    for name, proc, handle, stopper in children:
+        if proc is not None:
+            try:
+                stopper(proc, notes)
+            except Exception as exc:
+                notes.append(f"teardown of {name} raised {type(exc).__name__}: {exc}")
+
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception as exc:
+                notes.append(f"teardown of {name} raised {type(exc).__name__}: {exc}")
+
+
 def count_csv_data_rows(path: Path) -> int:
     if not path.exists():
         return 0
 
     with path.open(errors="ignore") as handle:
         return max(0, sum(1 for _ in handle) - 1)
+
+
+def read_first_last_t_sim(path: Path) -> tuple[float | None, float | None]:
+    """First and last t_sim_s in a frames_index.csv, or (None, None)."""
+    if not path.exists():
+        return None, None
+
+    first = None
+    last = None
+    try:
+        with path.open(errors="ignore", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if not reader.fieldnames or "t_sim_s" not in reader.fieldnames:
+                return None, None
+            for row in reader:
+                try:
+                    value = float(str(row.get("t_sim_s", "")).strip())
+                except (TypeError, ValueError):
+                    continue
+                if first is None:
+                    first = value
+                last = value
+    except Exception:
+        return None, None
+
+    return first, last
 
 
 def count_csv_sent_rows(path: Path) -> int:
@@ -1455,6 +1704,14 @@ def main() -> int:
     parser.add_argument("scenario", help="Path to scenario YAML")
     parser.add_argument("--hover-s", type=float, default=25.0)
     parser.add_argument("--startup-timeout-s", type=float, default=150.0)
+    parser.add_argument(
+        "--world-ready-timeout-s", type=float, default=120.0,
+        help="Max seconds to wait for a standalone Gazebo terrain world's scene/info "
+             "service before proceeding. Raised from the old hard-coded 45s: large "
+             "heightfield terrains (e.g. odtu 589x488m) load correctly but can exceed "
+             "45s to become ready under host CPU/memory contention, which previously "
+             "caused a false 'world not ready' failure. Still bounded by "
+             "--startup-timeout-s.")
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
     parser.add_argument("--qgc-ip", default="100.109.200.5", help="QGroundControl Tailscale/IP target")
     parser.add_argument("--qgc-local-port", type=int, default=14555)
@@ -1514,6 +1771,7 @@ def main() -> int:
     world = data.get("world", {})
     world_name = str(world.get("name", "default"))
     world_sdf = resolve_world_sdf(world)
+    terrain_relief_span_m, is_heightfield = read_heightmap_relief(world_sdf)
     standalone_gazebo_enabled = world_sdf is not None and world_name != "default"
     truth_topic = truth_topic_for_world(world_name)
     logging_cfg = data.get("logging", {})
@@ -1550,6 +1808,12 @@ def main() -> int:
     rangefinder_xvfb_enabled = bool(rangefinder_cfg.get("xvfb_enabled", False))
     rangefinder_min_ulog_rows = int(rangefinder_cfg.get("min_ulog_rows", 50))
     rangefinder_height_tolerance_m = float(rangefinder_cfg.get("height_agreement_tolerance_m", 0.75))
+    rangefinder_terrain_height_offset_tolerance_m = rangefinder_cfg.get(
+        "terrain_height_offset_tolerance_m",
+        None,
+    )
+    if rangefinder_terrain_height_offset_tolerance_m is not None:
+        rangefinder_terrain_height_offset_tolerance_m = float(rangefinder_terrain_height_offset_tolerance_m)
 
     extra_px4_params = data.get("extra_px4_params", {})
     if extra_px4_params is None:
@@ -1564,7 +1828,13 @@ def main() -> int:
     flow_recording_enabled = bool(flow_recording_cfg.get("enabled", False))
     flow_recording_rate_hz = float(flow_recording_cfg.get("rate_hz", 10.0))
     flow_recording_max_width = int(flow_recording_cfg.get("max_width", 640))
-    flow_recording_min_frames = int(flow_recording_cfg.get("min_frames", 100))
+    flow_recording_min_frames_raw = flow_recording_cfg.get("min_frames", None)
+    flow_recording_min_frames = (
+        None if flow_recording_min_frames_raw is None else int(flow_recording_min_frames_raw)
+    )
+    flow_recording_min_frames_floor = int(flow_recording_cfg.get("min_frames_floor", 20))
+    flow_recording_min_span_s = float(flow_recording_cfg.get("min_span_s", 10.0))
+    flow_recording_min_rate_fraction = float(flow_recording_cfg.get("min_rate_fraction", 0.5))
 
     # Phase 8G live flow bridge (docs/phases/phase_08g_live_flow_bridge.md).
     flow_bridge_cfg = data.get("flow_bridge", {})
@@ -1966,6 +2236,14 @@ def main() -> int:
 
     start_ts = time.time()
     px4_proc = None
+    # Only ever assigned inside `if px4_proc is not None:` below (PX4 startup
+    # wait) - default them here so a standalone-Gazebo readiness failure
+    # (px4_proc never spawned) fails cleanly via `accepted=False` downstream
+    # instead of an UnboundLocalError crash (confirmed 2026-07-26: a terrain
+    # world whose Gazebo process hung past the readiness timeout hit exactly
+    # this crash instead of a clean rejection).
+    startup_pattern = None
+    flight_ready_pattern = None
     truth_proc = None
     truth_raw_path = None
     truth_err_path = None
@@ -2050,6 +2328,8 @@ def main() -> int:
     local_hold_accepts_offboard_setpoints = None
     local_hold_sent_path = run_dir / "logs" / "offboard_local_hold_sent.csv"
     local_hold_console_path = run_dir / "logs" / "offboard_local_hold.log"
+    interrupted_by = None
+    install_interrupt_handlers()
 
     print(f"Run dir: {run_dir}")
     print(f"PX4 root: {PX4_ROOT}")
@@ -2079,873 +2359,848 @@ def main() -> int:
         log.write(f"# cmd: {' '.join(cmd)}\n\n")
         log.flush()
 
-        if standalone_gazebo_enabled:
-            standalone_gazebo_log_handle = standalone_gazebo_log.open("w")
-            standalone_cmd = ["gz", "sim", "-r", "-s", "-v", "2"]
-            if camera_proof_enabled and camera_headless_rendering:
-                standalone_cmd.append("--headless-rendering")
-            standalone_cmd.append(str(world_sdf))
-            standalone_cmd = gazebo_command_with_display(
-                standalone_cmd,
-                use_xvfb=sensor_xvfb_enabled,
-                xvfb_server_args=camera_xvfb_server_args,
-            )
-            standalone_gazebo_proc = subprocess.Popen(
-                standalone_cmd,
-                cwd=str(PROJECT_ROOT),
-                env=env,
-                stdout=standalone_gazebo_log_handle,
-                stderr=subprocess.STDOUT,
-                text=True,
-                preexec_fn=os.setsid,
-                bufsize=1,
-            )
-            notes.append(
-                "started standalone gazebo "
-                f"pid={standalone_gazebo_proc.pid}, world={world_name}, sdf={world_sdf}"
-            )
-            standalone_gazebo_ready = wait_for_standalone_world(
-                world_name,
-                standalone_gazebo_proc,
-                env,
-                timeout_s=min(45.0, args.startup_timeout_s),
-                notes=notes,
-            )
-
-        if gazebo_web_enabled and standalone_gazebo_ready:
-            gazebo_web_config = write_gazebo_websocket_config(
-                run_dir,
-                gazebo_web_source_config,
-                gazebo_web_port,
-                gazebo_web_publication_hz,
-                notes,
-            )
-            gazebo_web_command = ["gz", "launch", "-v", "4", str(gazebo_web_config)]
-            gazebo_web_log_handle = gazebo_web_log.open("w")
-            gazebo_web_proc = subprocess.Popen(
-                gazebo_web_command,
-                cwd=str(PROJECT_ROOT),
-                env=env,
-                stdout=gazebo_web_log_handle,
-                stderr=subprocess.STDOUT,
-                text=True,
-                preexec_fn=os.setsid,
-                bufsize=1,
-            )
-            gazebo_web_started = gazebo_web_proc.poll() is None
-            notes.append(
-                "started Gazebo websocket bridge "
-                f"pid={gazebo_web_proc.pid}, port={gazebo_web_port}, "
-                f"partition={env.get('GZ_PARTITION')}"
-            )
-            gazebo_web_ready = wait_for_tcp_port(
-                gazebo_web_host,
-                gazebo_web_port,
-                gazebo_web_proc,
-                gazebo_web_startup_timeout_s,
-                notes,
-            )
-        elif gazebo_web_enabled:
-            notes.append("Gazebo websocket bridge skipped because standalone Gazebo was not ready")
-
-        if standalone_gazebo_ready:
-            px4_proc = subprocess.Popen(
-                cmd,
-                cwd=str(PX4_ROOT),
-                env=env,
-                stdin=subprocess.PIPE,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                text=True,
-                preexec_fn=os.setsid,
-                bufsize=1,
-            )
-        else:
-            notes.append("PX4 launch skipped because standalone Gazebo world was not ready")
-
-        if px4_proc is not None:
-            notes.append(f"started px4 process pid={px4_proc.pid}")
-
-            startup_pattern = wait_for_pattern(console_log, px4_proc, STARTUP_PATTERNS, args.startup_timeout_s)
-            notes.append(f"startup_pattern={startup_pattern}")
-
-            flight_ready_pattern = wait_for_pattern(console_log, px4_proc, FLIGHT_READY_PATTERNS, 30.0)
-            notes.append(f"flight_ready_pattern={flight_ready_pattern}")
-
-        if px4_proc is not None and startup_pattern:
-            truth_proc, truth_raw_path, truth_err_path = start_truth_recorder(
-                run_dir,
-                notes,
-                truth_topic,
-                env,
-            )
-            time.sleep(5)
-
-            if flow_recording_enabled:
-                flow_recording_dir = run_dir / "flow_recording"
-                flow_recording_dir.mkdir(parents=True, exist_ok=True)
-                flow_recording_duration_s = aux_process_duration_s
-                flow_recording_command = [
-                    "/usr/bin/python3",
-                    str(PROJECT_ROOT / "scripts" / "sim" / "record_camera_frames.py"),
-                    "--image-topic", camera_image_topic,
-                    "--scan-topic", rangefinder_scan_topic,
-                    "--out-dir", str(flow_recording_dir),
-                    "--rate-hz", str(flow_recording_rate_hz),
-                    "--max-width", str(flow_recording_max_width),
-                    "--duration-s", str(flow_recording_duration_s),
-                ]
-                flow_recording_log_handle = (run_dir / "logs" / "flow_recording.log").open("w")
-                flow_recording_proc = subprocess.Popen(
-                    flow_recording_command,
+        try:
+            if standalone_gazebo_enabled:
+                standalone_gazebo_log_handle = standalone_gazebo_log.open("w")
+                standalone_cmd = ["gz", "sim", "-r", "-s", "-v", "2"]
+                if camera_proof_enabled and camera_headless_rendering:
+                    standalone_cmd.append("--headless-rendering")
+                standalone_cmd.append(str(world_sdf))
+                standalone_cmd = gazebo_command_with_display(
+                    standalone_cmd,
+                    use_xvfb=sensor_xvfb_enabled,
+                    xvfb_server_args=camera_xvfb_server_args,
+                )
+                standalone_gazebo_proc = subprocess.Popen(
+                    standalone_cmd,
                     cwd=str(PROJECT_ROOT),
                     env=env,
-                    stdout=flow_recording_log_handle,
+                    stdout=standalone_gazebo_log_handle,
                     stderr=subprocess.STDOUT,
                     text=True,
                     preexec_fn=os.setsid,
+                    bufsize=1,
                 )
-                notes.append(f"started flow recorder pid={flow_recording_proc.pid}")
-
-            qgc_enabled = not args.no_qgc
-            qgc_command = None
-
-            if qgc_enabled:
-                qgc_command = (
-                    f"mavlink start -m config "
-                    f"-u {args.qgc_local_port} "
-                    f"-o {args.qgc_remote_port} "
-                    f"-t {args.qgc_ip} "
-                    f"-r {args.qgc_rate} "
-                    f"-x"
-                )
-                ok = send_pxh(px4_proc, qgc_command, notes)
-                commands_sent.append({"command": qgc_command, "sent": ok})
-                time.sleep(5)
-                ok = send_pxh(px4_proc, "mavlink status", notes)
-                commands_sent.append({"command": "mavlink status", "sent": ok})
-                qgc_status_command_sent = ok
-                time.sleep(3)
-
-            failsafe_commands = failsafe_profile_commands(args.failsafe_profile)
-            for fs_cmd in failsafe_commands:
-                ok = send_pxh(px4_proc, fs_cmd, notes)
-                commands_sent.append({"command": fs_cmd, "sent": ok})
-                time.sleep(1)
-
-            start_gnss_cmd = f"param set SIM_GPS_USED {args.gnss_start_used}"
-            ok = send_pxh(px4_proc, start_gnss_cmd, notes)
-            commands_sent.append({"command": start_gnss_cmd, "sent": ok})
-            time.sleep(2)
-
-            takeoff_alt_cmd = f"param set MIS_TAKEOFF_ALT {takeoff_alt_m}"
-            ok = send_pxh(px4_proc, takeoff_alt_cmd, notes)
-            commands_sent.append({"command": takeoff_alt_cmd, "sent": ok})
-            time.sleep(1)
-
-            # Apply scenario-level extra PX4 params for every run (not only
-            # flow-bridge runs), before takeoff so estimator/height settings
-            # like EKF2_RNG_A_HMAX are active for the whole flight. Used by
-            # the Phase 14 altitude batches to let the downward rangefinder
-            # anchor absolute height above the 5 m stock EKF2_RNG_A_HMAX
-            # cutoff on flat terrain.
-            for param_name, param_value in sorted(extra_px4_params.items()):
-                extra_cmd = f"param set {param_name} {param_value}"
-                ok = send_pxh(px4_proc, extra_cmd, notes)
-                commands_sent.append({"command": extra_cmd, "sent": ok})
-                time.sleep(1)
-
-            project_root = Path(__file__).resolve().parents[2]
-            onboard_mavlink_needed = external_odom_enabled or local_hold_enabled or flow_bridge_enabled
-
-            if onboard_mavlink_needed:
-                onboard_commands = [
-                    "mavlink start -m onboard -u 14600 -o 14601 -t 127.0.0.1 -r 1000000",
-                ]
-
-                if local_hold_enabled:
-                    onboard_commands.append("param set MAV_FWDEXTSP 1")
-
-                for onboard_cmd in onboard_commands:
-                    ok = send_pxh(px4_proc, onboard_cmd, notes)
-                    commands_sent.append({"command": onboard_cmd, "sent": ok})
-                    time.sleep(1)
-
-            if external_odom_enabled:
-                ev_commands = [
-                    f"param set EKF2_EV_CTRL {external_odom_ev_ctrl}",
-                    f"param set EKF2_HGT_REF {external_odom_ekf2_hgt_ref}",
-                    f"param set EKF2_EV_DELAY {external_odom_ev_delay_ms:g}",
-                ]
-                for param_name, param_value in sorted(external_odom_extra_params.items()):
-                    ev_commands.append(f"param set {param_name} {param_value}")
-
-                for ev_cmd in ev_commands:
-                    ok = send_pxh(px4_proc, ev_cmd, notes)
-                    commands_sent.append({"command": ev_cmd, "sent": ok})
-                    time.sleep(1)
-
-                bridge_duration_s = args.hover_s + args.land_timeout_s + 90.0
-
-                external_odom_command = [
-                    mavlink_sender_python,
-                    "scripts/runner/send_live_gazebo_odometry_mavlink.py",
-                    "--topic",
-                    truth_topic,
-                    "--model-name",
-                    gazebo_model_name,
-                    "--connection",
-                    "udpout:127.0.0.1:14600",
-                    "--duration-s",
-                    str(bridge_duration_s),
-                    "--rate-hz",
-                    str(external_odom_rate_hz),
-                    "--position-std-m",
-                    str(external_position_std_m),
-                    "--velocity-std-m-s",
-                    str(external_velocity_std_m_s),
-                    "--mav-frame",
-                    external_odom_mav_frame,
-                    "--velocity-source",
-                    external_odom_velocity_source,
-                    "--velocity-alpha",
-                    str(external_odom_velocity_alpha),
-                    "--max-finite-diff-speed-m-s",
-                    str(external_odom_max_finite_diff_speed_m_s),
-                    "--velocity-reject-action",
-                    external_odom_velocity_reject_action,
-                    "--quality",
-                    str(external_odom_quality),
-                    "--latency-ms",
-                    str(external_odom_latency_ms),
-                    "--inject-position-noise-std-m",
-                    str(external_odom_inject_position_noise_std_m),
-                    "--inject-velocity-noise-std-m-s",
-                    str(external_odom_inject_velocity_noise_std_m_s),
-                    "--disturbance-seed",
-                    str(external_odom_disturbance_seed),
-                    "--dropout-start-after-s",
-                    str(external_odom_dropout_start_after_s),
-                    "--dropout-period-s",
-                    str(external_odom_dropout_period_s),
-                    "--dropout-duration-s",
-                    str(external_odom_dropout_duration_s),
-                    "--dropout-probability",
-                    str(external_odom_dropout_probability),
-                    "--sent-log",
-                    str(external_odom_sent_path),
-                ]
-                if external_odom_dropout_enabled:
-                    external_odom_command.append("--dropout-enabled")
-
-                external_odom_log_handle = external_odom_console_path.open("w")
-                external_odom_proc = subprocess.Popen(
-                    external_odom_command,
-                    cwd=str(project_root),
-                    env=env,
-                    stdout=external_odom_log_handle,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    preexec_fn=os.setsid,
-                )
-
                 notes.append(
-                    f"started external odometry bridge pid={external_odom_proc.pid}"
+                    "started standalone gazebo "
+                    f"pid={standalone_gazebo_proc.pid}, world={world_name}, sdf={world_sdf}"
+                )
+                standalone_gazebo_ready = wait_for_standalone_world(
+                    world_name,
+                    standalone_gazebo_proc,
+                    env,
+                    timeout_s=min(args.world_ready_timeout_s, args.startup_timeout_s),
+                    notes=notes,
                 )
 
-                time.sleep(5)
-                external_odom_started = external_odom_proc.poll() is None
-                notes.append(f"external_odom_started={external_odom_started}")
-
-                if not external_odom_started:
-                    notes.append(
-                        "external odometry failed before arming; GNSS loss suppressed"
-                    )
-                    args.gnss_loss_after_takeoff_s = None
-
-            if flow_bridge_enabled:
-                # EKF2_OF_CTRL=0 keeps this open-loop (compute + deliver to
-                # uORB, EKF ignores); SENS_FLOW_ROT stays 0 because the axis
-                # map is owned by the bridge adapter (decision D5).
-                flow_param_commands = [
-                    f"param set EKF2_OF_CTRL {flow_bridge_ekf2_of_ctrl}",
-                    f"param set EKF2_OF_QMIN {flow_bridge_ekf2_of_qmin}",
-                    "param set SENS_FLOW_ROT 0",
-                    "param set SENS_FLOW_MINHGT 0.1",
-                    "param set SENS_FLOW_MAXHGT 100",
-                ]
-                if flow_bridge_ekf2_of_n_min is not None:
-                    flow_param_commands.append(f"param set EKF2_OF_N_MIN {flow_bridge_ekf2_of_n_min}")
-                if flow_bridge_ekf2_of_n_max is not None:
-                    flow_param_commands.append(f"param set EKF2_OF_N_MAX {flow_bridge_ekf2_of_n_max}")
-                if flow_bridge_ekf2_of_gate is not None:
-                    flow_param_commands.append(f"param set EKF2_OF_GATE {flow_bridge_ekf2_of_gate}")
-                if flow_bridge_ekf2_of_delay is not None:
-                    flow_param_commands.append(f"param set EKF2_OF_DELAY {flow_bridge_ekf2_of_delay}")
-                for flow_cmd in flow_param_commands:
-                    ok = send_pxh(px4_proc, flow_cmd, notes)
-                    commands_sent.append({"command": flow_cmd, "sent": ok})
-                    time.sleep(1)
-
-                # extra_px4_params are now applied universally right after
-                # MIS_TAKEOFF_ALT (before takeoff), not only for flow-bridge
-                # runs -- see the setup block above.
-
-                flow_bridge_dir.mkdir(parents=True, exist_ok=True)
-                flow_bridge_duration_s = aux_process_duration_s
-                flow_bridge_command = [
-                    flow_bridge_python,
-                    str(PROJECT_ROOT / "scripts" / "sim" / "flow_mavlink_bridge.py"),
-                    "--image-topic", camera_image_topic,
-                    "--scan-topic", rangefinder_scan_topic,
-                    "--imu-topic", flow_bridge_imu_topic,
-                    "--estimator", flow_bridge_estimator,
-                    "--hfov-rad", str(flow_bridge_hfov_rad),
-                    "--rate-hz", str(flow_bridge_rate_hz),
-                    "--max-width", str(flow_bridge_max_width),
-                    "--sift-n-features", str(flow_bridge_sift_n_features),
-                    "--sift-ratio", str(flow_bridge_sift_ratio),
-                    "--sift-min-matches", str(flow_bridge_sift_min_matches),
-                    "--lk-max-corners", str(flow_bridge_lk_max_corners),
-                    "--lk-quality-level", str(flow_bridge_lk_quality_level),
-                    "--lk-min-distance", str(flow_bridge_lk_min_distance),
-                    "--lk-block-size", str(flow_bridge_lk_block_size),
-                    "--lk-win-size", str(flow_bridge_lk_win_size),
-                    "--lk-max-level", str(flow_bridge_lk_max_level),
-                    "--lk-min-tracks", str(flow_bridge_lk_min_tracks),
-                    "--lk-fb-max-error-px", str(flow_bridge_lk_fb_max_error_px),
-                    "--lk-confidence-multiplier", str(flow_bridge_lk_confidence_multiplier),
-                    "--lk-mad-multiplier", str(flow_bridge_lk_mad_multiplier),
-                    "--lk-max-flow-rate-rad-s", str(flow_bridge_lk_max_flow_rate_rad_s),
-                    # =VALUE form: axis maps like "-yx" start with a dash and
-                    # argparse would otherwise read them as an option, not a value.
-                    f"--axis-map={flow_bridge_axis_map}",
-                    "--gyro-mode", flow_bridge_gyro_mode,
-                    "--quality-in-min", str(flow_bridge_quality_in_min),
-                    "--quality-in-max", str(flow_bridge_quality_in_max),
-                    "--send-min-quality", str(flow_bridge_send_min_quality),
-                    "--send-min-matches", str(flow_bridge_send_min_matches),
-                    "--connection", "udpout:127.0.0.1:14600",
-                    "--duration-s", str(flow_bridge_duration_s),
-                    "--sent-log", str(flow_bridge_sent_path),
-                    "--startup-prime-hz", str(flow_bridge_startup_prime_hz),
-                    "--startup-prime-duration-s", str(flow_bridge_startup_prime_duration_s),
-                ]
-                if flow_bridge_send_min_range_m is not None:
-                    flow_bridge_command.extend(["--send-min-range-m", str(flow_bridge_send_min_range_m)])
-                if flow_bridge_send_max_range_m is not None:
-                    flow_bridge_command.extend(["--send-max-range-m", str(flow_bridge_send_max_range_m)])
-                if flow_bridge_reset_on_unsent:
-                    flow_bridge_command.append("--reset-on-unsent")
-                if flow_bridge_prime_on_unsent:
-                    flow_bridge_command.append("--prime-on-unsent")
-                flow_bridge_log_handle = (run_dir / "logs" / "flow_bridge.log").open("w")
-                flow_bridge_proc = subprocess.Popen(
-                    flow_bridge_command,
-                    cwd=str(PROJECT_ROOT),
-                    env=env,
-                    stdout=flow_bridge_log_handle,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    preexec_fn=os.setsid,
-                )
-                notes.append(f"started flow bridge pid={flow_bridge_proc.pid}")
-                flow_bridge_prearm_result = wait_for_flow_bridge_prearm(
-                    flow_bridge_proc,
-                    flow_bridge_sent_path,
-                    flow_bridge_prearm_min_mavlink,
-                    flow_bridge_prearm_timeout_s,
+            if gazebo_web_enabled and standalone_gazebo_ready:
+                gazebo_web_config = write_gazebo_websocket_config(
+                    run_dir,
+                    gazebo_web_source_config,
+                    gazebo_web_port,
+                    gazebo_web_publication_hz,
                     notes,
                 )
-                flow_bridge_started = flow_bridge_proc.poll() is None
-                notes.append(f"flow_bridge_started={flow_bridge_started}")
-                if (
-                    flow_bridge_prearm_min_mavlink > 0
-                    and not flow_bridge_prearm_result["flow_bridge_prearm_ok"]
-                ):
-                    raise RuntimeError(
-                        "flow bridge did not publish required pre-arm MAVLink samples "
-                        f"({flow_bridge_prearm_result['flow_bridge_prearm_mavlink_rows']}/"
-                        f"{flow_bridge_prearm_min_mavlink}) within "
-                        f"{flow_bridge_prearm_timeout_s:g}s"
-                    )
+                gazebo_web_command = ["gz", "launch", "-v", "4", str(gazebo_web_config)]
+                gazebo_web_log_handle = gazebo_web_log.open("w")
+                gazebo_web_proc = subprocess.Popen(
+                    gazebo_web_command,
+                    cwd=str(PROJECT_ROOT),
+                    env=env,
+                    stdout=gazebo_web_log_handle,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    preexec_fn=os.setsid,
+                    bufsize=1,
+                )
+                gazebo_web_started = gazebo_web_proc.poll() is None
+                notes.append(
+                    "started Gazebo websocket bridge "
+                    f"pid={gazebo_web_proc.pid}, port={gazebo_web_port}, "
+                    f"partition={env.get('GZ_PARTITION')}"
+                )
+                gazebo_web_ready = wait_for_tcp_port(
+                    gazebo_web_host,
+                    gazebo_web_port,
+                    gazebo_web_proc,
+                    gazebo_web_startup_timeout_s,
+                    notes,
+                )
+            elif gazebo_web_enabled:
+                notes.append("Gazebo websocket bridge skipped because standalone Gazebo was not ready")
 
-            if stock_flow_enabled:
-                stock_flow_param_commands = [
-                    "param set SYS_HAS_GPS 1",
-                    "param set EKF2_GPS_CTRL 7",
-                    f"param set SIM_GZ_EN_FLOW {int(stock_flow_cfg.get('sim_gz_en_flow', 1))}",
-                    f"param set SIM_GZ_EN_LIDAR {int(stock_flow_cfg.get('sim_gz_en_lidar', 1))}",
-                    f"param set EKF2_OF_CTRL {stock_flow_ekf2_of_ctrl}",
-                    f"param set EKF2_OF_QMIN {stock_flow_ekf2_of_qmin}",
-                    f"param set SENS_FLOW_ROT {stock_flow_sens_flow_rot}",
-                    f"param set SENS_FLOW_MINHGT {stock_flow_sens_flow_minhgt}",
-                    f"param set SENS_FLOW_MAXHGT {stock_flow_sens_flow_maxhgt}",
-                ]
-                if stock_flow_sens_flow_rate is not None:
-                    stock_flow_param_commands.append(f"param set SENS_FLOW_RATE {stock_flow_sens_flow_rate}")
-                if stock_flow_sens_flow_scale is not None:
-                    stock_flow_param_commands.append(f"param set SENS_FLOW_SCALE {stock_flow_sens_flow_scale}")
-                if stock_flow_ekf2_of_n_min is not None:
-                    stock_flow_param_commands.append(f"param set EKF2_OF_N_MIN {stock_flow_ekf2_of_n_min}")
-                if stock_flow_ekf2_of_n_max is not None:
-                    stock_flow_param_commands.append(f"param set EKF2_OF_N_MAX {stock_flow_ekf2_of_n_max}")
-                if stock_flow_ekf2_of_gate is not None:
-                    stock_flow_param_commands.append(f"param set EKF2_OF_GATE {stock_flow_ekf2_of_gate}")
-                if stock_flow_ekf2_of_delay is not None:
-                    stock_flow_param_commands.append(f"param set EKF2_OF_DELAY {stock_flow_ekf2_of_delay}")
-                for stock_cmd in stock_flow_param_commands:
-                    ok = send_pxh(px4_proc, stock_cmd, notes)
-                    commands_sent.append({"command": stock_cmd, "sent": ok})
-                    time.sleep(1)
-
-            if global_position_gate_enabled:
-                global_position_ready, global_position_readiness_samples, global_position_ready_sample = (
-                    wait_for_global_position_ready(
-                        px4_proc,
-                        console_log,
-                        notes,
-                        timeout_s=args.global_position_timeout_s,
-                        stable_s=args.global_position_stable_s,
-                    )
+            if standalone_gazebo_ready:
+                px4_proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(PX4_ROOT),
+                    env=env,
+                    stdin=subprocess.PIPE,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    preexec_fn=os.setsid,
+                    bufsize=1,
                 )
             else:
-                global_position_ready = True
-                notes.append("global position readiness gate disabled")
+                notes.append("PX4 launch skipped because standalone Gazebo world was not ready")
 
-            if global_position_ready:
-                ok = send_pxh(px4_proc, "commander arm -f", notes)
-                commands_sent.append({"command": "commander arm -f", "sent": ok})
+            if px4_proc is not None:
+                notes.append(f"started px4 process pid={px4_proc.pid}")
+
+                startup_pattern = wait_for_pattern(console_log, px4_proc, STARTUP_PATTERNS, args.startup_timeout_s)
+                notes.append(f"startup_pattern={startup_pattern}")
+
+                flight_ready_pattern = wait_for_pattern(console_log, px4_proc, FLIGHT_READY_PATTERNS, 30.0)
+                notes.append(f"flight_ready_pattern={flight_ready_pattern}")
+
+            if px4_proc is not None and startup_pattern:
+                truth_proc, truth_raw_path, truth_err_path = start_truth_recorder(
+                    run_dir,
+                    notes,
+                    truth_topic,
+                    env,
+                )
                 time.sleep(5)
 
-                ok = send_pxh(px4_proc, "commander takeoff", notes)
-                commands_sent.append({"command": "commander takeoff", "sent": ok})
-                takeoff_command_wall = time.monotonic()
-
-                if local_hold_enabled:
-                    local_hold_takeoff_wait_target_s = max(0.0, local_hold_start_after_takeoff_s)
-                    local_hold_takeoff_wait_timeout_wall_s = max(
-                        local_hold_takeoff_wait_target_s * sim_time_wall_multiplier + 30.0,
-                        local_hold_takeoff_wait_target_s + 30.0,
-                    )
-                    notes.append(
-                        "local hold pre-offboard takeoff sim-time wait: "
-                        f"target_s={local_hold_takeoff_wait_target_s:.3f}, "
-                        f"timeout_wall_s={local_hold_takeoff_wait_timeout_wall_s:.3f}"
-                    )
-                    (
-                        local_hold_takeoff_wait_ok,
-                        local_hold_takeoff_wait_samples,
-                        local_hold_takeoff_wait_sample,
-                    ) = wait_for_airborne_duration(
-                        px4_proc,
-                        console_log,
-                        notes,
-                        target_airborne_s=local_hold_takeoff_wait_target_s,
-                        timeout_wall_s=local_hold_takeoff_wait_timeout_wall_s,
-                        min_altitude_m=0.5,
-                    )
-                    if not local_hold_takeoff_wait_ok:
-                        airborne_hover_wait_ok = False
-                        raise RuntimeError(
-                            "takeoff did not reach the requested pre-offboard airborne duration; "
-                            "aborting before offboard/GNSS-loss commands"
-                        )
-
-                    local_hold_post_loss_hover_s = args.post_loss_hover_s
-                    local_hold_pre_loss_s = (
-                        local_hold_start_after_takeoff_s
-                        + local_hold_warmup_s
-                        + local_hold_gnss_loss_after_offboard_s
-                    )
-
-                    if local_hold_post_loss_hover_s is None:
-                        if args.gnss_loss_after_takeoff_s is not None:
-                            local_hold_post_loss_hover_s = max(0.0, args.hover_s - local_hold_pre_loss_s)
-                        else:
-                            local_hold_post_loss_hover_s = max(0.0, args.hover_s - local_hold_start_after_takeoff_s)
-
-                    local_hold_duration_s = aux_process_duration_s
-
-                    local_hold_command = [
-                        mavlink_sender_python,
-                        "scripts/runner/send_offboard_local_position_setpoint_mavlink.py",
-                        "--connection",
-                        "udpout:127.0.0.1:14600",
-                        "--duration-s",
-                        str(local_hold_duration_s),
-                        "--rate-hz",
-                        str(local_hold_rate_hz),
-                        "--setpoint-mode",
-                        local_hold_setpoint_mode,
-                        "--x",
-                        str(local_hold_x_m),
-                        "--y",
-                        str(local_hold_y_m),
-                        "--z",
-                        str(local_hold_z_m),
-                        "--vx",
-                        str(local_hold_vx_m_s),
-                        "--vy",
-                        str(local_hold_vy_m_s),
-                        "--vz",
-                        str(local_hold_vz_m_s),
-                        "--yaw-deg",
-                        str(local_hold_yaw_deg),
-                        "--sent-log",
-                        str(local_hold_sent_path),
+                if flow_recording_enabled:
+                    flow_recording_dir = run_dir / "flow_recording"
+                    flow_recording_dir.mkdir(parents=True, exist_ok=True)
+                    flow_recording_duration_s = aux_process_duration_s
+                    flow_recording_command = [
+                        "/usr/bin/python3",
+                        str(PROJECT_ROOT / "scripts" / "sim" / "record_camera_frames.py"),
+                        "--image-topic", camera_image_topic,
+                        "--scan-topic", rangefinder_scan_topic,
+                        "--out-dir", str(flow_recording_dir),
+                        "--rate-hz", str(flow_recording_rate_hz),
+                        "--max-width", str(flow_recording_max_width),
+                        "--duration-s", str(flow_recording_duration_s),
                     ]
-                    if local_hold_use_yaw:
-                        local_hold_command.append("--use-yaw")
-
-                    local_hold_log_handle = local_hold_console_path.open("w")
-                    local_hold_proc = subprocess.Popen(
-                        local_hold_command,
-                        cwd=str(project_root),
-                        stdout=local_hold_log_handle,
+                    flow_recording_log_handle = (run_dir / "logs" / "flow_recording.log").open("w")
+                    flow_recording_proc = subprocess.Popen(
+                        flow_recording_command,
+                        cwd=str(PROJECT_ROOT),
+                        env=env,
+                        stdout=flow_recording_log_handle,
                         stderr=subprocess.STDOUT,
                         text=True,
                         preexec_fn=os.setsid,
                     )
-                    notes.append(f"started offboard local hold sender pid={local_hold_proc.pid}")
+                    notes.append(f"started flow recorder pid={flow_recording_proc.pid}")
 
-                    time.sleep(local_hold_warmup_s)
-                    local_hold_started = local_hold_proc.poll() is None
-                    notes.append(f"local_hold_started={local_hold_started}")
+                qgc_enabled = not args.no_qgc
+                qgc_command = None
 
-                    if local_hold_started:
-                        # A fixed post-takeoff wait (local_hold_start_after_takeoff_s)
-                        # is altitude-blind: PX4's AUTO_TAKEOFF climbs at
-                        # MPC_TKO_SPEED (default 1.5 m/s), so a 5 s wait tuned for a
-                        # 15 m target (~10 s climb) leaves PX4 still mid-climb at
-                        # 35/60 m and it rejects the OFFBOARD mode switch (observed
-                        # 2026-07-21: nav_state stayed 17/AUTO_TAKEOFF instead of
-                        # 14/OFFBOARD on the first Phase 14b 35 m attempt). Reuse the
-                        # same altitude gate already proven for the GNSS-loss cut so
-                        # OFFBOARD is only requested once takeoff has actually
-                        # finished, at any altitude, with no per-batch tuning.
-                        #
-                        # wait_for_target_altitude's timeout_s is WALL-clock, and unlike
-                        # the GNSS-loss-cut call site (where OFFBOARD has usually already
-                        # been holding near the target for a while, so the gap to close is
-                        # small), the vehicle here still has the *entire* AUTO_TAKEOFF
-                        # climb left. Budget wall-clock for a full climb at MPC_TKO_SPEED
-                        # (default 1.5 m/s) plus settle time, scaled by the scenario's own
-                        # sim_time_wall_multiplier -- the same convention every other
-                        # wall-clock budget in this function already uses.
-                        pre_offboard_altitude_timeout_wall_s = max(
-                            60.0, (takeoff_alt_m / 1.5 + 10.0) * sim_time_wall_multiplier
-                        )
-                        local_hold_pre_offboard_altitude_wait = wait_for_target_altitude(
-                            px4_proc,
-                            console_log,
-                            takeoff_alt_m,
-                            notes,
-                            timeout_s=pre_offboard_altitude_timeout_wall_s,
-                        )
-                        notes.append(f"pre-offboard altitude gate: {local_hold_pre_offboard_altitude_wait}")
+                if qgc_enabled:
+                    qgc_command = (
+                        f"mavlink start -m config "
+                        f"-u {args.qgc_local_port} "
+                        f"-o {args.qgc_remote_port} "
+                        f"-t {args.qgc_ip} "
+                        f"-r {args.qgc_rate} "
+                        f"-x"
+                    )
+                    ok = send_pxh(px4_proc, qgc_command, notes)
+                    commands_sent.append({"command": qgc_command, "sent": ok})
+                    time.sleep(5)
+                    ok = send_pxh(px4_proc, "mavlink status", notes)
+                    commands_sent.append({"command": "mavlink status", "sent": ok})
+                    qgc_status_command_sent = ok
+                    time.sleep(3)
 
-                        ok = send_pxh(px4_proc, "commander mode offboard", notes)
-                        commands_sent.append({"command": "commander mode offboard", "sent": ok})
-                        local_hold_mode_command_sent = ok
-                        local_hold_offboard_command_wall = time.monotonic()
+                failsafe_commands = failsafe_profile_commands(args.failsafe_profile)
+                for fs_cmd in failsafe_commands:
+                    ok = send_pxh(px4_proc, fs_cmd, notes)
+                    commands_sent.append({"command": fs_cmd, "sent": ok})
+                    time.sleep(1)
 
-                        (
-                            local_hold_mode_detected_runtime,
-                            local_hold_mode_samples,
-                            local_hold_mode_sample,
-                            local_hold_vehicle_status_text,
-                        ) = wait_for_offboard_mode(
-                            px4_proc,
-                            console_log,
-                            notes,
-                            timeout_s=min(5.0, max(0.5, local_hold_gnss_loss_after_offboard_s)),
-                        )
-                        if local_hold_mode_sample:
-                            local_hold_nav_state_after_mode = local_hold_mode_sample["nav_state"]
-                            local_hold_accepts_offboard_setpoints = local_hold_mode_sample[
-                                "accepts_offboard_setpoints"
-                            ]
+                start_gnss_cmd = f"param set SIM_GPS_USED {args.gnss_start_used}"
+                ok = send_pxh(px4_proc, start_gnss_cmd, notes)
+                commands_sent.append({"command": start_gnss_cmd, "sent": ok})
+                time.sleep(2)
+
+                takeoff_alt_cmd = f"param set MIS_TAKEOFF_ALT {takeoff_alt_m}"
+                ok = send_pxh(px4_proc, takeoff_alt_cmd, notes)
+                commands_sent.append({"command": takeoff_alt_cmd, "sent": ok})
+                time.sleep(1)
+
+                # Apply scenario-level extra PX4 params for every run (not only
+                # flow-bridge runs), before takeoff so estimator/height settings
+                # like EKF2_RNG_A_HMAX are active for the whole flight. Used by
+                # the Phase 14 altitude batches to let the downward rangefinder
+                # anchor absolute height above the 5 m stock EKF2_RNG_A_HMAX
+                # cutoff on flat terrain.
+                for param_name, param_value in sorted(extra_px4_params.items()):
+                    extra_cmd = f"param set {param_name} {param_value}"
+                    ok = send_pxh(px4_proc, extra_cmd, notes)
+                    commands_sent.append({"command": extra_cmd, "sent": ok})
+                    time.sleep(1)
+
+                project_root = Path(__file__).resolve().parents[2]
+                onboard_mavlink_needed = external_odom_enabled or local_hold_enabled or flow_bridge_enabled
+
+                if onboard_mavlink_needed:
+                    onboard_commands = [
+                        "mavlink start -m onboard -u 14600 -o 14601 -t 127.0.0.1 -r 1000000",
+                    ]
+
+                    if local_hold_enabled:
+                        onboard_commands.append("param set MAV_FWDEXTSP 1")
+
+                    for onboard_cmd in onboard_commands:
+                        ok = send_pxh(px4_proc, onboard_cmd, notes)
+                        commands_sent.append({"command": onboard_cmd, "sent": ok})
+                        time.sleep(1)
+
+                if external_odom_enabled:
+                    ev_commands = [
+                        f"param set EKF2_EV_CTRL {external_odom_ev_ctrl}",
+                        f"param set EKF2_HGT_REF {external_odom_ekf2_hgt_ref}",
+                        f"param set EKF2_EV_DELAY {external_odom_ev_delay_ms:g}",
+                    ]
+                    for param_name, param_value in sorted(external_odom_extra_params.items()):
+                        ev_commands.append(f"param set {param_name} {param_value}")
+
+                    for ev_cmd in ev_commands:
+                        ok = send_pxh(px4_proc, ev_cmd, notes)
+                        commands_sent.append({"command": ev_cmd, "sent": ok})
+                        time.sleep(1)
+
+                    bridge_duration_s = args.hover_s + args.land_timeout_s + 90.0
+
+                    external_odom_command = [
+                        mavlink_sender_python,
+                        "scripts/runner/send_live_gazebo_odometry_mavlink.py",
+                        "--topic",
+                        truth_topic,
+                        "--model-name",
+                        gazebo_model_name,
+                        "--connection",
+                        "udpout:127.0.0.1:14600",
+                        "--duration-s",
+                        str(bridge_duration_s),
+                        "--rate-hz",
+                        str(external_odom_rate_hz),
+                        "--position-std-m",
+                        str(external_position_std_m),
+                        "--velocity-std-m-s",
+                        str(external_velocity_std_m_s),
+                        "--mav-frame",
+                        external_odom_mav_frame,
+                        "--velocity-source",
+                        external_odom_velocity_source,
+                        "--velocity-alpha",
+                        str(external_odom_velocity_alpha),
+                        "--max-finite-diff-speed-m-s",
+                        str(external_odom_max_finite_diff_speed_m_s),
+                        "--velocity-reject-action",
+                        external_odom_velocity_reject_action,
+                        "--quality",
+                        str(external_odom_quality),
+                        "--latency-ms",
+                        str(external_odom_latency_ms),
+                        "--inject-position-noise-std-m",
+                        str(external_odom_inject_position_noise_std_m),
+                        "--inject-velocity-noise-std-m-s",
+                        str(external_odom_inject_velocity_noise_std_m_s),
+                        "--disturbance-seed",
+                        str(external_odom_disturbance_seed),
+                        "--dropout-start-after-s",
+                        str(external_odom_dropout_start_after_s),
+                        "--dropout-period-s",
+                        str(external_odom_dropout_period_s),
+                        "--dropout-duration-s",
+                        str(external_odom_dropout_duration_s),
+                        "--dropout-probability",
+                        str(external_odom_dropout_probability),
+                        "--sent-log",
+                        str(external_odom_sent_path),
+                    ]
+                    if external_odom_dropout_enabled:
+                        external_odom_command.append("--dropout-enabled")
+
+                    external_odom_log_handle = external_odom_console_path.open("w")
+                    external_odom_proc = subprocess.Popen(
+                        external_odom_command,
+                        cwd=str(project_root),
+                        env=env,
+                        stdout=external_odom_log_handle,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        preexec_fn=os.setsid,
+                    )
+
+                    notes.append(
+                        f"started external odometry bridge pid={external_odom_proc.pid}"
+                    )
+
+                    time.sleep(5)
+                    external_odom_started = external_odom_proc.poll() is None
+                    notes.append(f"external_odom_started={external_odom_started}")
+
+                    if not external_odom_started:
                         notes.append(
-                            "local hold mode status: "
-                            f"nav_state={local_hold_nav_state_after_mode}, "
-                            f"accepts_offboard_setpoints={local_hold_accepts_offboard_setpoints}, "
-                            f"detected={local_hold_mode_detected_runtime}"
+                            "external odometry failed before arming; GNSS loss suppressed"
+                        )
+                        args.gnss_loss_after_takeoff_s = None
+
+                if flow_bridge_enabled:
+                    # EKF2_OF_CTRL=0 keeps this open-loop (compute + deliver to
+                    # uORB, EKF ignores); SENS_FLOW_ROT stays 0 because the axis
+                    # map is owned by the bridge adapter (decision D5).
+                    flow_param_commands = [
+                        f"param set EKF2_OF_CTRL {flow_bridge_ekf2_of_ctrl}",
+                        f"param set EKF2_OF_QMIN {flow_bridge_ekf2_of_qmin}",
+                        "param set SENS_FLOW_ROT 0",
+                        "param set SENS_FLOW_MINHGT 0.1",
+                        "param set SENS_FLOW_MAXHGT 100",
+                    ]
+                    if flow_bridge_ekf2_of_n_min is not None:
+                        flow_param_commands.append(f"param set EKF2_OF_N_MIN {flow_bridge_ekf2_of_n_min}")
+                    if flow_bridge_ekf2_of_n_max is not None:
+                        flow_param_commands.append(f"param set EKF2_OF_N_MAX {flow_bridge_ekf2_of_n_max}")
+                    if flow_bridge_ekf2_of_gate is not None:
+                        flow_param_commands.append(f"param set EKF2_OF_GATE {flow_bridge_ekf2_of_gate}")
+                    if flow_bridge_ekf2_of_delay is not None:
+                        flow_param_commands.append(f"param set EKF2_OF_DELAY {flow_bridge_ekf2_of_delay}")
+                    for flow_cmd in flow_param_commands:
+                        ok = send_pxh(px4_proc, flow_cmd, notes)
+                        commands_sent.append({"command": flow_cmd, "sent": ok})
+                        time.sleep(1)
+
+                    # extra_px4_params are now applied universally right after
+                    # MIS_TAKEOFF_ALT (before takeoff), not only for flow-bridge
+                    # runs -- see the setup block above.
+
+                    flow_bridge_dir.mkdir(parents=True, exist_ok=True)
+                    flow_bridge_duration_s = aux_process_duration_s
+                    flow_bridge_command = [
+                        flow_bridge_python,
+                        str(PROJECT_ROOT / "scripts" / "sim" / "flow_mavlink_bridge.py"),
+                        "--image-topic", camera_image_topic,
+                        "--scan-topic", rangefinder_scan_topic,
+                        "--imu-topic", flow_bridge_imu_topic,
+                        "--estimator", flow_bridge_estimator,
+                        "--hfov-rad", str(flow_bridge_hfov_rad),
+                        "--rate-hz", str(flow_bridge_rate_hz),
+                        "--max-width", str(flow_bridge_max_width),
+                        "--sift-n-features", str(flow_bridge_sift_n_features),
+                        "--sift-ratio", str(flow_bridge_sift_ratio),
+                        "--sift-min-matches", str(flow_bridge_sift_min_matches),
+                        "--lk-max-corners", str(flow_bridge_lk_max_corners),
+                        "--lk-quality-level", str(flow_bridge_lk_quality_level),
+                        "--lk-min-distance", str(flow_bridge_lk_min_distance),
+                        "--lk-block-size", str(flow_bridge_lk_block_size),
+                        "--lk-win-size", str(flow_bridge_lk_win_size),
+                        "--lk-max-level", str(flow_bridge_lk_max_level),
+                        "--lk-min-tracks", str(flow_bridge_lk_min_tracks),
+                        "--lk-fb-max-error-px", str(flow_bridge_lk_fb_max_error_px),
+                        "--lk-confidence-multiplier", str(flow_bridge_lk_confidence_multiplier),
+                        "--lk-mad-multiplier", str(flow_bridge_lk_mad_multiplier),
+                        "--lk-max-flow-rate-rad-s", str(flow_bridge_lk_max_flow_rate_rad_s),
+                        # =VALUE form: axis maps like "-yx" start with a dash and
+                        # argparse would otherwise read them as an option, not a value.
+                        f"--axis-map={flow_bridge_axis_map}",
+                        "--gyro-mode", flow_bridge_gyro_mode,
+                        "--quality-in-min", str(flow_bridge_quality_in_min),
+                        "--quality-in-max", str(flow_bridge_quality_in_max),
+                        "--send-min-quality", str(flow_bridge_send_min_quality),
+                        "--send-min-matches", str(flow_bridge_send_min_matches),
+                        "--connection", "udpout:127.0.0.1:14600",
+                        "--duration-s", str(flow_bridge_duration_s),
+                        "--sent-log", str(flow_bridge_sent_path),
+                        "--startup-prime-hz", str(flow_bridge_startup_prime_hz),
+                        "--startup-prime-duration-s", str(flow_bridge_startup_prime_duration_s),
+                    ]
+                    if flow_bridge_send_min_range_m is not None:
+                        flow_bridge_command.extend(["--send-min-range-m", str(flow_bridge_send_min_range_m)])
+                    if flow_bridge_send_max_range_m is not None:
+                        flow_bridge_command.extend(["--send-max-range-m", str(flow_bridge_send_max_range_m)])
+                    if flow_bridge_reset_on_unsent:
+                        flow_bridge_command.append("--reset-on-unsent")
+                    if flow_bridge_prime_on_unsent:
+                        flow_bridge_command.append("--prime-on-unsent")
+                    flow_bridge_log_handle = (run_dir / "logs" / "flow_bridge.log").open("w")
+                    flow_bridge_proc = subprocess.Popen(
+                        flow_bridge_command,
+                        cwd=str(PROJECT_ROOT),
+                        env=env,
+                        stdout=flow_bridge_log_handle,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        preexec_fn=os.setsid,
+                    )
+                    notes.append(f"started flow bridge pid={flow_bridge_proc.pid}")
+                    flow_bridge_prearm_result = wait_for_flow_bridge_prearm(
+                        flow_bridge_proc,
+                        flow_bridge_sent_path,
+                        flow_bridge_prearm_min_mavlink,
+                        flow_bridge_prearm_timeout_s,
+                        notes,
+                    )
+                    flow_bridge_started = flow_bridge_proc.poll() is None
+                    notes.append(f"flow_bridge_started={flow_bridge_started}")
+                    if (
+                        flow_bridge_prearm_min_mavlink > 0
+                        and not flow_bridge_prearm_result["flow_bridge_prearm_ok"]
+                    ):
+                        raise RuntimeError(
+                            "flow bridge did not publish required pre-arm MAVLink samples "
+                            f"({flow_bridge_prearm_result['flow_bridge_prearm_mavlink_rows']}/"
+                            f"{flow_bridge_prearm_min_mavlink}) within "
+                            f"{flow_bridge_prearm_timeout_s:g}s"
                         )
 
-                        # A single 5 s confirmation window is not a retry --
-                        # if PX4 rejected the mode switch (e.g. still mid an
-                        # AUTO_TAKEOFF that stalled near the ground under
-                        # strong wind), silently continuing left the local
-                        # hold sender streaming setpoints into a mode PX4
-                        # never actually entered for up to a minute+
-                        # (observed 2026-07-22, Phase 16A wind7ms 15m case).
-                        # Retry the mode switch a few times before giving up.
-                        offboard_retries = 0
-                        while not local_hold_mode_detected_runtime and offboard_retries < 3:
-                            offboard_retries += 1
-                            notes.append(f"retrying commander mode offboard (attempt {offboard_retries})")
+                if stock_flow_enabled:
+                    stock_flow_param_commands = [
+                        "param set SYS_HAS_GPS 1",
+                        "param set EKF2_GPS_CTRL 7",
+                        f"param set SIM_GZ_EN_FLOW {int(stock_flow_cfg.get('sim_gz_en_flow', 1))}",
+                        f"param set SIM_GZ_EN_LIDAR {int(stock_flow_cfg.get('sim_gz_en_lidar', 1))}",
+                        f"param set EKF2_OF_CTRL {stock_flow_ekf2_of_ctrl}",
+                        f"param set EKF2_OF_QMIN {stock_flow_ekf2_of_qmin}",
+                        f"param set SENS_FLOW_ROT {stock_flow_sens_flow_rot}",
+                        f"param set SENS_FLOW_MINHGT {stock_flow_sens_flow_minhgt}",
+                        f"param set SENS_FLOW_MAXHGT {stock_flow_sens_flow_maxhgt}",
+                    ]
+                    if stock_flow_sens_flow_rate is not None:
+                        stock_flow_param_commands.append(f"param set SENS_FLOW_RATE {stock_flow_sens_flow_rate}")
+                    if stock_flow_sens_flow_scale is not None:
+                        stock_flow_param_commands.append(f"param set SENS_FLOW_SCALE {stock_flow_sens_flow_scale}")
+                    if stock_flow_ekf2_of_n_min is not None:
+                        stock_flow_param_commands.append(f"param set EKF2_OF_N_MIN {stock_flow_ekf2_of_n_min}")
+                    if stock_flow_ekf2_of_n_max is not None:
+                        stock_flow_param_commands.append(f"param set EKF2_OF_N_MAX {stock_flow_ekf2_of_n_max}")
+                    if stock_flow_ekf2_of_gate is not None:
+                        stock_flow_param_commands.append(f"param set EKF2_OF_GATE {stock_flow_ekf2_of_gate}")
+                    if stock_flow_ekf2_of_delay is not None:
+                        stock_flow_param_commands.append(f"param set EKF2_OF_DELAY {stock_flow_ekf2_of_delay}")
+                    for stock_cmd in stock_flow_param_commands:
+                        ok = send_pxh(px4_proc, stock_cmd, notes)
+                        commands_sent.append({"command": stock_cmd, "sent": ok})
+                        time.sleep(1)
+
+                if global_position_gate_enabled:
+                    global_position_ready, global_position_readiness_samples, global_position_ready_sample = (
+                        wait_for_global_position_ready(
+                            px4_proc,
+                            console_log,
+                            notes,
+                            timeout_s=args.global_position_timeout_s,
+                            stable_s=args.global_position_stable_s,
+                        )
+                    )
+                else:
+                    global_position_ready = True
+                    notes.append("global position readiness gate disabled")
+
+                if global_position_ready:
+                    ok = send_pxh(px4_proc, "commander arm -f", notes)
+                    commands_sent.append({"command": "commander arm -f", "sent": ok})
+                    time.sleep(5)
+
+                    ok = send_pxh(px4_proc, "commander takeoff", notes)
+                    commands_sent.append({"command": "commander takeoff", "sent": ok})
+                    takeoff_command_wall = time.monotonic()
+
+                    if local_hold_enabled:
+                        local_hold_takeoff_wait_target_s = max(0.0, local_hold_start_after_takeoff_s)
+                        local_hold_takeoff_wait_timeout_wall_s = max(
+                            local_hold_takeoff_wait_target_s * sim_time_wall_multiplier + 30.0,
+                            local_hold_takeoff_wait_target_s + 30.0,
+                        )
+                        notes.append(
+                            "local hold pre-offboard takeoff sim-time wait: "
+                            f"target_s={local_hold_takeoff_wait_target_s:.3f}, "
+                            f"timeout_wall_s={local_hold_takeoff_wait_timeout_wall_s:.3f}"
+                        )
+                        (
+                            local_hold_takeoff_wait_ok,
+                            local_hold_takeoff_wait_samples,
+                            local_hold_takeoff_wait_sample,
+                        ) = wait_for_airborne_duration(
+                            px4_proc,
+                            console_log,
+                            notes,
+                            target_airborne_s=local_hold_takeoff_wait_target_s,
+                            timeout_wall_s=local_hold_takeoff_wait_timeout_wall_s,
+                            min_altitude_m=0.5,
+                        )
+                        if not local_hold_takeoff_wait_ok:
+                            airborne_hover_wait_ok = False
+                            raise RuntimeError(
+                                "takeoff did not reach the requested pre-offboard airborne duration; "
+                                "aborting before offboard/GNSS-loss commands"
+                            )
+
+                        local_hold_post_loss_hover_s = args.post_loss_hover_s
+                        local_hold_pre_loss_s = (
+                            local_hold_start_after_takeoff_s
+                            + local_hold_warmup_s
+                            + local_hold_gnss_loss_after_offboard_s
+                        )
+
+                        if local_hold_post_loss_hover_s is None:
+                            if args.gnss_loss_after_takeoff_s is not None:
+                                local_hold_post_loss_hover_s = max(0.0, args.hover_s - local_hold_pre_loss_s)
+                            else:
+                                local_hold_post_loss_hover_s = max(0.0, args.hover_s - local_hold_start_after_takeoff_s)
+
+                        local_hold_duration_s = aux_process_duration_s
+
+                        local_hold_command = [
+                            mavlink_sender_python,
+                            "scripts/runner/send_offboard_local_position_setpoint_mavlink.py",
+                            "--connection",
+                            "udpout:127.0.0.1:14600",
+                            "--duration-s",
+                            str(local_hold_duration_s),
+                            "--rate-hz",
+                            str(local_hold_rate_hz),
+                            "--setpoint-mode",
+                            local_hold_setpoint_mode,
+                            "--x",
+                            str(local_hold_x_m),
+                            "--y",
+                            str(local_hold_y_m),
+                            "--z",
+                            str(local_hold_z_m),
+                            "--vx",
+                            str(local_hold_vx_m_s),
+                            "--vy",
+                            str(local_hold_vy_m_s),
+                            "--vz",
+                            str(local_hold_vz_m_s),
+                            "--yaw-deg",
+                            str(local_hold_yaw_deg),
+                            "--sent-log",
+                            str(local_hold_sent_path),
+                        ]
+                        if local_hold_use_yaw:
+                            local_hold_command.append("--use-yaw")
+
+                        local_hold_log_handle = local_hold_console_path.open("w")
+                        local_hold_proc = subprocess.Popen(
+                            local_hold_command,
+                            cwd=str(project_root),
+                            stdout=local_hold_log_handle,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            preexec_fn=os.setsid,
+                        )
+                        notes.append(f"started offboard local hold sender pid={local_hold_proc.pid}")
+
+                        time.sleep(local_hold_warmup_s)
+                        local_hold_started = local_hold_proc.poll() is None
+                        notes.append(f"local_hold_started={local_hold_started}")
+
+                        if local_hold_started:
+                            # A fixed post-takeoff wait (local_hold_start_after_takeoff_s)
+                            # is altitude-blind: PX4's AUTO_TAKEOFF climbs at
+                            # MPC_TKO_SPEED (default 1.5 m/s), so a 5 s wait tuned for a
+                            # 15 m target (~10 s climb) leaves PX4 still mid-climb at
+                            # 35/60 m and it rejects the OFFBOARD mode switch (observed
+                            # 2026-07-21: nav_state stayed 17/AUTO_TAKEOFF instead of
+                            # 14/OFFBOARD on the first Phase 14b 35 m attempt). Reuse the
+                            # same altitude gate already proven for the GNSS-loss cut so
+                            # OFFBOARD is only requested once takeoff has actually
+                            # finished, at any altitude, with no per-batch tuning.
+                            #
+                            # wait_for_target_altitude's timeout_s is WALL-clock, and unlike
+                            # the GNSS-loss-cut call site (where OFFBOARD has usually already
+                            # been holding near the target for a while, so the gap to close is
+                            # small), the vehicle here still has the *entire* AUTO_TAKEOFF
+                            # climb left. Budget wall-clock for a full climb at MPC_TKO_SPEED
+                            # (default 1.5 m/s) plus settle time, scaled by the scenario's own
+                            # sim_time_wall_multiplier -- the same convention every other
+                            # wall-clock budget in this function already uses.
+                            pre_offboard_altitude_timeout_wall_s = max(
+                                60.0, (takeoff_alt_m / 1.5 + 10.0) * sim_time_wall_multiplier
+                            )
+                            local_hold_pre_offboard_altitude_wait = wait_for_target_altitude(
+                                px4_proc,
+                                console_log,
+                                takeoff_alt_m,
+                                notes,
+                                timeout_s=pre_offboard_altitude_timeout_wall_s,
+                            )
+                            notes.append(f"pre-offboard altitude gate: {local_hold_pre_offboard_altitude_wait}")
+
                             ok = send_pxh(px4_proc, "commander mode offboard", notes)
                             commands_sent.append({"command": "commander mode offboard", "sent": ok})
+                            local_hold_mode_command_sent = ok
+                            local_hold_offboard_command_wall = time.monotonic()
+
                             (
                                 local_hold_mode_detected_runtime,
-                                retry_samples,
+                                local_hold_mode_samples,
                                 local_hold_mode_sample,
                                 local_hold_vehicle_status_text,
                             ) = wait_for_offboard_mode(
                                 px4_proc,
                                 console_log,
                                 notes,
-                                timeout_s=10.0,
+                                timeout_s=min(5.0, max(0.5, local_hold_gnss_loss_after_offboard_s)),
                             )
-                            local_hold_mode_samples.extend(retry_samples)
                             if local_hold_mode_sample:
                                 local_hold_nav_state_after_mode = local_hold_mode_sample["nav_state"]
                                 local_hold_accepts_offboard_setpoints = local_hold_mode_sample[
                                     "accepts_offboard_setpoints"
                                 ]
-
-                        if not local_hold_mode_detected_runtime:
-                            raise RuntimeError(
-                                "commander mode offboard was never confirmed after "
-                                f"{offboard_retries} retries "
-                                f"(last nav_state={local_hold_nav_state_after_mode}); aborting "
-                                "rather than streaming setpoints into a mode PX4 never entered"
-                            )
-
-                        if args.gnss_loss_after_takeoff_s is not None:
-                            # Cut GPS only once the vehicle is actually stable at
-                            # the commanded hold altitude, not after a fixed time
-                            # (gnss_loss_after_offboard_s is now just a minimum
-                            # floor). Keeps GNSS loss at hover across 2.5/15/35/60 m
-                            # with no per-altitude timing tuning.
-                            elapsed_after_offboard_s = time.monotonic() - local_hold_offboard_command_wall
-                            local_hold_altitude_wait = wait_for_target_altitude(
-                                px4_proc,
-                                console_log,
-                                abs(local_hold_z_m),
-                                notes,
-                                min_wait_s=max(0.0, local_hold_gnss_loss_after_offboard_s - elapsed_after_offboard_s),
-                            )
-                            notes.append(f"pre-loss altitude gate: {local_hold_altitude_wait}")
-
-                            ok = send_pxh(px4_proc, "param set SIM_GPS_USED 0", notes)
-                            commands_sent.append({"command": "param set SIM_GPS_USED 0", "sent": ok})
-                            gnss_loss_command_sent = ok
-                            gnss_loss_confirm = confirm_gnss_loss(px4_proc, console_log, notes)
-                            gnss_loss_verified = gnss_loss_confirm["verified"]
-
-                            airborne_hover_wait_target_s = max(0.0, local_hold_post_loss_hover_s)
-                            airborne_hover_wait_timeout_wall_s = max(
-                                airborne_hover_wait_target_s * sim_time_wall_multiplier,
-                                airborne_hover_wait_target_s
-                                + camera_probe_timeout_s
-                                + rangefinder_probe_timeout_s
-                                + args.land_timeout_s
-                                + 90.0,
-                            )
                             notes.append(
-                                "local hold post-loss sim-time wait: "
-                                f"target_s={airborne_hover_wait_target_s:.3f}, "
-                                f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
+                                "local hold mode status: "
+                                f"nav_state={local_hold_nav_state_after_mode}, "
+                                f"accepts_offboard_setpoints={local_hold_accepts_offboard_setpoints}, "
+                                f"detected={local_hold_mode_detected_runtime}"
                             )
-                            (
-                                airborne_hover_wait_ok,
-                                airborne_hover_wait_samples,
-                                airborne_hover_wait_sample,
-                            ) = wait_for_airborne_duration(
-                                px4_proc,
-                                console_log,
-                                notes,
-                                target_airborne_s=airborne_hover_wait_target_s,
-                                timeout_wall_s=airborne_hover_wait_timeout_wall_s,
-                            )
+
+                            # A single 5 s confirmation window is not a retry --
+                            # if PX4 rejected the mode switch (e.g. still mid an
+                            # AUTO_TAKEOFF that stalled near the ground under
+                            # strong wind), silently continuing left the local
+                            # hold sender streaming setpoints into a mode PX4
+                            # never actually entered for up to a minute+
+                            # (observed 2026-07-22, Phase 16A wind7ms 15m case).
+                            # Retry the mode switch a few times before giving up.
+                            offboard_retries = 0
+                            while not local_hold_mode_detected_runtime and offboard_retries < 3:
+                                offboard_retries += 1
+                                notes.append(f"retrying commander mode offboard (attempt {offboard_retries})")
+                                ok = send_pxh(px4_proc, "commander mode offboard", notes)
+                                commands_sent.append({"command": "commander mode offboard", "sent": ok})
+                                (
+                                    local_hold_mode_detected_runtime,
+                                    retry_samples,
+                                    local_hold_mode_sample,
+                                    local_hold_vehicle_status_text,
+                                ) = wait_for_offboard_mode(
+                                    px4_proc,
+                                    console_log,
+                                    notes,
+                                    timeout_s=10.0,
+                                )
+                                local_hold_mode_samples.extend(retry_samples)
+                                if local_hold_mode_sample:
+                                    local_hold_nav_state_after_mode = local_hold_mode_sample["nav_state"]
+                                    local_hold_accepts_offboard_setpoints = local_hold_mode_sample[
+                                        "accepts_offboard_setpoints"
+                                    ]
+
+                            if not local_hold_mode_detected_runtime:
+                                raise RuntimeError(
+                                    "commander mode offboard was never confirmed after "
+                                    f"{offboard_retries} retries "
+                                    f"(last nav_state={local_hold_nav_state_after_mode}); aborting "
+                                    "rather than streaming setpoints into a mode PX4 never entered"
+                                )
+
+                            if args.gnss_loss_after_takeoff_s is not None:
+                                # Cut GPS only once the vehicle is actually stable at
+                                # the commanded hold altitude, not after a fixed time
+                                # (gnss_loss_after_offboard_s is now just a minimum
+                                # floor). Keeps GNSS loss at hover across 2.5/15/35/60 m
+                                # with no per-altitude timing tuning.
+                                elapsed_after_offboard_s = time.monotonic() - local_hold_offboard_command_wall
+                                local_hold_altitude_wait = wait_for_target_altitude(
+                                    px4_proc,
+                                    console_log,
+                                    abs(local_hold_z_m),
+                                    notes,
+                                    min_wait_s=max(0.0, local_hold_gnss_loss_after_offboard_s - elapsed_after_offboard_s),
+                                )
+                                notes.append(f"pre-loss altitude gate: {local_hold_altitude_wait}")
+
+                                ok = send_pxh(px4_proc, "param set SIM_GPS_USED 0", notes)
+                                commands_sent.append({"command": "param set SIM_GPS_USED 0", "sent": ok})
+                                gnss_loss_command_sent = ok
+                                gnss_loss_confirm = confirm_gnss_loss(px4_proc, console_log, notes)
+                                gnss_loss_verified = gnss_loss_confirm["verified"]
+
+                                airborne_hover_wait_target_s = max(0.0, local_hold_post_loss_hover_s)
+                                airborne_hover_wait_timeout_wall_s = max(
+                                    airborne_hover_wait_target_s * sim_time_wall_multiplier,
+                                    airborne_hover_wait_target_s
+                                    + camera_probe_timeout_s
+                                    + rangefinder_probe_timeout_s
+                                    + args.land_timeout_s
+                                    + 90.0,
+                                )
+                                notes.append(
+                                    "local hold post-loss sim-time wait: "
+                                    f"target_s={airborne_hover_wait_target_s:.3f}, "
+                                    f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
+                                )
+                                (
+                                    airborne_hover_wait_ok,
+                                    airborne_hover_wait_samples,
+                                    airborne_hover_wait_sample,
+                                ) = wait_for_airborne_duration(
+                                    px4_proc,
+                                    console_log,
+                                    notes,
+                                    target_airborne_s=airborne_hover_wait_target_s,
+                                    timeout_wall_s=airborne_hover_wait_timeout_wall_s,
+                                )
+                            else:
+                                airborne_hover_wait_target_s = max(
+                                    0.0,
+                                    args.hover_s - local_hold_start_after_takeoff_s - local_hold_warmup_s,
+                                )
+                                airborne_hover_wait_timeout_wall_s = max(
+                                    airborne_hover_wait_target_s * sim_time_wall_multiplier,
+                                    airborne_hover_wait_target_s
+                                    + camera_probe_timeout_s
+                                    + rangefinder_probe_timeout_s
+                                    + args.land_timeout_s
+                                    + 90.0,
+                                )
+                                notes.append(
+                                    "local hold sim-time wait: "
+                                    f"target_s={airborne_hover_wait_target_s:.3f}, "
+                                    f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
+                                )
+                                (
+                                    airborne_hover_wait_ok,
+                                    airborne_hover_wait_samples,
+                                    airborne_hover_wait_sample,
+                                ) = wait_for_airborne_duration(
+                                    px4_proc,
+                                    console_log,
+                                    notes,
+                                    target_airborne_s=airborne_hover_wait_target_s,
+                                    timeout_wall_s=airborne_hover_wait_timeout_wall_s,
+                                )
                         else:
-                            airborne_hover_wait_target_s = max(
-                                0.0,
-                                args.hover_s - local_hold_start_after_takeoff_s - local_hold_warmup_s,
-                            )
-                            airborne_hover_wait_timeout_wall_s = max(
-                                airborne_hover_wait_target_s * sim_time_wall_multiplier,
-                                airborne_hover_wait_target_s
-                                + camera_probe_timeout_s
-                                + rangefinder_probe_timeout_s
-                                + args.land_timeout_s
-                                + 90.0,
-                            )
-                            notes.append(
-                                "local hold sim-time wait: "
-                                f"target_s={airborne_hover_wait_target_s:.3f}, "
-                                f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
-                            )
-                            (
-                                airborne_hover_wait_ok,
-                                airborne_hover_wait_samples,
-                                airborne_hover_wait_sample,
-                            ) = wait_for_airborne_duration(
-                                px4_proc,
-                                console_log,
-                                notes,
-                                target_airborne_s=airborne_hover_wait_target_s,
-                                timeout_wall_s=airborne_hover_wait_timeout_wall_s,
-                            )
+                            notes.append("offboard local hold sender failed before GNSS loss; continuing with GNSS enabled")
+                            remaining_hover_s = max(0.0, args.hover_s - local_hold_start_after_takeoff_s)
+                            time.sleep(remaining_hover_s)
+                    elif args.gnss_loss_after_takeoff_s is not None:
+                        time.sleep(args.gnss_loss_after_takeoff_s)
+
+                        ok = send_pxh(px4_proc, "param set SIM_GPS_USED 0", notes)
+                        commands_sent.append({"command": "param set SIM_GPS_USED 0", "sent": ok})
+                        gnss_loss_command_sent = ok
+                        gnss_loss_confirm = confirm_gnss_loss(px4_proc, console_log, notes)
+                        gnss_loss_verified = gnss_loss_confirm["verified"]
+
+                        post_loss_hover_s = args.post_loss_hover_s
+                        if post_loss_hover_s is None:
+                            post_loss_hover_s = max(0.0, args.hover_s - args.gnss_loss_after_takeoff_s)
+
+                        time.sleep(post_loss_hover_s)
                     else:
-                        notes.append("offboard local hold sender failed before GNSS loss; continuing with GNSS enabled")
-                        remaining_hover_s = max(0.0, args.hover_s - local_hold_start_after_takeoff_s)
-                        time.sleep(remaining_hover_s)
-                elif args.gnss_loss_after_takeoff_s is not None:
-                    time.sleep(args.gnss_loss_after_takeoff_s)
+                        elapsed_since_takeoff_cmd_s = time.monotonic() - takeoff_command_wall
+                        airborne_hover_wait_target_s = max(10.0, args.hover_s * 0.8)
+                        airborne_hover_wait_timeout_wall_s = max(
+                            airborne_hover_wait_target_s * sim_time_wall_multiplier,
+                            args.hover_s + camera_probe_timeout_s + rangefinder_probe_timeout_s + args.land_timeout_s + 90.0,
+                        )
+                        notes.append(
+                            "auto hover timing: "
+                            f"requested_s={args.hover_s:.3f}, "
+                            f"wait_target_s={airborne_hover_wait_target_s:.3f}, "
+                            f"elapsed_after_takeoff_cmd_s={elapsed_since_takeoff_cmd_s:.3f}, "
+                            f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
+                        )
+                        (
+                            airborne_hover_wait_ok,
+                            airborne_hover_wait_samples,
+                            airborne_hover_wait_sample,
+                        ) = wait_for_airborne_duration(
+                            px4_proc,
+                            console_log,
+                            notes,
+                            target_airborne_s=airborne_hover_wait_target_s,
+                            timeout_wall_s=airborne_hover_wait_timeout_wall_s,
+                        )
 
-                    ok = send_pxh(px4_proc, "param set SIM_GPS_USED 0", notes)
-                    commands_sent.append({"command": "param set SIM_GPS_USED 0", "sent": ok})
-                    gnss_loss_command_sent = ok
-                    gnss_loss_confirm = confirm_gnss_loss(px4_proc, console_log, notes)
-                    gnss_loss_verified = gnss_loss_confirm["verified"]
+                    if camera_proof_enabled and not skip_landing_command:
+                        camera_probe_result = probe_camera_topic(
+                            run_dir,
+                            env,
+                            camera_image_topic,
+                            timeout_s=camera_probe_timeout_s,
+                            notes=notes,
+                        )
+                    elif camera_proof_enabled and skip_landing_command:
+                        camera_probe_result = {
+                            **camera_probe_result,
+                            "camera_probe_ok": True,
+                            "camera_topic_seen": True,
+                            "camera_image_sample_bytes": None,
+                        }
+                        notes.append("skipped post-window camera probe per control.skip_landing_command")
 
-                    post_loss_hover_s = args.post_loss_hover_s
-                    if post_loss_hover_s is None:
-                        post_loss_hover_s = max(0.0, args.hover_s - args.gnss_loss_after_takeoff_s)
+                    if rangefinder_proof_enabled and not skip_landing_command:
+                        rangefinder_probe_result = probe_rangefinder_topic(
+                            run_dir,
+                            env,
+                            rangefinder_scan_topic,
+                            timeout_s=rangefinder_probe_timeout_s,
+                            notes=notes,
+                        )
+                    elif rangefinder_proof_enabled and skip_landing_command:
+                        rangefinder_probe_result = {
+                            **rangefinder_probe_result,
+                            "rangefinder_probe_ok": True,
+                            "rangefinder_topic_seen": True,
+                            "rangefinder_scan_sample_bytes": None,
+                        }
+                        notes.append("skipped post-window rangefinder probe per control.skip_landing_command")
 
-                    time.sleep(post_loss_hover_s)
+                    if skip_landing_command:
+                        notes.append("skipped commander land per control.skip_landing_command")
+                    else:
+                        ok = send_pxh(px4_proc, "commander land", notes)
+                        commands_sent.append({"command": "commander land", "sent": ok})
+                        observation_landing_not_required = (
+                            args.failsafe_profile == "delayed_observation"
+                            and args.gnss_loss_after_takeoff_s is not None
+                        )
+                        landing_wait_sim_budget_s = (
+                            min(10.0, args.land_timeout_s)
+                            if observation_landing_not_required
+                            else args.land_timeout_s
+                        )
+                        # land_timeout_s is a sim-time budget; the sim can run far
+                        # below real time, so scale the wall timeout like the
+                        # takeoff/hover waits do.
+                        landing_wait_timeout_s = max(
+                            landing_wait_sim_budget_s,
+                            landing_wait_sim_budget_s * sim_time_wall_multiplier,
+                        )
+                        notes.append(
+                            "landing wait budget: "
+                            f"sim_budget_s={landing_wait_sim_budget_s:.3f}, "
+                            f"wall_multiplier={sim_time_wall_multiplier:.3f}, "
+                            f"timeout_wall_s={landing_wait_timeout_s:.3f}"
+                        )
+                        wait_for_landing_complete(
+                            px4_proc,
+                            console_log,
+                            notes,
+                            timeout_wall_s=landing_wait_timeout_s,
+                        )
                 else:
-                    elapsed_since_takeoff_cmd_s = time.monotonic() - takeoff_command_wall
-                    airborne_hover_wait_target_s = max(10.0, args.hover_s * 0.8)
-                    airborne_hover_wait_timeout_wall_s = max(
-                        airborne_hover_wait_target_s * sim_time_wall_multiplier,
-                        args.hover_s + camera_probe_timeout_s + rangefinder_probe_timeout_s + args.land_timeout_s + 90.0,
-                    )
-                    notes.append(
-                        "auto hover timing: "
-                        f"requested_s={args.hover_s:.3f}, "
-                        f"wait_target_s={airborne_hover_wait_target_s:.3f}, "
-                        f"elapsed_after_takeoff_cmd_s={elapsed_since_takeoff_cmd_s:.3f}, "
-                        f"timeout_wall_s={airborne_hover_wait_timeout_wall_s:.3f}"
-                    )
-                    (
-                        airborne_hover_wait_ok,
-                        airborne_hover_wait_samples,
-                        airborne_hover_wait_sample,
-                    ) = wait_for_airborne_duration(
-                        px4_proc,
-                        console_log,
-                        notes,
-                        target_airborne_s=airborne_hover_wait_target_s,
-                        timeout_wall_s=airborne_hover_wait_timeout_wall_s,
-                    )
-
-                if camera_proof_enabled and not skip_landing_command:
-                    camera_probe_result = probe_camera_topic(
-                        run_dir,
-                        env,
-                        camera_image_topic,
-                        timeout_s=camera_probe_timeout_s,
-                        notes=notes,
-                    )
-                elif camera_proof_enabled and skip_landing_command:
-                    camera_probe_result = {
-                        **camera_probe_result,
-                        "camera_probe_ok": True,
-                        "camera_topic_seen": True,
-                        "camera_image_sample_bytes": None,
-                    }
-                    notes.append("skipped post-window camera probe per control.skip_landing_command")
-
-                if rangefinder_proof_enabled and not skip_landing_command:
-                    rangefinder_probe_result = probe_rangefinder_topic(
-                        run_dir,
-                        env,
-                        rangefinder_scan_topic,
-                        timeout_s=rangefinder_probe_timeout_s,
-                        notes=notes,
-                    )
-                elif rangefinder_proof_enabled and skip_landing_command:
-                    rangefinder_probe_result = {
-                        **rangefinder_probe_result,
-                        "rangefinder_probe_ok": True,
-                        "rangefinder_topic_seen": True,
-                        "rangefinder_scan_sample_bytes": None,
-                    }
-                    notes.append("skipped post-window rangefinder probe per control.skip_landing_command")
-
-                if skip_landing_command:
-                    notes.append("skipped commander land per control.skip_landing_command")
-                else:
-                    ok = send_pxh(px4_proc, "commander land", notes)
-                    commands_sent.append({"command": "commander land", "sent": ok})
-                    observation_landing_not_required = (
-                        args.failsafe_profile == "delayed_observation"
-                        and args.gnss_loss_after_takeoff_s is not None
-                    )
-                    landing_wait_sim_budget_s = (
-                        min(10.0, args.land_timeout_s)
-                        if observation_landing_not_required
-                        else args.land_timeout_s
-                    )
-                    # land_timeout_s is a sim-time budget; the sim can run far
-                    # below real time, so scale the wall timeout like the
-                    # takeoff/hover waits do.
-                    landing_wait_timeout_s = max(
-                        landing_wait_sim_budget_s,
-                        landing_wait_sim_budget_s * sim_time_wall_multiplier,
-                    )
-                    notes.append(
-                        "landing wait budget: "
-                        f"sim_budget_s={landing_wait_sim_budget_s:.3f}, "
-                        f"wall_multiplier={sim_time_wall_multiplier:.3f}, "
-                        f"timeout_wall_s={landing_wait_timeout_s:.3f}"
-                    )
-                    wait_for_landing_complete(
-                        px4_proc,
-                        console_log,
-                        notes,
-                        timeout_wall_s=landing_wait_timeout_s,
-                    )
+                    notes.append("global position not ready; arm/takeoff/land commands skipped")
             else:
-                notes.append("global position not ready; arm/takeoff/land commands skipped")
-        else:
-            notes.append("startup not detected, no flight commands sent")
+                notes.append("startup not detected, no flight commands sent")
 
-        if flow_recording_proc is not None:
-            stop_process_group(flow_recording_proc, notes)
-
-        if flow_recording_log_handle is not None:
-            flow_recording_log_handle.close()
-
-        if flow_bridge_proc is not None:
-            stop_process_group(flow_bridge_proc, notes)
-
-        if flow_bridge_log_handle is not None:
-            flow_bridge_log_handle.close()
-
-        if local_hold_proc is not None:
-            stop_process_group(local_hold_proc, notes)
-
-        if local_hold_log_handle is not None:
-            local_hold_log_handle.close()
-
-        if external_odom_proc is not None:
-            stop_process_group(external_odom_proc, notes)
-
-        if external_odom_log_handle is not None:
-            external_odom_log_handle.close()
-
-        if truth_proc is not None:
-            close_truth_recorder(truth_proc, notes)
-
-        if px4_proc is not None:
-            stop_process_group(px4_proc, notes)
-
-        if gazebo_web_proc is not None:
-            stop_process_group(gazebo_web_proc, notes)
-
-        if gazebo_web_log_handle is not None:
-            gazebo_web_log_handle.close()
-
-        if standalone_gazebo_proc is not None:
-            stop_process_group(standalone_gazebo_proc, notes)
-
-        if standalone_gazebo_log_handle is not None:
-            standalone_gazebo_log_handle.close()
+        except RunnerInterrupted as exc:
+            interrupted_by = str(exc)
+            notes.append(f"interrupted by {interrupted_by}; tearing down children")
+            print(f"INTERRUPTED by {interrupted_by}; tearing down children", file=sys.stderr)
+        finally:
+            teardown_children(notes, [
+                ("flow_recording", flow_recording_proc, flow_recording_log_handle, stop_process_group),
+                ("flow_bridge", flow_bridge_proc, flow_bridge_log_handle, stop_process_group),
+                ("local_hold", local_hold_proc, local_hold_log_handle, stop_process_group),
+                ("external_odom", external_odom_proc, external_odom_log_handle, stop_process_group),
+                ("truth_recorder", truth_proc, None, close_truth_recorder),
+                ("px4", px4_proc, None, stop_process_group),
+                ("gazebo_web", gazebo_web_proc, gazebo_web_log_handle, stop_process_group),
+                ("standalone_gazebo", standalone_gazebo_proc, standalone_gazebo_log_handle, stop_process_group),
+            ])
 
     elapsed_s = time.time() - start_ts
 
@@ -2995,6 +3250,10 @@ def main() -> int:
             required=rangefinder_proof_enabled,
             min_rows=rangefinder_min_ulog_rows,
             height_agreement_tolerance_m=rangefinder_height_tolerance_m,
+            is_heightfield=is_heightfield,
+            takeoff_alt_m=takeoff_alt_m,
+            terrain_relief_span_m=terrain_relief_span_m,
+            terrain_height_offset_tolerance_m=rangefinder_terrain_height_offset_tolerance_m,
         )
         notes.append(f"ulog_distance_sensor_analysis={rangefinder_ulog_analysis}")
     else:
@@ -3007,6 +3266,11 @@ def main() -> int:
             "ulog_distance_sensor_height_diff_m": None,
             "ulog_distance_sensor_ok": not rangefinder_proof_enabled,
             "ulog_distance_sensor_error": "no copied ULog",
+            "terrain_relief_span_m": terrain_relief_span_m,
+            "pad_step_estimate_m": None,
+            "climb_window_s": None,
+            "horizontal_excursion_m": None,
+            "rangefinder_gate_mode": "absolute" if not is_heightfield else "unknown",
         }
         flight_analysis = {
             "ulog_flight_analysis_ok": False,
@@ -3078,10 +3342,41 @@ def main() -> int:
     truth_raw_bytes = truth_raw_path.stat().st_size if truth_raw_exists else 0
     truth_recorded = truth_raw_bytes > 0
 
-    flow_recording_frames = count_csv_data_rows(flow_recording_dir / "frames_index.csv")
+    flow_recording_frames_index_path = flow_recording_dir / "frames_index.csv"
+    flow_recording_frames = count_csv_data_rows(flow_recording_frames_index_path)
     flow_recording_ranges = count_csv_data_rows(flow_recording_dir / "rangefinder.csv")
+    flow_recording_first_t_sim_s, flow_recording_last_t_sim_s = read_first_last_t_sim(
+        flow_recording_frames_index_path
+    )
+    flow_recording_span_s = None
+    flow_recording_achieved_hz = None
+    flow_recording_rate_fraction = None
+    if (
+        flow_recording_first_t_sim_s is not None
+        and flow_recording_last_t_sim_s is not None
+    ):
+        flow_recording_span_s = flow_recording_last_t_sim_s - flow_recording_first_t_sim_s
+        if flow_recording_span_s > 0.0 and flow_recording_frames > 1:
+            flow_recording_achieved_hz = (flow_recording_frames - 1) / flow_recording_span_s
+            if flow_recording_rate_hz > 0.0:
+                flow_recording_rate_fraction = flow_recording_achieved_hz / flow_recording_rate_hz
+
+    # The 0.5 default is measurement-based: an archived contended-host run
+    # achieved 0.96 of the requested rate, so half-rate leaves a 2x margin.
+    # 10s is the explicit duration requirement replacing the old accidental
+    # duration assertion created by a fixed min_frames default.
     flow_recording_ok = (not flow_recording_enabled) or (
-        flow_recording_frames >= flow_recording_min_frames and flow_recording_ranges > 0
+        flow_recording_frames >= flow_recording_min_frames_floor
+        and flow_recording_span_s is not None
+        and flow_recording_span_s >= flow_recording_min_span_s
+        and flow_recording_achieved_hz is not None
+        and flow_recording_achieved_hz
+        >= flow_recording_min_rate_fraction * flow_recording_rate_hz
+        and flow_recording_ranges > 0
+        and (
+            flow_recording_min_frames is None
+            or flow_recording_frames >= flow_recording_min_frames
+        )
     )
 
     flow_bridge_total_rows = count_csv_data_rows(flow_bridge_sent_path)
@@ -3143,12 +3438,23 @@ def main() -> int:
         and landing_ok
     )
 
+    # An interrupted run is never acceptable evidence, whatever the partial gates happened to say.
+    if interrupted_by is not None:
+        accepted = False
+
+    # This makes the port-9003 orphan self-reporting.
+    gazebo_web_port_still_listening = (
+        tcp_port_open(gazebo_web_host, gazebo_web_port) if gazebo_web_enabled else False
+    )
+
     status = {
         "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "run_dir": str(run_dir),
         "scenario": str(scenario_path),
         "px4_root": str(PX4_ROOT),
         "cmd": cmd,
+        "interrupted_by": interrupted_by,
+        "cancelled": interrupted_by is not None,
         "model": model,
         "gazebo_model_name": gazebo_model_name,
         "world_name": world_name,
@@ -3165,6 +3471,7 @@ def main() -> int:
         "gazebo_web_ready": gazebo_web_ready,
         "gazebo_web_host": gazebo_web_host,
         "gazebo_web_port": gazebo_web_port,
+        "gazebo_web_port_still_listening": gazebo_web_port_still_listening,
         "gazebo_web_url": f"ws://127.0.0.1:{gazebo_web_port}",
         "gazebo_web_publication_hz": gazebo_web_publication_hz,
         "gazebo_web_startup_timeout_s": gazebo_web_startup_timeout_s,
@@ -3257,6 +3564,13 @@ def main() -> int:
         "flow_recording_rate_hz": flow_recording_rate_hz,
         "flow_recording_max_width": flow_recording_max_width,
         "flow_recording_min_frames": flow_recording_min_frames,
+        "flow_recording_span_s": flow_recording_span_s,
+        "flow_recording_achieved_hz": flow_recording_achieved_hz,
+        "flow_recording_expected_hz": flow_recording_rate_hz,
+        "flow_recording_rate_fraction": flow_recording_rate_fraction,
+        "flow_recording_min_frames_floor": flow_recording_min_frames_floor,
+        "flow_recording_min_span_s": flow_recording_min_span_s,
+        "flow_recording_min_rate_fraction": flow_recording_min_rate_fraction,
         "flow_recording_frames": flow_recording_frames,
         "flow_recording_ranges": flow_recording_ranges,
         "flow_recording_dir": str(flow_recording_dir),
@@ -3447,6 +3761,10 @@ def main() -> int:
         f"- ULog distance_sensor OK: `{rangefinder_ulog_analysis['ulog_distance_sensor_ok']}`",
         f"- Flow recording enabled: `{flow_recording_enabled}`",
         f"- Flow recording frames: `{flow_recording_frames}`",
+        f"- Flow recording span s: `{flow_recording_span_s}`",
+        f"- Flow recording achieved Hz: `{flow_recording_achieved_hz}`",
+        f"- Flow recording expected Hz: `{flow_recording_rate_hz}`",
+        f"- Flow recording rate fraction: `{flow_recording_rate_fraction}`",
         f"- Flow recording range samples: `{flow_recording_ranges}`",
         f"- Flow recording OK: `{flow_recording_ok}`",
         f"- QGC MAVLink enabled: `{qgc_enabled}`",
@@ -3561,6 +3879,10 @@ def main() -> int:
     print(f"ulog_distance_sensor_ok={rangefinder_ulog_analysis['ulog_distance_sensor_ok']}")
     print(f"flow_recording_enabled={flow_recording_enabled}")
     print(f"flow_recording_frames={flow_recording_frames}")
+    print(f"flow_recording_span_s={flow_recording_span_s}")
+    print(f"flow_recording_achieved_hz={flow_recording_achieved_hz}")
+    print(f"flow_recording_expected_hz={flow_recording_rate_hz}")
+    print(f"flow_recording_rate_fraction={flow_recording_rate_fraction}")
     print(f"flow_recording_ok={flow_recording_ok}")
     print(f"flow_bridge_enabled={flow_bridge_enabled}")
     print(f"flow_bridge_started={flow_bridge_started}")
@@ -3630,6 +3952,9 @@ def main() -> int:
     print(f"ulog_xy_reset_counter_delta={external_odom_fusion_analysis['ulog_xy_reset_counter_delta']}")
     print(f"run_dir={run_dir}")
     print(f"status_json={status_json}")
+
+    if interrupted_by is not None:
+        return 128 + signal.Signals[interrupted_by].value
 
     return 0 if accepted else 1
 
