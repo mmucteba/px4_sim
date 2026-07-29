@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pwd
 import re
 import shutil
 import stat
@@ -101,6 +102,119 @@ def _run_command(cmd: list[str], cwd: Path | None = None, timeout: int = 10) -> 
         timeout=timeout,
         check=False,
     )
+
+
+def _combined_output(proc: subprocess.CompletedProcess[str]) -> str:
+    return "\n".join(part for part in (proc.stdout.strip(), proc.stderr.strip()) if part)
+
+
+def _first_output_line(output: str) -> str:
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("ninja: Entering directory"):
+            return stripped
+    return next((line.strip() for line in output.splitlines() if line.strip()), "")
+
+
+def _px4_ninja_dry_run_command(build_dir: Path, extra_args: list[str] | None = None) -> list[str] | None:
+    ninja_args = ["ninja", "-C", str(build_dir), *(extra_args or []), "-n"]
+
+    try:
+        owner = pwd.getpwuid(build_dir.stat().st_uid)
+    except (KeyError, OSError):
+        return ninja_args
+
+    if owner.pw_name != "px4" or os.geteuid() == owner.pw_uid:
+        return ninja_args
+
+    runuser_path = shutil.which("runuser")
+    if os.geteuid() == 0 and runuser_path:
+        return [runuser_path, "-u", "px4", "--", *ninja_args]
+
+    sudo_path = shutil.which("sudo")
+    if sudo_path:
+        return [sudo_path, "-n", "-u", "px4", *ninja_args]
+
+    return None
+
+
+def _ninja_pending_target_count(output: str) -> int | None:
+    totals = []
+    for line in output.splitlines():
+        match = re.match(r"\[\s*\d+/(\d+)\]", line.strip())
+        if match:
+            totals.append(int(match.group(1)))
+    if totals:
+        return max(totals)
+    return None
+
+
+def _first_ninja_explain_line(output: str) -> str | None:
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("ninja explain:"):
+            return stripped
+    return None
+
+
+def _check_px4_build_up_to_date(px4_root: Path, pins: dict[str, Any]) -> CheckResult:
+    build_target = pins["px4"]["build_target"]
+    build_dir = px4_root / "build" / build_target
+    if not build_dir.is_dir():
+        return CheckResult(
+            "px4 build up to date",
+            "FAIL",
+            f"{build_dir} is missing - PX4 was never built; run `make {build_target}` to completion first",
+        )
+
+    if shutil.which("ninja") is None:
+        return CheckResult("px4 build up to date", "SKIP", "ninja executable is not on PATH")
+
+    dry_run_cmd = _px4_ninja_dry_run_command(build_dir)
+    if dry_run_cmd is None:
+        return CheckResult(
+            "px4 build up to date",
+            "SKIP",
+            f"{build_dir} is owned by px4, but sudo/runuser is unavailable to run the dry-run as px4",
+        )
+
+    try:
+        proc = _run_command(dry_run_cmd, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return CheckResult(
+            "px4 build up to date",
+            "FAIL",
+            f"PX4 build dry-run failed: {type(exc).__name__}: {exc}",
+        )
+    output = _combined_output(proc)
+    if proc.returncode != 0:
+        detail = _first_output_line(output) or f"ninja dry-run exited {proc.returncode}"
+        return CheckResult("px4 build up to date", "FAIL", f"PX4 build dry-run failed: {detail}")
+
+    if "no work to do" in output.lower():
+        return CheckResult("px4 build up to date", "OK", f"`ninja -C {build_dir} -n` reports no work to do")
+
+    pending = _ninja_pending_target_count(output)
+    explain = None
+    explain_cmd = _px4_ninja_dry_run_command(build_dir, ["-d", "explain"])
+    if explain_cmd is not None:
+        try:
+            explain_proc = _run_command(explain_cmd, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            explain = None
+        else:
+            explain = _first_ninja_explain_line(_combined_output(explain_proc))
+
+    count = str(pending) if pending is not None else "an unknown number of"
+    plural = "target" if pending == 1 else "targets"
+    detail = (
+        f"PX4 build is {count} {plural} behind; every run invokes `make px4_sitl` and "
+        "the runner's startup timeout will interrupt it, so no run can arm. "
+        f"Run `make {build_target}` to completion first."
+    )
+    if explain:
+        detail = f"{detail} First ninja reason: {explain}"
+    return CheckResult("px4 build up to date", "FAIL", detail)
 
 
 def _check_compiled_freshness(px4_root: Path, pins: dict[str, Any], binary: Path) -> list[CheckResult]:
@@ -263,6 +377,8 @@ def _check_px4(px4_root: Path, pins: dict[str, Any]) -> list[CheckResult]:
         results.append(CheckResult("px4 head", "SKIP", "no git repo"))
 
     build_target = pins["px4"]["build_target"]
+    results.append(_check_px4_build_up_to_date(px4_root, pins))
+
     binary = px4_root / "build" / build_target / "bin" / "px4"
     if binary.is_file():
         results.append(CheckResult("px4 binary", "OK", str(binary)))

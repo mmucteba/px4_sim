@@ -64,6 +64,11 @@ physically feels wind.
 
 PX4 must be rebuilt after `0001` and `0004`. A patched source tree with a stale
 `build/px4_sitl_default/bin/px4` is not a valid deployment.
+An incomplete PX4 build is self-perpetuating because every runner launch invokes
+`make px4_sitl` and then interrupts a long rebuild at startup timeout;
+`scripts/deploy/check_deployment.py` now catches a dirty
+`build/px4_sitl_default` with a read-only Ninja dry-run before flights are
+burned.
 
 ## What `bootstrap.sh` Does
 
