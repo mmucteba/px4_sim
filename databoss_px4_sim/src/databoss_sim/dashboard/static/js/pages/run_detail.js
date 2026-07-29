@@ -3,6 +3,78 @@ import { getJSON } from "../api.js";
 import { buildFilesView, buildGallery } from "../files_view.js";
 
 const GZ_PROXY_CMD = "venv/bin/python scripts/sim/gz_websocket_enum_patch_proxy.py --listen-port 9002 --upstream ws://127.0.0.1:9003";
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]);
+
+function isEmptyValue(value) {
+  if (value === null || value === undefined || value === "") return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value).length === 0;
+  return false;
+}
+
+function imageEntry(entry) {
+  const lower = (entry.name || entry.path || "").toLowerCase();
+  const dot = lower.lastIndexOf(".");
+  const ext = dot >= 0 ? lower.slice(dot) : "";
+  return entry.kind === "image" && IMAGE_EXTENSIONS.has(ext);
+}
+
+function formatStatValue(value) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+  if (typeof value === "boolean") return String(value);
+  return String(value);
+}
+
+function statTable(title, data) {
+  const rows = Object.entries(data || {}).filter(([, value]) => !isEmptyValue(value));
+  if (!rows.length) return null;
+  const table = el("table", {}, [el("tr", {}, [el("th", { text: title }), el("th", { text: "value" })])]);
+  for (const [key, value] of rows) {
+    if (isEmptyValue(value)) continue;
+    table.appendChild(el("tr", {}, [el("td", { text: key }), el("td", { text: formatStatValue(value) })]));
+  }
+  return el("div", { class: "table-scroll" }, [table]);
+}
+
+function statsGroup(title, data) {
+  if (!data || typeof data !== "object") return null;
+  const direct = [];
+  const nested = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (isEmptyValue(value)) continue;
+    if (typeof value === "object" && !Array.isArray(value)) nested.push([key, value]);
+    else direct.push([key, formatStatValue(value)]);
+  }
+  if (!direct.length && !nested.length) return null;
+
+  const children = [el("h2", { text: title })];
+  if (direct.length) children.push(kv(direct));
+  for (const [key, value] of nested) {
+    const table = statTable(key, value);
+    if (table) children.push(table);
+  }
+  return el("section", { class: "tile stack stats-group" }, children);
+}
+
+async function renderStats(runId) {
+  let stats;
+  try {
+    stats = await getJSON(`/artifacts/runs/${encodeURIComponent(runId)}/run_stats.json`);
+  } catch (e) {
+    return el("p", { class: "empty", text: "Stats have not been generated for this run." });
+  }
+
+  const groups = [
+    statsGroup("Flight", stats.flight),
+    statsGroup("Accuracy", stats.accuracy),
+    statsGroup("GNSS", stats.gnss),
+    statsGroup("Flow", stats.flow),
+  ].filter(Boolean);
+  if (!groups.length) return el("p", { class: "empty", text: "Stats have not been generated for this run." });
+  return el("div", { class: "stats-grid" }, groups);
+}
 
 function renderConnectionLinks(conn) {
   const wrap = el("div", {});
@@ -123,10 +195,14 @@ export async function renderRun(runId) {
       render: async () => buildFilesView(await getFiles()),
     },
     {
+      label: "Stats",
+      render: async () => renderStats(run.run_id),
+    },
+    {
       label: "Plots",
       render: async () => {
         const entries = await getFiles();
-        const plots = entries.filter(e => e.dir === "plots" || e.dir.startsWith("plots/"));
+        const plots = entries.filter(e => (e.dir === "plots" || e.dir.startsWith("plots/")) && imageEntry(e));
         return buildGallery(plots, "No plots recorded for this run.");
       },
     },

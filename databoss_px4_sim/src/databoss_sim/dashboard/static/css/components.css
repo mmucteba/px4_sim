@@ -202,6 +202,18 @@ a.list-row:hover {
   gap: var(--space-4);
   align-items: start;
 }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.stats-group .kv {
+  grid-template-columns: minmax(8rem, 0.55fr) minmax(0, 1fr);
+}
+.stats-group table {
+  margin-top: 0;
+}
 .archive-row-tail {
   justify-content: flex-end;
   min-width: 0;
