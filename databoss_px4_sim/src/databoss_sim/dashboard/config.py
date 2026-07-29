@@ -27,7 +27,7 @@ INDEX_CACHE_TTL_S = 8.0
 # Corrected 2026-07-24: this host's actual Tailscale interface address (was
 # previously confused with the separate QGC/Mac client's address). Never
 # bind to 0.0.0.0 - this host has a public IP with no firewall.
-DASHBOARD_HOST = "100.78.93.35"
+DASHBOARD_HOST = os.environ.get("DATABOSS_DASHBOARD_HOST", "100.78.93.35")
 DASHBOARD_PORT = 8600
 
 WRITE_TOKEN_PATH = PROJECT_ROOT / ".dashboard_token"

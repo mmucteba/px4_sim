@@ -5,7 +5,7 @@ import argparse
 import csv
 from pathlib import Path
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_metrics(path: Path, label: str) -> list[dict]:

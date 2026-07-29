@@ -8,7 +8,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def read_rows(csv_path: Path) -> list[dict]:

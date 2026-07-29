@@ -17,9 +17,12 @@ except ImportError:
     sys.exit(2)
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
-PX4_ROOT = Path("/opt/sim_px4/PX4-Autopilot")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
 RUNS_DIR = PROJECT_ROOT / "experiments" / "runs"
+
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.deploy.check_deployment import check_patches  # noqa: E402
 
 
 REQUIRED_TOP_LEVEL_KEYS = [
@@ -39,6 +42,20 @@ def sh(cmd: list[str]) -> str:
         return subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True).strip()
     except Exception as exc:
         return f"unavailable: {exc}"
+
+
+def px4_patch_summary() -> str:
+    try:
+        if not PX4_ROOT.is_dir():
+            raise FileNotFoundError(f"{PX4_ROOT} is not a directory")
+        results = check_patches(PX4_ROOT)
+        parts = [f"{result.name.split()[0]}={result.status.lower()}" for result in results]
+        return " ".join(parts) if parts else "none"
+    except Exception as exc:
+        reason = str(exc).splitlines()[0] if str(exc).strip() else type(exc).__name__
+        if len(reason) > 120:
+            reason = f"{reason[:117]}..."
+        return f"unavailable ({type(exc).__name__}: {reason})"
 
 
 def load_yaml(path: Path) -> dict:
@@ -151,8 +168,9 @@ def write_environment(path: Path) -> None:
         "",
         "## Git",
         "",
-        f"databoss_git: {sh(['git', '-C', str(PROJECT_ROOT), 'rev-parse', '--short', 'HEAD'])}",
-        f"px4_git: {sh(['git', '-C', str(PX4_ROOT), 'rev-parse', '--short', 'HEAD'])}",
+        f"databoss_git: {sh(['git', '-C', str(PROJECT_ROOT), 'describe', '--always', '--dirty'])}",
+        f"px4_git: {sh(['git', '-C', str(PX4_ROOT), 'describe', '--always', '--dirty'])}",
+        f"px4_patches: {px4_patch_summary()}",
         "",
     ]
     path.write_text("\n".join(lines))

@@ -19,7 +19,7 @@ import pandas as pd
 from pyulog import ULog
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)

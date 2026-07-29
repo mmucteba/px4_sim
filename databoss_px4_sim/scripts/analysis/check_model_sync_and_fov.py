@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -42,7 +43,8 @@ import yaml  # noqa: E402
 from sdf_inspect import extract_sensor_block, sdf_value  # noqa: E402
 
 DEFAULT_DATABOSS_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
-DEFAULT_PX4_MODELS_DIR = Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz/models")
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
+DEFAULT_PX4_MODELS_DIR = PX4_ROOT / "Tools/simulation/gz/models"
 DEFAULT_SCENARIOS_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "scenarios"
 
 SYNC_FILES = ["model.sdf", "model.config"]

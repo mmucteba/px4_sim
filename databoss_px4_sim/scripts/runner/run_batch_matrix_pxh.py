@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import yaml
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BATCH_RUNS_DIR = PROJECT_ROOT / "experiments" / "batches"
 PYTHON = sys.executable
 

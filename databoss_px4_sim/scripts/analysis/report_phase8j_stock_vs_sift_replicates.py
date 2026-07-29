@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = PROJECT_ROOT / "experiments/comparisons/phase8j_stock_vs_sift_50s_replicates"
 RUN_DIR_RE = re.compile(r"(?:run_dir=|Run dir: |Detected run_dir: )(/opt/databoss_px4_sim/experiments/runs/[^\s]+)")
 

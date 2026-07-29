@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 from pyulog import ULog
 
-ROOT = Path("/opt/databoss_px4_sim")
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)

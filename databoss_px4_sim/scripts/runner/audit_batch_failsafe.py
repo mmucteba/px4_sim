@@ -6,7 +6,7 @@ import csv
 import json
 from pathlib import Path
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BATCHES_DIR = PROJECT_ROOT / "experiments" / "batches"
 
 FAILSAFE_PATTERNS = [

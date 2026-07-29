@@ -19,7 +19,7 @@ import pandas as pd
 from pyulog import ULog
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = PROJECT_ROOT / "experiments/comparisons/20260720_phase10_gnssloss_lk_xy_nmin03_pair"
 
 

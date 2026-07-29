@@ -15,7 +15,7 @@ except ImportError:
     print("ERROR: pyulog is missing. Activate venv or install pyulog.", file=sys.stderr)
     sys.exit(2)
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNS_DIR = PROJECT_ROOT / "experiments" / "runs"
 
 POSE_NAME_RE = re.compile(r'name:\s*"([^"]+)"')

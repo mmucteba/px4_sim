@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 import yaml
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT_DIR = PROJECT_ROOT / "generated_worlds"
 
 

@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pyulog import ULog
 
-PROJECT = Path("/opt/databoss_px4_sim")
+PROJECT = Path(__file__).resolve().parents[2]
 RUNS = PROJECT / "experiments/runs"
 OUT = PROJECT / "experiments/comparisons/phase8i_flat_phototex_abcd_final_20260715/plots"
 

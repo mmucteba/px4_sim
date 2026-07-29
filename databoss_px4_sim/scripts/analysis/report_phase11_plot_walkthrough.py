@@ -15,7 +15,7 @@ os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 from PIL import Image, ImageDraw, ImageFont
 
 
-ROOT = Path("/opt/databoss_px4_sim")
+ROOT = Path(__file__).resolve().parents[2]
 COMPARISON_DIR = ROOT / "experiments/comparisons/20260720_phase11_three_way_flow_comparison"
 PLOTS_DIR = COMPARISON_DIR / "plots"
 DEFAULT_OUT_DIR = Path("/tmp/phase11_three_way_flow_comparison_plot_walkthrough")

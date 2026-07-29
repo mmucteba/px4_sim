@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import statistics as stats
 import sys
 import xml.etree.ElementTree as ET
@@ -21,8 +22,8 @@ except Exception:  # pragma: no cover - reported in output
     np = None
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
-PX4_ROOT = Path("/opt/sim_px4/PX4-Autopilot")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
 
 
 def load_json(path: Path) -> dict:

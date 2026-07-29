@@ -15,7 +15,8 @@ from xml.etree import ElementTree as ET
 
 from databoss_sim.dashboard.config import PROJECT_ROOT
 
-PX4_GZ_ROOT = Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz")
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
+PX4_GZ_ROOT = PX4_ROOT / "Tools/simulation/gz"
 PX4_MODELS = PX4_GZ_ROOT / "models"
 PX4_SERVER_CONFIG = PX4_GZ_ROOT / "server.config"
 X500_SDF = PX4_MODELS / "x500" / "model.sdf"

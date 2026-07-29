@@ -12,9 +12,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_GENERATED_WORLDS = PROJECT_ROOT / "generated_worlds"
-PX4_GZ_ROOT = Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz")
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
+PX4_GZ_ROOT = PX4_ROOT / "Tools/simulation/gz"
 PX4_MODELS = PX4_GZ_ROOT / "models"
 PX4_SERVER_CONFIG = PX4_GZ_ROOT / "server.config"
 X500_SDF = PX4_MODELS / "x500" / "model.sdf"

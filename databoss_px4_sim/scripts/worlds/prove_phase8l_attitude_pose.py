@@ -21,11 +21,11 @@ except Exception:  # pragma: no cover - reported in the output
     np = None
 
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
-PX4_GZ_ROOT = Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
+PX4_GZ_ROOT = PX4_ROOT / "Tools/simulation/gz"
 PX4_MODELS = PX4_GZ_ROOT / "models"
 PX4_WORLDS = PX4_GZ_ROOT / "worlds"
-PX4_ROOT = Path("/opt/sim_px4/PX4-Autopilot")
 PX4_PLUGINS = PX4_ROOT / "build/px4_sitl_default/src/modules/simulation/gz_plugins"
 PX4_SERVER_CONFIG = PX4_ROOT / "src/modules/simulation/gz_bridge/server.config"
 DEFAULT_WORLD = PROJECT_ROOT / "generated_worlds/flat_rural_phototex_noon.sdf"

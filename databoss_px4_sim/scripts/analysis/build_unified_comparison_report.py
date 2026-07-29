@@ -16,6 +16,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,7 +28,9 @@ import yaml
 from comparison_manifest import Case, Manifest, load_manifest, open_ulog
 from sdf_inspect import extract_sensor_block, sdf_tag_block, sdf_value
 
-ROOT = Path("/opt/databoss_px4_sim")
+ROOT = Path(__file__).resolve().parents[2]
+PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
+PX4_GZ_MODELS = PX4_ROOT / "Tools/simulation/gz/models"
 
 # Sensor SDF sources per algorithm -- read once per report, not per case,
 # since LK/SIFT always share DATABOSS's own vehicle and stock always uses
@@ -37,12 +40,12 @@ ROOT = Path("/opt/databoss_px4_sim")
 LIDAR_SDF_PATHS = {
     "lk": ROOT / "src/databoss_sim/models/x500_cam_lidar_down/model.sdf",
     "sift": ROOT / "src/databoss_sim/models/x500_cam_lidar_down/model.sdf",
-    "stock": Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz/models/x500_flow/model.sdf"),
+    "stock": PX4_GZ_MODELS / "x500_flow/model.sdf",
 }
 CAMERA_SDF_PATHS = {
-    "lk": Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz/models/mono_cam/model.sdf"),
-    "sift": Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz/models/mono_cam/model.sdf"),
-    "stock": Path("/opt/sim_px4/PX4-Autopilot/Tools/simulation/gz/models/optical_flow/model.sdf"),
+    "lk": PX4_GZ_MODELS / "mono_cam/model.sdf",
+    "sift": PX4_GZ_MODELS / "mono_cam/model.sdf",
+    "stock": PX4_GZ_MODELS / "optical_flow/model.sdf",
 }
 
 STOCK_LIDAR_KNOWN_CHARACTERISTIC = (

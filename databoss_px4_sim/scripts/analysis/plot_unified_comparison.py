@@ -33,7 +33,7 @@ from pyulog import ULog
 from comparison_manifest import Case as ManifestCase
 from comparison_manifest import load_manifest, open_ulog
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # One base color per algorithm; GNSS-on renders solid, GNSS-loss renders
 # with a lighter alpha and dashed overlay lines where applicable, so a

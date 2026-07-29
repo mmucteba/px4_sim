@@ -29,7 +29,7 @@ import yaml  # noqa: E402
 
 from scripts.analysis.check_model_sync_and_fov import _sha256  # noqa: E402
 
-DEFAULT_PX4_ROOT = Path("/opt/sim_px4/PX4-Autopilot")
+DEFAULT_PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
 PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
 STATUS_ORDER = ("OK", "FAIL", "WARN", "SKIP")
 COMPILED_PATCH_FILES = {"0001-gz-bridge-sim-gps-used.patch"}
@@ -53,10 +53,7 @@ def _load_pins() -> dict[str, Any]:
 def _resolve_px4_root(arg_px4_root: Path | None) -> Path:
     if arg_px4_root is not None:
         return arg_px4_root.expanduser().resolve()
-    env_px4_root = os.environ.get("DATABOSS_PX4_ROOT")
-    if env_px4_root:
-        return Path(env_px4_root).expanduser().resolve()
-    return DEFAULT_PX4_ROOT
+    return DEFAULT_PX4_ROOT.expanduser().resolve()
 
 
 def _patch_target_path(px4_root: Path, pins: dict[str, Any], patch: dict[str, str]) -> Path:
@@ -457,11 +454,12 @@ def _check_paths() -> list[CheckResult]:
             results.append(CheckResult(relative, "FAIL", detail))
             continue
         if relative == "generated_worlds":
-            world_count = len(list(path.rglob("*.sdf")))
+            sdf_count = len(list(path.rglob("*.sdf")))
+            world_count = len(list(path.rglob("*.world")))
             results.append(CheckResult(
                 relative,
                 "OK",
-                f"{path} resolves to {target}; target is writable; {world_count} .sdf worlds found",
+                f"{path} resolves to {target}; target is writable; {sdf_count} .sdf + {world_count} .world",
             ))
         else:
             results.append(CheckResult(relative, "OK", f"{path} resolves to {target}; target is writable"))
@@ -469,11 +467,17 @@ def _check_paths() -> list[CheckResult]:
     return results
 
 
+def check_patches(px4_root: Path | None = None) -> list[CheckResult]:
+    pins = _load_pins()
+    resolved_px4_root = _resolve_px4_root(px4_root)
+    return _check_patch_effects(resolved_px4_root, pins)
+
+
 def run_all_checks(px4_root: Path | None = None) -> dict[str, list[CheckResult]]:
     pins = _load_pins()
     resolved_px4_root = _resolve_px4_root(px4_root)
     return {
-        "patches": _check_patch_effects(resolved_px4_root, pins),
+        "patches": check_patches(resolved_px4_root),
         "px4": _check_px4(resolved_px4_root, pins),
         "airframes": _check_airframes(resolved_px4_root, pins),
         "models": _check_models(resolved_px4_root, pins),

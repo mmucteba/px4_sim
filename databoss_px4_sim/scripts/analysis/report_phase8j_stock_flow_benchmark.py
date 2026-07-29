@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_D_SHORT = PROJECT_ROOT / "experiments/runs/20260714_170829_phase8i_d_loss_flow_flat_rural_phototex_noon_pxh_takeoff_land_truth"
 DEFAULT_OUT = PROJECT_ROOT / "experiments/comparisons/phase8j_stock_vs_databoss_flow"
 
