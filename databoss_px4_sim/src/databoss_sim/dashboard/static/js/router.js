@@ -4,6 +4,7 @@ import { renderRun } from "./pages/run_detail.js";
 import { renderComparison } from "./pages/comparison_detail.js";
 import { renderComparisons } from "./pages/comparisons.js";
 import { renderScenarios, renderScenario } from "./pages/scenarios.js";
+import { renderVehicles } from "./pages/vehicles.js";
 import { renderLaunch } from "./pages/launch.js";
 import { renderHealth } from "./pages/health.js";
 import { renderCreate } from "./pages/create.js";
@@ -32,6 +33,7 @@ function route() {
   if (path === "/launch") return renderLaunch();
   if (path === "/create") return renderCreate();
   if (path === "/jobs") return renderJobs();
+  if (path === "/vehicles") return renderVehicles();
   if (runMatch) return renderRun(decodeURIComponent(runMatch[1]));
   if (jobMatch) return renderJob(decodeURIComponent(jobMatch[1]));
   if (compMatch) return renderComparison(decodeURIComponent(compMatch[1]));

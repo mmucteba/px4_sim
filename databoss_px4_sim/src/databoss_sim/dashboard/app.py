@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from databoss_sim.dashboard.config import EXPERIMENTS_ROOT, JOB_REAPER_INTERVAL_S
 from databoss_sim.dashboard.job_registry import TERMINAL_STATUSES, list_jobs, reconcile
-from databoss_sim.dashboard.routers import checks, comparisons, jobs, runs, scenarios, worlds
+from databoss_sim.dashboard.routers import checks, comparisons, jobs, runs, scenarios, vehicles, worlds
 from databoss_sim.dashboard.terrain_generator_proxy import router as terrain_generator_proxy_router
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -69,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(checks.router)
     app.include_router(scenarios.router)
     app.include_router(worlds.router)
+    app.include_router(vehicles.router)
     app.include_router(jobs.router)
     app.include_router(terrain_generator_proxy_router)
 
@@ -102,6 +103,10 @@ def create_app() -> FastAPI:
 
     @app.get("/launch", include_in_schema=False)
     def serve_launch_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
+    @app.get("/vehicles", include_in_schema=False)
+    def serve_vehicles_page() -> FileResponse:
         return FileResponse(INDEX_HTML)
 
     @app.get("/health", include_in_schema=False)

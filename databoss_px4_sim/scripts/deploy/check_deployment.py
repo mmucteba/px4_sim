@@ -31,7 +31,7 @@ import yaml  # noqa: E402
 from scripts.analysis.check_model_sync_and_fov import _sha256  # noqa: E402
 
 DEFAULT_PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
-PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
+PINS_PATH = Path(os.environ.get("DATABOSS_PX4_PINS_PATH", PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"))
 STATUS_ORDER = ("OK", "FAIL", "WARN", "SKIP")
 COMPILED_PATCH_FILES = {"0001-gz-bridge-sim-gps-used.patch"}
 RUN_EXEC_USER = "px4"

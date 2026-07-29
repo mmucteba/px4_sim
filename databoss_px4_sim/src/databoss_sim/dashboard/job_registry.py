@@ -47,7 +47,7 @@ class JobRecord(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     job_id: str
-    kind: Literal["flight", "world_smoke"] = "flight"
+    kind: Literal["flight", "world_smoke", "vehicle_install"] = "flight"
     status: Literal["starting", "running", "succeeded", "failed", "cancelling", "cancelled", "crashed"]
     scenario: str
     command: list[str]
@@ -119,9 +119,9 @@ def list_jobs(limit: int = 50) -> list[JobRecord]:
     return out
 
 
-def _read_lock() -> dict[str, Any] | None:
+def _read_lock(lock_path: Path = JOB_LOCK_PATH) -> dict[str, Any] | None:
     try:
-        with JOB_LOCK_PATH.open("r") as f:
+        with lock_path.open("r") as f:
             data = json.load(f)
     except FileNotFoundError:
         return None
@@ -130,25 +130,27 @@ def _read_lock() -> dict[str, Any] | None:
     return data if isinstance(data, dict) else {}
 
 
-def _write_lock(job_id: str, pid: int) -> None:
-    JOBS_DIR.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps({"job_id": job_id, "pid": pid, "started_utc": utc_now()})
-    fd = os.open(str(JOB_LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+def _write_lock(job_id: str, pid: int, lock_path: Path = JOB_LOCK_PATH, *, owner_kind: str = "flight") -> None:
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"job_id": job_id, "pid": pid, "started_utc": utc_now()}
+    if owner_kind != "flight":
+        payload["kind"] = owner_kind
+    fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     with os.fdopen(fd, "w") as f:
-        f.write(payload)
+        f.write(json.dumps(payload))
         f.write("\n")
 
 
-def update_lock_pid(job_id: str, pid: int) -> None:
+def update_lock_pid(job_id: str, pid: int, lock_path: Path = JOB_LOCK_PATH, *, owner_kind: str = "flight") -> None:
     """Replace the just-acquired placeholder pid with the child process pid."""
     with _LOCK_GUARD:
-        current = _read_lock()
+        current = _read_lock(lock_path)
         if current and current.get("job_id") == job_id:
             try:
-                JOB_LOCK_PATH.unlink()
+                lock_path.unlink()
             except FileNotFoundError:
                 pass
-            _write_lock(job_id, pid)
+            _write_lock(job_id, pid, lock_path, owner_kind=owner_kind)
 
 
 def _cmdline_contains(pid: int | None, needle: str) -> bool:
@@ -180,18 +182,20 @@ def _lock_owner_alive(data: dict[str, Any]) -> bool:
         pid = int(data.get("pid"))
     except (TypeError, ValueError):
         return False
+    if data.get("kind") == "installer":
+        return _process_alive(pid)
     launch_path = str(job_dir(job_id) / "launch.sh")
     return _process_alive(pid) and _cmdline_contains(pid, launch_path)
 
 
-def acquire_lock(job_id: str, pid: int) -> None:
+def acquire_lock(job_id: str, pid: int, lock_path: Path = JOB_LOCK_PATH, *, owner_kind: str = "flight") -> None:
     with _LOCK_GUARD:
         for attempt in range(2):
             try:
-                _write_lock(job_id, pid)
+                _write_lock(job_id, pid, lock_path, owner_kind=owner_kind)
                 return
             except FileExistsError:
-                data = _read_lock() or {}
+                data = _read_lock(lock_path) or {}
                 active_job_id = data.get("job_id")
                 if _lock_owner_alive(data):
                     raise BusyError(str(active_job_id) if active_job_id else None)
@@ -207,7 +211,7 @@ def acquire_lock(job_id: str, pid: int) -> None:
                     except (FileNotFoundError, json.JSONDecodeError, ValueError):
                         pass
                 try:
-                    JOB_LOCK_PATH.unlink()
+                    lock_path.unlink()
                 except FileNotFoundError:
                     pass
                 if attempt == 0:
@@ -215,26 +219,26 @@ def acquire_lock(job_id: str, pid: int) -> None:
                 raise
 
 
-def release_lock() -> None:
+def release_lock(lock_path: Path = JOB_LOCK_PATH) -> None:
     with _LOCK_GUARD:
         try:
-            JOB_LOCK_PATH.unlink()
+            lock_path.unlink()
         except FileNotFoundError:
             pass
 
 
-def release_lock_for(job_id: str) -> None:
+def release_lock_for(job_id: str, lock_path: Path = JOB_LOCK_PATH) -> None:
     with _LOCK_GUARD:
-        current = _read_lock()
+        current = _read_lock(lock_path)
         if current is None or current.get("job_id") == job_id:
             try:
-                JOB_LOCK_PATH.unlink()
+                lock_path.unlink()
             except FileNotFoundError:
                 pass
 
 
-def active_job_id_from_lock() -> str | None:
-    data = _read_lock()
+def active_job_id_from_lock(lock_path: Path = JOB_LOCK_PATH) -> str | None:
+    data = _read_lock(lock_path)
     if not data:
         return None
     value = data.get("job_id")

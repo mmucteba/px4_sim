@@ -336,6 +336,36 @@ form.gen input[type=text], form.gen input[type=number], form.gen select, form.ge
 }
 form.gen { max-width: 640px; }
 
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.75fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.vehicle-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.vehicle-compose-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.vehicle-compose-form {
+  max-width: none;
+}
+.vehicle-sensor-list {
+  display: grid;
+  gap: var(--space-3);
+}
+.vehicle-sensor-card {
+  background: var(--color-bg-subtle);
+}
+.vehicle-blockers {
+  margin-top: var(--space-2);
+  color: var(--color-err);
+}
+
 .empty {
   padding: var(--space-5) var(--space-3);
   color: var(--color-text-muted);
@@ -581,6 +611,9 @@ pre {
   .active-job-banner {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
+  }
+  .vehicle-grid, .vehicle-compose-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
   .phase-strip {
     grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));

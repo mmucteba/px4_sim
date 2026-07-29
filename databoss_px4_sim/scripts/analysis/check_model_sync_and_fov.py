@@ -16,6 +16,15 @@ Two independent checks (Phase 17B):
   exist in one checkout's working tree and not another's (e.g. as
   uncommitted work), and a hardcoded list would silently skip it.
 
+  Phase 20 adds one important distinction: a model declared in
+  deploy/px4/px4_pins.yaml but absent from PX4 is MISSING_PX4 and fails,
+  because the deploy manifest says it should be installed. A model present
+  on DATABOSS disk but not declared in pins and absent from PX4 is
+  NOT_INSTALLED and does not fail; that is the normal generated-but-not-yet
+  deployed state from scripts/sim/add_vehicle.py or the dashboard composer.
+  If both copies exist and differ, the result is still DRIFTED and fails,
+  regardless of whether the model is declared in pins.
+
 - FOV: for every scenario with flow_bridge.enabled, resolve vehicle.model
   to the real camera SDF's <horizontal_fov> (via sdf_inspect, shared with
   build_unified_comparison_report.py) and compare against the scenario's
@@ -46,6 +55,7 @@ DEFAULT_DATABOSS_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
 PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
 DEFAULT_PX4_MODELS_DIR = PX4_ROOT / "Tools/simulation/gz/models"
 DEFAULT_SCENARIOS_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "scenarios"
+DEFAULT_PINS_PATH = Path(os.environ.get("DATABOSS_PX4_PINS_PATH", PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"))
 
 SYNC_FILES = ["model.sdf", "model.config"]
 FOV_TOLERANCE_RAD = 0.01
@@ -54,8 +64,10 @@ FOV_TOLERANCE_RAD = 0.01
 @dataclass
 class ModelSyncResult:
     model: str
-    status: str  # IN_SYNC | DRIFTED | MISSING_DATABOSS | MISSING_PX4
+    status: str  # IN_SYNC | DRIFTED | MISSING_DATABOSS | MISSING_PX4 | NOT_INSTALLED
     diffs: dict[str, str] = field(default_factory=dict)
+    declared_in_pins: bool = False
+    detail: str = ""
 
 
 def _sha256(path: Path) -> str | None:
@@ -79,17 +91,61 @@ def find_databoss_models(models_dir: Path) -> list[str]:
     return sorted(p.name for p in models_dir.iterdir() if p.is_dir())
 
 
+def find_pinned_models(pins_path: Path = DEFAULT_PINS_PATH) -> list[str]:
+    if not pins_path.is_file():
+        return []
+    with pins_path.open() as f:
+        data = yaml.safe_load(f) or {}
+    models = data.get("models") or []
+    return sorted(str(model) for model in models if isinstance(model, str))
+
+
 def check_model_sync(
     databoss_models_dir: Path = DEFAULT_DATABOSS_MODELS_DIR,
     px4_models_dir: Path = DEFAULT_PX4_MODELS_DIR,
+    pins_path: Path = DEFAULT_PINS_PATH,
 ) -> list[ModelSyncResult]:
     results: list[ModelSyncResult] = []
-    for model in find_databoss_models(databoss_models_dir):
+    databoss_models = set(find_databoss_models(databoss_models_dir))
+    pinned_models = set(find_pinned_models(pins_path))
+    for model in sorted(databoss_models | pinned_models):
         databoss_dir = databoss_models_dir / model
         px4_dir = px4_models_dir / model
+        declared = model in pinned_models
 
         if not px4_dir.is_dir():
-            results.append(ModelSyncResult(model=model, status="MISSING_PX4"))
+            if declared:
+                results.append(
+                    ModelSyncResult(
+                        model=model,
+                        status="MISSING_PX4",
+                        declared_in_pins=True,
+                        detail=f"{model} is declared in {pins_path} but missing from {px4_dir}",
+                    )
+                )
+            else:
+                results.append(
+                    ModelSyncResult(
+                        model=model,
+                        status="NOT_INSTALLED",
+                        declared_in_pins=False,
+                        detail=(
+                            f"{model} exists in {databoss_models_dir} but is not declared in pins or installed in PX4; "
+                            "deploy it with scripts/sim/add_vehicle.py or the dashboard install action"
+                        ),
+                    )
+                )
+            continue
+
+        if not databoss_dir.is_dir():
+            results.append(
+                ModelSyncResult(
+                    model=model,
+                    status="MISSING_DATABOSS",
+                    declared_in_pins=declared,
+                    detail=f"{px4_dir} exists but {databoss_dir} is missing",
+                )
+            )
             continue
 
         diffs: dict[str, str] = {}
@@ -100,7 +156,12 @@ def check_model_sync(
                 diffs[filename] = _unified_diff(a, b)
 
         status = "DRIFTED" if diffs else "IN_SYNC"
-        results.append(ModelSyncResult(model=model, status=status, diffs=diffs))
+        detail = (
+            f"{databoss_dir} and {px4_dir} differ"
+            if diffs else
+            f"{databoss_dir} and {px4_dir} match"
+        )
+        results.append(ModelSyncResult(model=model, status=status, diffs=diffs, declared_in_pins=declared, detail=detail))
 
     return results
 
@@ -214,9 +275,10 @@ def run_all_checks(
     databoss_models_dir: Path = DEFAULT_DATABOSS_MODELS_DIR,
     px4_models_dir: Path = DEFAULT_PX4_MODELS_DIR,
     scenarios_dir: Path = DEFAULT_SCENARIOS_DIR,
+    pins_path: Path = DEFAULT_PINS_PATH,
 ) -> dict[str, list]:
     return {
-        "model_sync": check_model_sync(databoss_models_dir, px4_models_dir),
+        "model_sync": check_model_sync(databoss_models_dir, px4_models_dir, pins_path),
         "fov_consistency": check_fov_consistency(scenarios_dir, databoss_models_dir, px4_models_dir),
     }
 
@@ -226,10 +288,11 @@ def main() -> int:
     parser.add_argument("--databoss-models-dir", type=Path, default=DEFAULT_DATABOSS_MODELS_DIR)
     parser.add_argument("--px4-models-dir", type=Path, default=DEFAULT_PX4_MODELS_DIR)
     parser.add_argument("--scenarios-dir", type=Path, default=DEFAULT_SCENARIOS_DIR)
+    parser.add_argument("--pins-path", type=Path, default=DEFAULT_PINS_PATH)
     parser.add_argument("--json", action="store_true", help="Print JSON instead of Markdown")
     args = parser.parse_args()
 
-    sync_results = check_model_sync(args.databoss_models_dir, args.px4_models_dir)
+    sync_results = check_model_sync(args.databoss_models_dir, args.px4_models_dir, args.pins_path)
     fov_results = check_fov_consistency(args.scenarios_dir, args.databoss_models_dir, args.px4_models_dir)
 
     if args.json:
@@ -239,10 +302,10 @@ def main() -> int:
         }, indent=2))
     else:
         print("# Model sync check\n")
-        print("| model | status |")
-        print("| --- | --- |")
+        print("| model | status | detail |")
+        print("| --- | --- | --- |")
         for r in sync_results:
-            print(f"| {r.model} | {r.status} |")
+            print(f"| {r.model} | {r.status} | {r.detail} |")
         for r in sync_results:
             if r.diffs:
                 print(f"\n## {r.model} diff\n")
@@ -258,7 +321,7 @@ def main() -> int:
                 f"{r.declared_hfov_rad} | {r.actual_hfov_rad} | {r.status} |"
             )
 
-    any_drift = any(r.status != "IN_SYNC" for r in sync_results)
+    any_drift = any(r.status in {"DRIFTED", "MISSING_DATABOSS", "MISSING_PX4"} for r in sync_results)
     any_mismatch = any(r.status == "MISMATCH" for r in fov_results)
     return 1 if (any_drift or any_mismatch) else 0
 
