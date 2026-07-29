@@ -30,7 +30,7 @@ import shutil
 import tempfile
 from pyulog import ULog
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # PX4 vehicle_status nav_state values relevant here (see VehicleStatus.msg).
 NAV_STATE_OFFBOARD = 14

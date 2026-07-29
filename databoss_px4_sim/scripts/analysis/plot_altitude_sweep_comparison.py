@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
 
-PROJECT_ROOT = Path("/opt/databoss_px4_sim")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # ColorBrewer Blues (3-class), light->dark = 15m->60m: ordered/sequential,
 # not arbitrary categorical hues, since altitude is an ordered quantity.
