@@ -88,6 +88,15 @@ class LaunchRequest(BaseModel):
     # QGroundControl is always enabled; there is intentionally no opt-out field.
 
 
+class WorldSmokeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sdf_path: str
+    timeout_s: float = 120.0
+    note: str = ""
+    ignore_memory_guard: bool = False
+
+
 def _quote(arg: str) -> str:
     return "'" + arg.replace("'", "'\"'\"'") + "'"
 
@@ -257,9 +266,61 @@ def build_launch_script(job_path: Path, req: LaunchRequest) -> Path:
     return script
 
 
+def resolve_sdf_path(sdf_path: str) -> Path:
+    raw = Path(sdf_path).expanduser()
+    candidates = [raw] if raw.is_absolute() else [PROJECT_ROOT / raw]
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except FileNotFoundError:
+            resolved = candidate
+        if resolved.is_file():
+            return resolved
+    raise ScenarioNotFoundError(f"world SDF file not found: {sdf_path}")
+
+
+def _smoke_command(req: WorldSmokeRequest) -> list[str]:
+    sdf_path = resolve_sdf_path(req.sdf_path)
+    return [
+        "venv/bin/python",
+        "-u",
+        "-m",
+        "databoss_sim.dashboard.world_smoke",
+        scenario_arg_for_script(sdf_path),
+        "--timeout-s",
+        str(req.timeout_s),
+    ]
+
+
+def build_world_smoke_launch_script(job_path: Path, req: WorldSmokeRequest) -> Path:
+    script = job_path / "launch.sh"
+    cmd = _smoke_command(req)
+    lines = [
+        "#!/bin/bash",
+        f"cd {_quote(str(PROJECT_ROOT))} || exit 1",
+        "export PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH}",
+        f"export DATABOSS_JOB_DIR={_quote(str(job_path))}",
+        "export PYTHONUNBUFFERED=1",
+        "exec " + " \\\n  ".join(_quote(part) for part in cmd),
+        "",
+    ]
+    script.write_text("\n".join(lines))
+    script.chmod(0o755)
+    if os.geteuid() == 0:
+        import shutil
+
+        shutil.chown(script, user=RUN_AS_USER)
+    return script
+
+
 def _make_job_id(scenario_path: Path) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return f"{stamp}_{_safe_stem(scenario_path.stem)}"
+
+
+def _make_smoke_job_id(sdf_path: Path) -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return f"{stamp}_world_smoke_{_safe_stem(sdf_path.stem)}"
 
 
 def start_job(req: LaunchRequest) -> JobRecord:
@@ -289,6 +350,90 @@ def start_job(req: LaunchRequest) -> JobRecord:
                 started_utc=utc_now(),
                 note=req.note,
                 ignore_memory_guard=req.ignore_memory_guard,
+            )
+            write_job_atomic(record)
+
+            log_f = console.open("wb")
+            try:
+                proc = subprocess.Popen(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log_f,
+                    stderr=subprocess.STDOUT,
+                    cwd=str(PROJECT_ROOT),
+                    start_new_session=True,
+                )
+            finally:
+                log_f.close()
+
+            _RUNNING[job_id] = proc
+            record.pid = proc.pid
+            record.pgid = os.getpgid(proc.pid)
+            record.status = "running"
+            update_lock_pid(job_id, proc.pid)
+            write_job_atomic(record)
+            return record
+        except Exception:
+            release_lock()
+            raise
+
+
+def start_world_smoke_job(req: WorldSmokeRequest) -> JobRecord:
+    with _START_GUARD:
+        sdf_path = resolve_sdf_path(req.sdf_path)
+
+        hits = scan_host_processes()
+        if hits:
+            raise LaunchConflictError({
+                "message": "PX4/Gazebo/Xvfb process already running; use POST /api/jobs/cleanup first",
+                "processes": hits,
+            })
+
+        mem_mb = _mem_available_mb()
+        if mem_mb is not None and mem_mb < MIN_AVAILABLE_MEM_MB and not req.ignore_memory_guard:
+            raise LaunchConflictError({
+                "message": "MemAvailable below launch guard",
+                "mem_available_mb": mem_mb,
+                "min_available_mb": MIN_AVAILABLE_MEM_MB,
+            })
+
+        if os.geteuid() == 0:
+            sudo_check = subprocess.run(
+                ["sudo", "-n", "-u", RUN_AS_USER, "true"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            if sudo_check.returncode != 0:
+                raise LaunchServerError(
+                    f"cannot run as {RUN_AS_USER} via sudo -n: {sudo_check.stderr.strip()}"
+                )
+
+        job_id = _make_smoke_job_id(sdf_path)
+        acquire_lock(job_id, os.getpid())
+        try:
+            path = job_dir(job_id)
+            path.mkdir(parents=True, exist_ok=False)
+            script = build_world_smoke_launch_script(path, req)
+            console = path / "console.log"
+            argv = ["/bin/bash", str(script)]
+            if os.geteuid() == 0:
+                argv = ["sudo", "-n", "-u", RUN_AS_USER, "/bin/bash", str(script)]
+
+            record = JobRecord(
+                job_id=job_id,
+                kind="world_smoke",
+                status="starting",
+                scenario=scenario_arg_for_script(sdf_path),
+                command=argv,
+                launch_script=str(script),
+                pid=None,
+                pgid=None,
+                started_utc=utc_now(),
+                note=req.note,
+                ignore_memory_guard=req.ignore_memory_guard,
+                run_dir=str(path),
             )
             write_job_atomic(record)
 

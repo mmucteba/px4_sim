@@ -19,6 +19,7 @@ from xml.etree import ElementTree as ET
 import yaml
 
 from databoss_sim.dashboard.config import PROJECT_ROOT
+from databoss_sim.dashboard.world_smoke import read_smoke_sidecar
 
 WORLDS_CONFIG_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "worlds"
 GENERATED_WORLDS_DIR = PROJECT_ROOT / "generated_worlds"
@@ -87,6 +88,18 @@ _IMPORT_PAD_XML = """
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "worlds"))
 from build_gazebo_world import apply_wind_to_world_file, build_sdf, write_manifest  # noqa: E402
+
+
+def _add_smoke_status(item: dict[str, Any], sdf_path: Path | None) -> dict[str, Any]:
+    item = dict(item)
+    smoke = read_smoke_sidecar(sdf_path) if sdf_path is not None else None
+    if smoke is None:
+        item["smoke_status"] = "untested"
+        item["smoke_checked_utc"] = None
+    else:
+        item["smoke_status"] = "passed" if smoke.get("ok") is True else "failed"
+        item["smoke_checked_utc"] = smoke.get("checked_utc")
+    return item
 
 
 def _is_colored_tiles_substitute(world_file: Path) -> bool:
@@ -348,7 +361,7 @@ def list_flat_worlds() -> list[dict[str, Any]]:
             continue
         world_name = manifest.get("world_name", manifest_path.stem)
         sdf_path = GENERATED_WORLDS_DIR / f"{world_name}.sdf"
-        out.append({
+        out.append(_add_smoke_status({
             "name": world_name,
             "kind": "flat",
             "sdf_path": str(sdf_path.relative_to(PROJECT_ROOT)) if sdf_path.is_file() else None,
@@ -356,7 +369,7 @@ def list_flat_worlds() -> list[dict[str, Any]]:
             "lighting_preset": manifest.get("lighting_preset"),
             "wind_enabled": manifest.get("wind_enabled"),
             "is_browser_substitute": False,
-        })
+        }, sdf_path if sdf_path.is_file() else None))
     return out
 
 
@@ -401,7 +414,7 @@ def list_terrain_worlds() -> list[dict[str, Any]]:
 
     out = []
     for name, world_file in sorted(candidates.items()):
-        out.append({
+        out.append(_add_smoke_status({
             "name": name,
             "kind": "terrain",
             "sdf_path": str(world_file.relative_to(PROJECT_ROOT)),
@@ -409,7 +422,7 @@ def list_terrain_worlds() -> list[dict[str, Any]]:
             "lighting_preset": None,
             "wind_enabled": None,
             "is_browser_substitute": _is_colored_tiles_substitute(world_file),
-        })
+        }, world_file))
     return out
 
 
