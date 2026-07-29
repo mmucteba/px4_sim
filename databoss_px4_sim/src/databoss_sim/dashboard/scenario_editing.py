@@ -19,6 +19,7 @@ import yaml
 from databoss_sim.dashboard.config import PROJECT_ROOT
 
 DATABOSS_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
+PX4_PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
 SCENARIOS_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "scenarios"
 
 # Field classification, grounded in the Phase 17 audit of what
@@ -450,13 +451,28 @@ def derive_gazebo_model_name(px4_airframe: str) -> str:
 
 
 def find_available_vehicle_models() -> list[str]:
-    """Returns vehicle.model-style names (gz_-prefixed) for every model
-    directory that actually exists on disk under src/databoss_sim/models/ -
-    dynamically enumerated, not hardcoded, matching the same principle
-    check_model_sync_and_fov.py already established in Phase 17B."""
-    if not DATABOSS_MODELS_DIR.is_dir():
+    """Returns vehicle.model-style names (gz_-prefixed) for disk-backed
+    models that also have a registered PX4 airframe.
+
+    Sensor-only submodels can live under src/databoss_sim/models/ too, but
+    only NNNN_gz_<model> entries in deploy/px4/px4_pins.yaml under
+    airframes are bootable vehicles. The directory scan stays dynamic and
+    unhardcoded, matching the principle check_model_sync_and_fov.py
+    established in Phase 17B, but the picker excludes models PX4 cannot
+    launch.
+    """
+    if not DATABOSS_MODELS_DIR.is_dir() or not PX4_PINS_PATH.is_file():
         return []
-    return sorted(f"gz_{p.name}" for p in DATABOSS_MODELS_DIR.iterdir() if p.is_dir())
+    with PX4_PINS_PATH.open() as f:
+        pins = yaml.safe_load(f) or {}
+    registered_models: set[str] = set()
+    for airframe in pins.get("airframes") or []:
+        if not isinstance(airframe, str):
+            continue
+        prefix, sep, model = airframe.partition("_gz_")
+        if sep and prefix.isdigit() and model:
+            registered_models.add(model)
+    return sorted(f"gz_{p.name}" for p in DATABOSS_MODELS_DIR.iterdir() if p.is_dir() and p.name in registered_models)
 
 
 def default_scenario_template() -> dict[str, Any]:
