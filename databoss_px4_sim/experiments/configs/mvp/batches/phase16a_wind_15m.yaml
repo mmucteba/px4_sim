@@ -1,0 +1,53 @@
+batch:
+  name: phase16a_wind_15m
+  description: >
+    Phase 16A wind batch at 15 m on flat_rural_phototex_noon. Three-case
+    matrix (GNSS-on reference, SIFT GNSS-loss, unaided GNSS-loss baseline)
+    run at 2 m/s and 5 m/s steady crosswind (6 cases total) -- first
+    physically-modeled wind batch of the Phase 16 wind roadmap, using
+    gz-sim's WindEffects plugin. Drift is reported as evidence, not used to
+    suppress reporting; GNSS on/off state is independently verified against
+    ULog for every case via the gps_guard mismatch check in
+    build_unified_comparison_report.py, and any mismatch must be rerun.
+
+defaults:
+  hover_s: 90
+  startup_timeout_s: 220
+  land_timeout_s: 120
+  global_position_gate_enabled: true
+  global_position_timeout_s: 180
+  global_position_stable_s: 8
+  gnss_start_used: 10
+  post_loss_hover_s: 50
+  failsafe_profile: default_px4
+  qgc:
+    enabled: true
+    ip: 100.109.200.5
+    local_port: 14555
+    remote_port: 14550
+    rate: 1000000
+
+cases:
+  - name: lk_xy_gnsson_wind2ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_lk_xy_gnsson_off70s_flat_rural_phototex_noon_wind2ms_alt15m.yaml
+    failsafe_profile: default_px4
+
+  - name: sift_xy_gnssloss_wind2ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_sift_xy_gnssloss_off50s_flat_rural_phototex_noon_wind2ms_alt15m.yaml
+    failsafe_profile: default_px4
+
+  - name: noaid_gnssloss_wind2ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_noaid_gnssloss_off70s_flat_rural_phototex_noon_wind2ms_alt15m.yaml
+    failsafe_profile: delayed_observation
+
+  - name: lk_xy_gnsson_wind5ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_lk_xy_gnsson_off70s_flat_rural_phototex_noon_wind5ms_alt15m.yaml
+    failsafe_profile: default_px4
+
+  - name: sift_xy_gnssloss_wind5ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_sift_xy_gnssloss_off50s_flat_rural_phototex_noon_wind5ms_alt15m.yaml
+    failsafe_profile: default_px4
+
+  - name: noaid_gnssloss_wind5ms_15m
+    scenario: experiments/configs/mvp/scenarios/phase16a_noaid_gnssloss_off70s_flat_rural_phototex_noon_wind5ms_alt15m.yaml
+    failsafe_profile: delayed_observation

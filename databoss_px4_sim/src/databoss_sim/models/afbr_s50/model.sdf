@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!--
+DATABOSS Broadcom AFBR-S50LV85D body/mesh only, no sensor.
+
+Same convention as PX4's own LW20 submodel: GZBridge reads sensor pose
+relative to the SENSOR link, not base_link, so the sensor itself must live
+in the parent vehicle model (see x500_ark_flow/model.sdf's afbr_sensor_link),
+not here. This model is a physical stand-in only.
+
+Box dimensions/mass below are a reasonable small-sensor-module placeholder,
+NOT sourced from the AFBR-S50LV85D mechanical datasheet (not yet supplied).
+Physically near-irrelevant to x500 flight dynamics either way, but flagged
+per project rules against fabricated-as-fact physical parameters.
+-->
+<sdf version="1.6">
+  <model name="afbr_s50">
+    <link name="afbr_s50_link">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.005</mass>
+        <inertia>
+          <ixx>0.0000005</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0000005</iyy>
+          <iyz>0</iyz>
+          <izz>0.0000003</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision_base">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.020 0.020 0.008</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.020 0.020 0.008</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.05 0.05 0.05 1</ambient>
+          <diffuse>0.05 0.05 0.05 1</diffuse>
+          <specular>0.2 0.2 0.2 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

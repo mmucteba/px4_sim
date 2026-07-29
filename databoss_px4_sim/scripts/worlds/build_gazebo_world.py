@@ -355,9 +355,6 @@ def sun_light(world: dict) -> str:
 
 
 def wind_config(world: dict) -> dict:
-    """Ported verbatim from the Phase 16 wind mechanism (found live but
-    uncommitted on the main checkout, 2026-07-24) - already validated
-    there, not reinvented here."""
     wind = require_mapping(world.get("wind", {}), "world.wind")
     if not wind.get("enabled", False):
         return {"enabled": False}

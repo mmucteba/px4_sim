@@ -1,0 +1,137 @@
+run:
+  name: phase16c_lk_xy_gnsson_off70s_flat_rural_phototex_600m_noon_wind7ms_alt60m
+  description: 'Phase 16c wind batch. Identical to the accepted Phase 14c run ''phase14c_lk_xy_gnsson_off70s_flat_rural_phototex_600m_noon_alt60m''
+    -- same world, route, GNSS timing, flow tuning, and extra_px4_params -- with a steady 7.0 m/s crosswind
+    now physically enabled via gz-sim''s WindEffects plugin (blowing toward geographic north, perpendicular
+    to the vy=0.2 m/s East-bound flight path) as the sole changed variable. Case: GNSS-on reference (LK
+    estimator active, GNSS never lost).'
+vehicle:
+  model: gz_x500_cam_lidar_down
+  px4_airframe: x500_cam_lidar_down
+  gazebo_model_name: x500_cam_lidar_down_0
+  start_pose:
+    x_m: 0
+    y_m: 0
+    z_m: 0
+    yaw_deg: 0
+world:
+  name: flat_rural_phototex_600m_noon_wind7ms
+  sdf_path: generated_worlds/flat_rural_phototex_600m_noon_wind7ms.sdf
+  lighting: noon_clear_no_shadows
+  wind: crosswind_7ms
+  texture: photo_speckle
+  condition_is_physical: true
+route:
+  name: phase14c_lk_xy_gnsson_off70s_vy_wind7ms_alt60m
+  type: hover
+  altitude_agl_m: 60.0
+  duration_s: 70
+  waypoints: []
+gnss:
+  start_enabled: true
+  loss_enabled: false
+  loss_after_takeoff_s: null
+  restore_after_run: true
+failsafe:
+  profile: default
+camera:
+  proof_enabled: true
+  description: Downward camera timing proof
+  render_engine: ogre
+  xvfb_enabled: true
+  xvfb_server_args: -screen 0 1280x1024x24
+  headless_rendering: false
+  probe_timeout_s: 25
+rangefinder:
+  proof_enabled: true
+  description: Downward rangefinder timing proof
+  render_engine: ogre
+  xvfb_enabled: true
+  probe_timeout_s: 20
+  min_ulog_rows: 50
+  height_agreement_tolerance_m: 0.75
+visualization:
+  gazebo_web:
+    enabled: true
+    required: true
+    config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch
+    host: 127.0.0.1
+    port: 9003
+    publication_hz: 15
+    startup_timeout_s: 15
+aiding:
+  mode: none
+  enabled: false
+  external_odom_enabled: false
+logging:
+  record_ulog: true
+  record_gazebo_truth: true
+  record_sensor_logs: true
+  record_camera_topics: true
+  record_external_odometry_sent: false
+analysis:
+  align_with_gazebo_truth: true
+  generate_plots: true
+  generate_summary: true
+  check_external_odometry_received: false
+  check_optical_flow_fusion: true
+  check_flow_velocity_sign: true
+  flow_velocity_sign_source: gps
+  flow_velocity_sign_required: true
+  sensor_contract_report: true
+  sensor_contract_gate: timing
+  sensor_contract_gate_required: false
+flow_recording:
+  enabled: true
+  rate_hz: 2
+  max_width: 640
+  min_frames: 100
+flow_bridge:
+  enabled: true
+  estimator: lk
+  rate_hz: 40
+  max_width: 320
+  hfov_rad: 1.74
+  axis_map: xy
+  quality_in_min: 20
+  quality_in_max: 100
+  lk_max_corners: 160
+  lk_quality_level: 0.01
+  lk_min_distance: 6.0
+  lk_min_tracks: 8
+  lk_mad_multiplier: 3.0
+  lk_max_flow_rate_rad_s: 7.4
+  send_min_quality: 0
+  send_min_matches: 0
+  reset_on_unsent: false
+  prime_on_unsent: true
+  startup_prime_hz: 2
+  startup_prime_duration_s: 120
+  prearm_min_mavlink_samples: 3
+  prearm_timeout_s: 30
+  min_sent_samples: 100
+  ekf2_of_ctrl: 1
+  ekf2_of_qmin: 17
+  ekf2_of_n_min: 0.3
+  ekf2_of_delay: 140
+control:
+  mode: offboard_local_position_hold
+  setpoint_mode: velocity_xy_position_z
+  start_after_takeoff_s: 5
+  warmup_s: 2
+  sim_time_wall_multiplier: 30
+  rate_hz: 20
+  x_m: 0
+  y_m: 0
+  z_m: -60.0
+  vx_m_s: 0.0
+  vy_m_s: 0.2
+  vz_m_s: 0.0
+  yaw_deg: 0
+  skip_landing_command: true
+extra_px4_params:
+  EKF2_RNG_A_HMAX: 80
+  SIM_BAT_DRAIN: 3000
+  SIM_BAT_MIN_PCT: 95
+  COM_OF_LOSS_T: 20
+  NAV_DLL_ACT: 0

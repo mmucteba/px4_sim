@@ -1,0 +1,67 @@
+world:
+  name: flat_rural_phototex_600m_noon_wind7ms
+  description: >
+    Phase 16 wind variant of flat_rural_phototex_600m_noon (used by the 60m
+    altitude batch). Identical world -- terrain, texture, lighting,
+    objects -- with the sole change being a steady 7 m/s crosswind enabled.
+    Wind blows toward ENU north (perpendicular to the vy=0.2 m/s East-bound
+    flight path used by all Phase 14/16 altitude scenarios), so it is a pure
+    crosswind relative to travel direction.
+
+  generator:
+    type: databoss_sdf
+    sdf_version: "1.9"
+
+  frame:
+    world_frame: gazebo_world_enu
+    navigation_frame: px4_local_ned
+    origin_policy: align_at_takeoff
+
+  size_m:
+    x: 600
+    y: 600
+
+  terrain:
+    type: flat
+    elevation_source: none
+    ground_z_m: 0
+
+  texture:
+    preset: photo_speckle
+    visual_pattern: image_field
+    image: generated_worlds/textures/ground_speckle_2048.png
+    tile_size_m: 20
+
+  lighting:
+    preset: noon_clear_no_shadows
+    sun_enabled: true
+    shadows_enabled: false
+    ambient: [0.55, 0.55, 0.55, 1.0]
+    background: [0.70, 0.82, 0.95, 1.0]
+    sun_direction: [-0.35, 0.15, -0.92]
+
+  wind:
+    enabled: true
+    mean_mps: 7.0
+    direction_vector_enu: [0.0, 1.0]
+    gusts_enabled: false
+
+  objects:
+    - name: barn_low
+      type: box
+      pose_m: [28, -22, 3, 0, 0, 0]
+      size_m: [14, 9, 6]
+      color: [0.45, 0.12, 0.08, 1.0]
+
+    - name: hay_block_a
+      type: box
+      pose_m: [-32, 18, 1.2, 0, 0, 0.35]
+      size_m: [6, 4, 2.4]
+      color: [0.70, 0.58, 0.22, 1.0]
+
+    - name: field_marker_a
+      type: cylinder
+      pose_m: [45, 35, 1.5, 0, 0, 0]
+      radius_m: 1.0
+      length_m: 3.0
+      color: [0.85, 0.85, 0.15, 1.0]

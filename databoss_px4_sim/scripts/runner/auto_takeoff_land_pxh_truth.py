@@ -424,14 +424,17 @@ def sample_land_detected(proc: subprocess.Popen, log_path: Path, notes: list[str
     }
 
 
-def sample_vehicle_local_position_timestamp_s(
+def sample_vehicle_local_position(
     proc: subprocess.Popen,
     log_path: Path,
     notes: list[str],
-) -> float | None:
+) -> tuple[float | None, float | None]:
     text = query_pxh(proc, log_path, "listener vehicle_local_position 1", notes, wait_s=0.25)
     timestamp_us = parse_listener_float(text, "timestamp")
-    return timestamp_us / 1e6 if timestamp_us is not None else None
+    z = parse_listener_float(text, "z")
+    timestamp_s = timestamp_us / 1e6 if timestamp_us is not None else None
+    up_m = -z if z is not None else None
+    return timestamp_s, up_m
 
 
 def wait_for_airborne_duration(
@@ -441,6 +444,7 @@ def wait_for_airborne_duration(
     target_airborne_s: float,
     timeout_wall_s: float,
     interval_wall_s: float = 1.0,
+    min_altitude_m: float | None = None,
 ) -> tuple[bool, list[dict], dict | None]:
     start_wall = time.monotonic()
     airborne_start_px4_s: float | None = None
@@ -454,17 +458,28 @@ def wait_for_airborne_duration(
 
         sample = sample_land_detected(proc, log_path, notes)
         now_wall = time.monotonic()
-        px4_s = sample_vehicle_local_position_timestamp_s(proc, log_path, notes)
+        px4_s, up_m = sample_vehicle_local_position(proc, log_path, notes)
         if px4_s is None:
             px4_s = sample["timestamp_s"]
         sample["clock_source"] = "vehicle_local_position" if px4_s != sample["timestamp_s"] else "vehicle_land_detected"
         sample["clock_timestamp_s"] = px4_s
+        sample["altitude_up_m"] = up_m
 
-        if sample["landed"] is False and px4_s is not None:
+        # landed==False alone is not sufficient: a strong crosswind can
+        # buffer/vibrate the airframe on the ground enough to trip PX4's
+        # motion/throttle-based land-detector heuristics without the
+        # vehicle actually climbing (observed 2026-07-22, Phase 16A wind7ms
+        # 15m case: landed=False from ~t=9s while altitude stayed ~0m for
+        # another 90s). Require a minimum real altitude too so a stalled
+        # AUTO_TAKEOFF isn't mistaken for a completed one.
+        altitude_ok = min_altitude_m is None or (up_m is not None and up_m >= min_altitude_m)
+        was_airborne = airborne_start_px4_s is not None
+        if sample["landed"] is False and px4_s is not None and altitude_ok:
             if airborne_start_px4_s is None:
                 airborne_start_px4_s = px4_s
             sample["airborne_duration_s"] = max(0.0, px4_s - airborne_start_px4_s)
         else:
+            airborne_start_px4_s = None
             sample["airborne_duration_s"] = 0.0
 
         sample["elapsed_wall_s"] = now_wall - start_wall
@@ -480,7 +495,7 @@ def wait_for_airborne_duration(
             )
             return True, samples, final_sample
 
-        if sample["landed"] is True and airborne_start_px4_s is not None:
+        if sample["landed"] is True and was_airborne:
             notes.append(
                 "airborne duration wait stopped after early landing: "
                 f"target_s={target_airborne_s:.3f}, "
@@ -2995,6 +3010,7 @@ def main() -> int:
                             notes,
                             target_airborne_s=local_hold_takeoff_wait_target_s,
                             timeout_wall_s=local_hold_takeoff_wait_timeout_wall_s,
+                            min_altitude_m=0.5,
                         )
                         if not local_hold_takeoff_wait_ok:
                             airborne_hover_wait_ok = False
@@ -3123,6 +3139,46 @@ def main() -> int:
                                 f"accepts_offboard_setpoints={local_hold_accepts_offboard_setpoints}, "
                                 f"detected={local_hold_mode_detected_runtime}"
                             )
+
+                            # A single 5 s confirmation window is not a retry --
+                            # if PX4 rejected the mode switch (e.g. still mid an
+                            # AUTO_TAKEOFF that stalled near the ground under
+                            # strong wind), silently continuing left the local
+                            # hold sender streaming setpoints into a mode PX4
+                            # never actually entered for up to a minute+
+                            # (observed 2026-07-22, Phase 16A wind7ms 15m case).
+                            # Retry the mode switch a few times before giving up.
+                            offboard_retries = 0
+                            while not local_hold_mode_detected_runtime and offboard_retries < 3:
+                                offboard_retries += 1
+                                notes.append(f"retrying commander mode offboard (attempt {offboard_retries})")
+                                ok = send_pxh(px4_proc, "commander mode offboard", notes)
+                                commands_sent.append({"command": "commander mode offboard", "sent": ok})
+                                (
+                                    local_hold_mode_detected_runtime,
+                                    retry_samples,
+                                    local_hold_mode_sample,
+                                    local_hold_vehicle_status_text,
+                                ) = wait_for_offboard_mode(
+                                    px4_proc,
+                                    console_log,
+                                    notes,
+                                    timeout_s=10.0,
+                                )
+                                local_hold_mode_samples.extend(retry_samples)
+                                if local_hold_mode_sample:
+                                    local_hold_nav_state_after_mode = local_hold_mode_sample["nav_state"]
+                                    local_hold_accepts_offboard_setpoints = local_hold_mode_sample[
+                                        "accepts_offboard_setpoints"
+                                    ]
+
+                            if not local_hold_mode_detected_runtime:
+                                raise RuntimeError(
+                                    "commander mode offboard was never confirmed after "
+                                    f"{offboard_retries} retries "
+                                    f"(last nav_state={local_hold_nav_state_after_mode}); aborting "
+                                    "rather than streaming setpoints into a mode PX4 never entered"
+                                )
 
                             if args.gnss_loss_after_takeoff_s is not None:
                                 # Cut GPS only once the vehicle is actually stable at
