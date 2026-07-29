@@ -1,0 +1,13 @@
+diff --git a/src/modules/simulation/gz_bridge/GZBridge.cpp b/src/modules/simulation/gz_bridge/GZBridge.cpp
+index 21279f04a8..aee9195a05 100644
+--- a/src/modules/simulation/gz_bridge/GZBridge.cpp
++++ b/src/modules/simulation/gz_bridge/GZBridge.cpp
+@@ -667,6 +667,8 @@ void GZBridge::addGpsNoise(double &latitude, double &longitude, double &altitude
+ 
+ void GZBridge::navSatCallback(const gz::msgs::NavSat &msg)
+ {
++	_sim_gps_used.update();
++
+ 	const uint64_t timestamp = hrt_absolute_time();
+ 
+ 	// initialize gps position

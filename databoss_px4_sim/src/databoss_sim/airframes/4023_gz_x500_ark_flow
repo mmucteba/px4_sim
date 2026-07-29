@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# @name Gazebo x500 with ARK Flow-equivalent sensors (DATABOSS Phase 15)
+#
+# @type Quadrotor
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_ark_flow}
+
+. ${R}etc/init.d-posix/airframes/4001_gz_x500
+
+# Based on 4001 (not 4021_gz_x500_flow) deliberately: 4021 hardcodes
+# SYS_HAS_GPS 0 / SIM_GPS_USED 0 / EKF2_GPS_CTRL 0, permanently disabling
+# GNSS. This vehicle needs to fly both GNSS-on and GNSS-loss legs across the
+# existing Phase-14-style scenario matrix, same as every other
+# DATABOSS-owned vehicle -- GPS state stays scenario-controlled.
+
+# SIM_GZ_EN_LIDAR must be disabled at BOOT: GZBridge::init() reads it once
+# to decide whether to subscribe to the native gpu_lidar distance_sensor
+# path, and it is marked reboot_required in parameters.yaml -- a runtime
+# `param set` (e.g. via extra_px4_params) is too late, GZBridge has already
+# subscribed by the time the runner sends it. With the native path enabled,
+# EKF2 would latch onto whichever downward distance_sensor instance it sees
+# first (EKF2.cpp's rangefinder selector never re-checks), giving no
+# guarantee the AFBR-realism-corrected MAVLink DISTANCE_SENSOR from
+# scripts/sim/rangefinder_mavlink_bridge.py is ever the one fused.
+param set-default SIM_GZ_EN_LIDAR 0

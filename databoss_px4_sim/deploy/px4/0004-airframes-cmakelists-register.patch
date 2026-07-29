@@ -1,0 +1,18 @@
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+index ce93573d15..055d3c249d 100644
+--- a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+@@ -83,11 +83,13 @@ px4_add_romfs_files(
+ 	4013_gz_x500_lidar_2d
+ 	4014_gz_x500_mono_cam_down
+ 	4016_gz_x500_lidar_down
++	4022_gz_x500_cam_lidar_down
+ 	4017_gz_x500_lidar_front
+ 	4018_gz_quadtailsitter
+ 	4019_gz_x500_gimbal
+ 	4020_gz_tiltrotor
+ 	4021_gz_x500_flow
++	4023_gz_x500_ark_flow
+ 
+ 	5001_xplane_cessna172
+ 	5002_xplane_tb2
