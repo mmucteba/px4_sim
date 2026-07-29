@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""One-time generator for the dashboard's write-access token.
+"""One-time generator for the dashboard's optional write-access token.
 
     venv/bin/python scripts/dashboard/generate_token.py
 
-Writes .dashboard_token at the project root (chmod 600). Every mutating
-dashboard endpoint (Phase 17C/17D - launch a run, edit a scenario, etc.)
-requires this value in an `X-Databoss-Token` header; GET/read endpoints
-never need it. Refuses to overwrite an existing token silently - pass
---force to rotate.
+Writes .dashboard_token at the project root (chmod 600). This script is only
+needed when DATABOSS_DASHBOARD_REQUIRE_TOKEN=1. In that opt-in mode, every
+mutating dashboard endpoint (Phase 17C/17D - launch a run, edit a scenario,
+etc.) requires this value in an `X-Databoss-Token` header; GET/read endpoints
+never need it. Refuses to overwrite an existing token silently - pass --force
+to rotate.
 """
 
 from __future__ import annotations

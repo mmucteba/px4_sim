@@ -3,21 +3,26 @@ import { getJSON, postJSON, getToken, setToken } from "../api.js";
 
 export async function renderCreate() {
   const app = document.getElementById("app");
-  const vehicleModels = await getJSON("/api/vehicle_models");
-  const worlds = await getJSON("/api/worlds");
+  const [authMode, vehicleModels, worlds] = await Promise.all([
+    getJSON("/api/auth"),
+    getJSON("/api/vehicle_models"),
+    getJSON("/api/worlds"),
+  ]);
 
   app.innerHTML = "";
   app.appendChild(el("p", { text: "Builds a complete scenario YAML from scratch - every field a real run needs, not a partial edit of an existing file - and hands back the file plus the exact command to run it yourself. Nothing here starts or stops a simulation. Fields not shown below are filled with the same safe defaults every accepted run uses (camera/rangefinder proof on, full logging, evidence-backed analysis) and aren't meant to be tuned per scenario." }));
 
   // --- token ---
-  const tokenSection = el("section", {}, [
-    el("h2", { text: "Write token" }),
-    el("p", { class: "help", text: "Required for both forms below. Generate one on the host with scripts/dashboard/generate_token.py, then paste it here (stored only in this browser's localStorage, sent only to this dashboard)." }),
-  ]);
-  const tokenInput = el("input", { type: "text", value: getToken(), placeholder: "X-Databoss-Token" });
-  tokenInput.addEventListener("change", () => setToken(tokenInput.value.trim()));
-  tokenSection.appendChild(tokenInput);
-  app.appendChild(tokenSection);
+  if (authMode.write_token_required) {
+    const tokenSection = el("section", {}, [
+      el("h2", { text: "Write token" }),
+      el("p", { class: "help", text: "Required for both forms below. Generate one on the host with scripts/dashboard/generate_token.py, then paste it here (stored only in this browser's localStorage, sent only to this dashboard)." }),
+    ]);
+    const tokenInput = el("input", { type: "text", value: getToken(), placeholder: "X-Databoss-Token" });
+    tokenInput.addEventListener("change", () => setToken(tokenInput.value.trim()));
+    tokenSection.appendChild(tokenInput);
+    app.appendChild(tokenSection);
+  }
 
   // --- create scenario ---
   const scenarioSection = el("section", {});

@@ -10,7 +10,7 @@ import threading
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from databoss_sim.dashboard.config import JOB_LOCK_PATH, PROJECT_ROOT
+from databoss_sim.dashboard.config import JOB_LOCK_PATH, PROJECT_ROOT, REQUIRE_WRITE_TOKEN, WRITE_TOKEN_PATH
 from databoss_sim.dashboard.deps import require_write_token
 
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -40,6 +40,14 @@ def get_model_sync_check() -> dict:
         if _cached_result is not None:
             return _cached_result
     return refresh_model_sync_cache()
+
+
+@router.get("/api/auth")
+def get_auth_mode() -> dict:
+    return {
+        "write_token_required": REQUIRE_WRITE_TOKEN,
+        "write_token_present": WRITE_TOKEN_PATH.is_file(),
+    }
 
 
 @router.post("/api/checks/model_sync/refresh", dependencies=[Depends(require_write_token)])
