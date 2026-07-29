@@ -8,7 +8,7 @@ function statusBadge(job) {
 
 function elapsedText(startedUtc) {
   const start = Date.parse(startedUtc || "");
-  if (!Number.isFinite(start)) return "-";
+  if (!Number.isFinite(start)) return "elapsed unavailable";
   const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
   const mins = Math.floor(seconds / 60);
   const hrs = Math.floor(mins / 60);
@@ -72,17 +72,7 @@ export async function mountActiveJobBanner(container) {
       bits.push(el("span", { class: "badge status-legacy", text: active.stall_warning }));
     }
     bits.push(cancel);
-    const banner = el("div", { class: "banner active-job-banner", role: "link", tabindex: "0" }, bits);
-    banner.addEventListener("click", (ev) => {
-      const target = ev.target instanceof Element ? ev.target : ev.target.parentElement;
-      if (target?.closest("button, a")) return;
-      location.href = href;
-    });
-    banner.addEventListener("keydown", (ev) => {
-      if (ev.key !== "Enter" && ev.key !== " ") return;
-      ev.preventDefault();
-      location.href = href;
-    });
+    const banner = el("div", { class: "banner active-job-banner" }, bits);
     container.appendChild(banner);
     scheduleTick();
   }

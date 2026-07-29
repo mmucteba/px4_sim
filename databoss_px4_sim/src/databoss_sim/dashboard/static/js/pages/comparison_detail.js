@@ -2,6 +2,16 @@ import { el, kv, tabs } from "../dom.js";
 import { getJSON } from "../api.js";
 import { buildFilesView, buildGallery } from "../files_view.js";
 
+function runList(runIds) {
+  if (!runIds.length) return el("p", { class: "empty", text: "No runs recorded for this comparison." });
+  return el("div", { class: "list" }, runIds.map((runId) =>
+    el("a", { class: "list-row", href: `/runs/${encodeURIComponent(runId)}` }, [
+      el("div", { class: "row-main", text: runId }),
+      el("span", { class: "row-chevron", text: ">" }),
+    ])
+  ));
+}
+
 export async function renderComparison(comparisonId) {
   const app = document.getElementById("app");
   app.innerHTML = "";
@@ -18,7 +28,7 @@ export async function renderComparison(comparisonId) {
   }
 
   app.innerHTML = "";
-  app.appendChild(el("p", {}, [el("a", { href: "/", text: "< back to run list" })]));
+  app.appendChild(el("p", {}, [el("a", { href: "/comparisons", text: "Back to comparisons" })]));
   app.appendChild(el("h1", { text: comp.title }));
 
   let filesPromise = null;
@@ -41,7 +51,7 @@ export async function renderComparison(comparisonId) {
           reportDiv.innerHTML = html;
           wrap.appendChild(reportDiv);
         } else {
-          wrap.appendChild(el("p", { class: "help", text: "No report.md for this comparison." }));
+          wrap.appendChild(el("p", { class: "empty", text: "No report.md for this comparison." }));
         }
         wrap.appendChild(kv([
           ["comparison_id", comp.comparison_id], ["case_count", comp.case_count],
@@ -61,9 +71,7 @@ export async function renderComparison(comparisonId) {
     },
     {
       label: `Cases (${comp.run_ids.length})`,
-      render: () => el("ul", {}, comp.run_ids.map(rid =>
-        el("li", {}, [el("a", { href: `/runs/${rid}`, text: rid })])
-      )),
+      render: () => runList(comp.run_ids),
     },
     {
       label: "Files",

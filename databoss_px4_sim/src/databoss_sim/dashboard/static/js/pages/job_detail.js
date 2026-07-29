@@ -61,7 +61,7 @@ function terminal(job) {
 }
 
 function formatDuration(seconds) {
-  if (!Number.isFinite(seconds)) return "-";
+  if (!Number.isFinite(seconds)) return "duration unavailable";
   const total = Math.max(0, Math.floor(seconds));
   const hrs = Math.floor(total / 3600);
   const mins = Math.floor((total % 3600) / 60);
@@ -71,7 +71,7 @@ function formatDuration(seconds) {
 
 function elapsedText(job) {
   const start = Date.parse(job.started_utc || "");
-  if (!Number.isFinite(start)) return "-";
+  if (!Number.isFinite(start)) return "elapsed unavailable";
   const end = terminal(job) && job.finished_utc ? Date.parse(job.finished_utc) : Date.now();
   return formatDuration((Number.isFinite(end) ? end : Date.now()) / 1000 - start / 1000);
 }
@@ -141,7 +141,7 @@ function renderPhaseStrip(job, reportedPhase) {
 function filteredKv(pairs) {
   const div = el("div", { class: "kv" });
   for (const [k, v] of pairs) {
-    if (v === null || v === undefined || v === "" || v === false || (Array.isArray(v) && !v.length)) continue;
+    if (v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length)) continue;
     div.appendChild(el("div", { class: "k", text: k }));
     div.appendChild(el("div", { text: Array.isArray(v) ? v.join(" ") : String(v) }));
   }

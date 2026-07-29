@@ -56,20 +56,20 @@ function renderResults(data) {
   if (modelRows.length) {
     wrap.appendChild(el("div", { class: "table-scroll" }, [modelSyncTable(modelRows)]));
   } else {
-    wrap.appendChild(el("p", { class: "help", text: "No model sync results returned." }));
+    wrap.appendChild(el("p", { class: "empty", text: "No model sync results returned." }));
   }
   wrap.appendChild(el("h2", { text: `FOV consistency (${fovRows.length})` }));
   if (fovRows.length) {
     wrap.appendChild(el("div", { class: "table-scroll" }, [fovTable(fovRows)]));
   } else {
-    wrap.appendChild(el("p", { class: "help", text: "No flow-enabled scenarios returned." }));
+    wrap.appendChild(el("p", { class: "empty", text: "No flow-enabled scenarios returned." }));
   }
   return wrap;
 }
 
 export async function renderHealth() {
   const app = document.getElementById("app");
-  const refreshBtn = el("button", { type: "button", text: "Re-run check" });
+  const refreshBtn = el("button", { class: "btn", type: "button", text: "Re-run check" });
   const errorHost = el("div", {});
   const resultHost = el("div", {});
 

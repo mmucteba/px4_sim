@@ -22,6 +22,7 @@ from databoss_sim.dashboard.config import (
     WRITE_TOKEN_PATH,
 )
 from databoss_sim.dashboard.deps import require_write_token
+from databoss_sim.dashboard.job_registry import probe_viz_ports
 from databoss_sim.dashboard.launch import _mem_available_mb
 
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -86,6 +87,7 @@ def get_host() -> dict:
         "disk_warn_gb": WARN_FREE_DISK_GB,
         "job_lock_held": JOB_LOCK_PATH.exists(),
         "qgc_ip_default": QGC_IP,
+        "viz": probe_viz_ports(),
     }
 
 

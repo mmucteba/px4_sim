@@ -21,7 +21,7 @@ function distinctSorted(runs, key) {
 }
 
 function filterSelect(id, label, options, selected) {
-  const select = el("select", { id });
+  const select = el("select", { id, "aria-label": label });
   select.appendChild(el("option", { value: "", text: `${label}: any` }));
   for (const opt of options) {
     const o = el("option", { value: opt, text: opt });
@@ -29,6 +29,59 @@ function filterSelect(id, label, options, selected) {
     select.appendChild(o);
   }
   return select;
+}
+
+function present(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function statusKind(status) {
+  if (status === "conformant") return "ok";
+  if (status === "legacy" || status === "in_progress") return "warn";
+  if (status === "incomplete") return "err";
+  return "muted";
+}
+
+function statusNode(status) {
+  const dot = {
+    ok: "dot-ok",
+    warn: "dot-warn",
+    err: "dot-err",
+    muted: "dot-muted",
+  }[statusKind(status)];
+  return el("span", { class: "cluster row-status" }, [
+    el("span", { class: `dot ${dot}` }),
+    el("span", { text: status || "unknown" }),
+  ]);
+}
+
+function runMeta(r) {
+  return [r.phase, r.scenario_name, r.algorithm, r.gnss_state]
+    .filter(present)
+    .map((value) => el("span", { text: value }));
+}
+
+function runMetrics(r) {
+  const nodes = [];
+  if (r.accepted !== null && r.accepted !== undefined) {
+    nodes.push(el("span", { class: "row-metric", text: `accepted ${String(r.accepted)}` }));
+  }
+  const horizontalError = r.key_metrics.horizontal_error_max_m;
+  if (horizontalError !== null && horizontalError !== undefined) {
+    nodes.push(el("span", { class: "row-metric", text: `${horizontalError.toFixed(3)} m` }));
+  }
+  return nodes;
+}
+
+function runRow(r) {
+  const left = [el("div", { class: "row-main", text: r.run_id })];
+  const meta = runMeta(r);
+  if (meta.length) left.push(el("div", { class: "row-meta" }, meta));
+  const right = [statusNode(r.contract_status), ...runMetrics(r), el("span", { class: "row-chevron", text: ">" })];
+  return el("a", { class: "list-row archive-row", href: `/runs/${encodeURIComponent(r.run_id)}` }, [
+    el("div", {}, left),
+    el("div", { class: "cluster archive-row-tail" }, right),
+  ]);
 }
 
 export async function renderList() {
@@ -58,13 +111,14 @@ export async function renderList() {
 
   app.innerHTML = "";
 
-  const searchInput = el("input", { type: "text", placeholder: "search run_id / scenario_name...", value: state.q });
+  const searchInput = el("input", { type: "text", "aria-label": "search runs", placeholder: "search run_id / scenario_name...", value: state.q });
   const algoSelect = filterSelect("f-algo", "algorithm", distinctSorted(runs, "algorithm"), state.algorithm);
   const gnssSelect = filterSelect("f-gnss", "gnss_state", distinctSorted(runs, "gnss_state"), state.gnss_state);
   const statusSelect = filterSelect("f-status", "status", distinctSorted(runs, "contract_status"), state.status);
 
   const summary = el("p", {});
-  const tableWrap = el("div", { class: "table-scroll" });
+  const sortHost = el("div", { class: "cluster sort-controls" });
+  const listHost = el("div", { class: "list" });
 
   function syncUrl() {
     const p = new URLSearchParams();
@@ -105,12 +159,17 @@ export async function renderList() {
           `status=${state.status || "any"}${q ? `, search="${q}"` : ""})`
         : "");
 
-    const table = el("table", {});
-    const headRow = el("tr", {});
+    sortHost.replaceChildren(el("span", { class: "help", text: "Sort" }));
     for (const col of COLUMNS) {
-      const arrow = state.sortKey === col.key ? (state.sortDir === 1 ? " ▲" : " ▼") : "";
-      const th = el("th", { class: "sortable", text: col.label + arrow });
-      th.addEventListener("click", () => {
+      const active = state.sortKey === col.key;
+      const arrow = active ? (state.sortDir === 1 ? " ▲" : " ▼") : "";
+      const button = el("button", {
+        class: active ? "btn sort-active" : "btn-ghost",
+        type: "button",
+        text: col.label + arrow,
+        "aria-pressed": active ? "true" : "false",
+      });
+      button.addEventListener("click", () => {
         if (state.sortKey === col.key) state.sortDir = -state.sortDir;
         else {
           state.sortKey = col.key;
@@ -118,26 +177,16 @@ export async function renderList() {
         }
         render();
       });
-      headRow.appendChild(th);
+      sortHost.appendChild(button);
     }
-    table.appendChild(headRow);
 
+    listHost.replaceChildren();
     for (const r of filtered.slice(0, 500)) {
-      const statusTd = el("td", {});
-      statusTd.appendChild(el("span", { class: `badge status-${r.contract_status}`, text: r.contract_status }));
-      table.appendChild(el("tr", {}, [
-        el("td", {}, [el("a", { href: `/runs/${r.run_id}`, text: r.run_id })]),
-        el("td", { text: r.phase || "" }),
-        el("td", { text: r.algorithm || "" }),
-        el("td", { text: r.gnss_state || "" }),
-        statusTd,
-        el("td", { text: r.accepted === null ? "" : String(r.accepted) }),
-        el("td", { text: r.key_metrics.horizontal_error_max_m != null ? r.key_metrics.horizontal_error_max_m.toFixed(3) : "" }),
-      ]));
+      listHost.appendChild(runRow(r));
     }
-
-    tableWrap.innerHTML = "";
-    tableWrap.appendChild(table);
+    if (!filtered.length) {
+      listHost.appendChild(el("p", { class: "empty", text: runs.length ? "No runs match the current filters." : "No runs have been indexed yet." }));
+    }
     syncUrl();
   }
 
@@ -162,7 +211,8 @@ export async function renderList() {
   app.appendChild(bannerHost);
   mountActiveJobBanner(bannerHost);
   app.appendChild(el("div", { class: "filters" }, [searchInput, algoSelect, gnssSelect, statusSelect]));
+  app.appendChild(sortHost);
   app.appendChild(summary);
-  app.appendChild(tableWrap);
+  app.appendChild(listHost);
   render();
 }

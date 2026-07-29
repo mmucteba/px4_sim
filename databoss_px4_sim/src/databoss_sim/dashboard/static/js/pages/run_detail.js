@@ -30,6 +30,40 @@ function renderConnectionLinks(conn) {
   return wrap;
 }
 
+function artifactList(run) {
+  const entries = Object.entries(run.artifacts || {}).filter(([, v]) => v);
+  if (!entries.length) return el("p", { class: "empty", text: "No artifacts recorded for this run." });
+  return el("div", { class: "list" }, entries.map(([k, v]) =>
+    el("a", { class: "list-row", href: `/artifacts/runs/${encodeURIComponent(run.run_id)}/${v}` }, [
+      el("div", {}, [
+        el("div", { class: "row-main", text: k }),
+        el("div", { class: "row-meta" }, [el("span", { text: v })]),
+      ]),
+      el("span", { class: "row-chevron", text: ">" }),
+    ])
+  ));
+}
+
+function comparisonList(comparisons) {
+  if (!comparisons.length) return el("p", { class: "empty", text: "No comparisons reference this run." });
+  return el("div", { class: "list" }, comparisons.map((comparisonId) =>
+    el("a", { class: "list-row", href: `/comparisons/${encodeURIComponent(comparisonId)}` }, [
+      el("div", { class: "row-main", text: comparisonId }),
+      el("span", { class: "row-chevron", text: ">" }),
+    ])
+  ));
+}
+
+function warningList(warnings) {
+  if (!warnings.length) return el("p", { class: "empty", text: "No warnings recorded for this run." });
+  return el("div", { class: "list" }, warnings.map((warning) =>
+    el("div", { class: "list-row" }, [
+      el("div", { class: "row-main", text: warning }),
+      el("span", { class: "dot dot-warn" }),
+    ])
+  ));
+}
+
 export async function renderRun(runId) {
   const app = document.getElementById("app");
   app.innerHTML = "";
@@ -46,7 +80,7 @@ export async function renderRun(runId) {
   }
 
   app.innerHTML = "";
-  app.appendChild(el("p", {}, [el("a", { href: "/", text: "< back to run list" })]));
+  app.appendChild(el("p", {}, [el("a", { href: "/runs", text: "Back to runs" })]));
   app.appendChild(el("h1", { text: run.run_id }));
 
   // Fetched once, lazily, on first activation of either Files or Plots -
@@ -82,9 +116,7 @@ export async function renderRun(runId) {
     },
     {
       label: "Artifacts",
-      render: () => el("ul", {}, Object.entries(run.artifacts).map(([k, v]) =>
-        el("li", {}, [el("a", { href: `/artifacts/runs/${run.run_id}/${v}`, text: `${k}: ${v}` })])
-      )),
+      render: () => artifactList(run),
     },
     {
       label: "Files",
@@ -103,16 +135,14 @@ export async function renderRun(runId) {
   if (run.comparisons.length) {
     sections.push({
       label: `Comparisons (${run.comparisons.length})`,
-      render: () => el("ul", {}, run.comparisons.map(c =>
-        el("li", {}, [el("a", { href: `/comparisons/${c}`, text: c })])
-      )),
+      render: () => comparisonList(run.comparisons),
     });
   }
 
   if (run.warnings.length) {
     sections.push({
       label: `Warnings (${run.warnings.length})`,
-      render: () => el("ul", {}, run.warnings.map(w => el("li", { text: w }))),
+      render: () => warningList(run.warnings),
     });
   }
 

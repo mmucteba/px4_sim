@@ -1,3 +1,4 @@
+import { renderOverview } from "./pages/overview.js";
 import { renderList } from "./pages/runs.js";
 import { renderRun } from "./pages/run_detail.js";
 import { renderComparison } from "./pages/comparison_detail.js";
@@ -26,6 +27,8 @@ function route() {
   const jobMatch = path.match(/^\/jobs\/(.+)$/);
   const compMatch = path.match(/^\/comparisons\/(.+)$/);
   const scenarioMatch = path.match(/^\/scenarios\/(.+)$/);
+  if (path === "/") return renderOverview();
+  if (path === "/runs") return renderList();
   if (path === "/launch") return renderLaunch();
   if (path === "/create") return renderCreate();
   if (path === "/jobs") return renderJobs();
@@ -36,7 +39,7 @@ function route() {
   if (scenarioMatch) return renderScenario(decodeURIComponent(scenarioMatch[1]));
   if (path === "/scenarios") return renderScenarios();
   if (path === "/health") return renderHealth();
-  return renderList();
+  return renderOverview();
 }
 
 mountThemeToggle(document.getElementById("theme-toggle"));

@@ -76,6 +76,10 @@ def create_app() -> FastAPI:
     def serve_index() -> FileResponse:
         return FileResponse(INDEX_HTML)
 
+    @app.get("/runs", include_in_schema=False)
+    def serve_runs_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
     @app.get("/runs/{run_id}", include_in_schema=False)
     def serve_run_page(run_id: str) -> FileResponse:
         return FileResponse(INDEX_HTML)

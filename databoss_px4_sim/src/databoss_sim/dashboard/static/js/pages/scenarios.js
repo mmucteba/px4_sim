@@ -28,6 +28,29 @@ function yamlText(value, indent = 0) {
   return `${pad}${valueText(value)}`;
 }
 
+function present(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function scenarioMeta(scenario) {
+  return [scenario.run_name, scenario.description, scenario.vehicle_model]
+    .filter(present)
+    .map((value) => el("span", { text: value }));
+}
+
+function scenarioRow(scenario) {
+  const left = [el("div", { class: "row-main", text: scenario.name })];
+  const meta = scenarioMeta(scenario);
+  if (meta.length) left.push(el("div", { class: "row-meta" }, meta));
+  const tail = [];
+  if (scenario.error) tail.push(badge("dead", "YAML error"));
+  tail.push(el("span", { class: "row-chevron", text: ">" }));
+  return el("a", { class: "list-row archive-row", href: `/scenarios/${encodeURIComponent(scenario.name)}` }, [
+    el("div", {}, left),
+    el("div", { class: "cluster archive-row-tail" }, tail),
+  ]);
+}
+
 export async function renderScenarios() {
   const app = document.getElementById("app");
   app.replaceChildren(el("span", { class: "spinner" }), document.createTextNode("loading..."));
@@ -40,9 +63,10 @@ export async function renderScenarios() {
   }
 
   const state = { q: new URLSearchParams(location.search).get("q") || "", sortKey: "name", sortDir: 1 };
-  const search = el("input", { type: "text", placeholder: "search name / run / description / vehicle...", value: state.q });
+  const search = el("input", { type: "text", "aria-label": "search scenarios", placeholder: "search name / run / description / vehicle...", value: state.q });
   const summary = el("p", {});
-  const tableWrap = el("div", { class: "table-scroll" });
+  const sortHost = el("div", { class: "cluster sort-controls" });
+  const listHost = el("div", { class: "list" });
 
   function syncUrl() {
     const p = new URLSearchParams();
@@ -61,41 +85,37 @@ export async function renderScenarios() {
       return av < bv ? -state.sortDir : av > bv ? state.sortDir : 0;
     });
     summary.textContent = `${rows.length} of ${scenarios.length} scenarios`;
-    tableWrap.replaceChildren();
+    sortHost.replaceChildren(el("span", { class: "help", text: "Sort" }));
     syncUrl();
-    if (!rows.length) {
-      tableWrap.appendChild(el("p", { class: "help", text: scenarios.length ? "No scenarios match the current search." : "No scenarios were found." }));
-      return;
-    }
-    const table = el("table", {});
-    const head = el("tr", {});
-    for (const key of ["name", "run_name", "description", "vehicle_model", "status"]) {
-      const th = el("th", { class: key === "status" ? "" : "sortable", text: key + (state.sortKey === key ? (state.sortDir === 1 ? " ▲" : " ▼") : "") });
-      if (key !== "status") th.addEventListener("click", () => {
+    for (const key of ["name", "run_name", "description", "vehicle_model"]) {
+      const active = state.sortKey === key;
+      const button = el("button", {
+        class: active ? "btn sort-active" : "btn-ghost",
+        type: "button",
+        text: key + (active ? (state.sortDir === 1 ? " ▲" : " ▼") : ""),
+        "aria-pressed": active ? "true" : "false",
+      });
+      button.addEventListener("click", () => {
         state.sortDir = state.sortKey === key ? -state.sortDir : 1;
         state.sortKey = key;
         render();
       });
-      head.appendChild(th);
+      sortHost.appendChild(button);
     }
-    table.appendChild(head);
+    listHost.replaceChildren();
     for (const s of rows) {
-      table.appendChild(el("tr", {}, [
-        el("td", {}, [el("a", { href: `/scenarios/${encodeURIComponent(s.name)}`, text: s.name })]),
-        el("td", { text: s.run_name || "" }),
-        el("td", { text: s.description || "" }),
-        el("td", { text: s.vehicle_model || "" }),
-        el("td", {}, s.error ? [badge("dead", "YAML error")] : []),
-      ]));
+      listHost.appendChild(scenarioRow(s));
     }
-    tableWrap.appendChild(table);
+    if (!rows.length) {
+      listHost.appendChild(el("p", { class: "empty", text: scenarios.length ? "No scenarios match the current search." : "No scenarios were found." }));
+    }
   }
 
   search.addEventListener("input", () => {
     state.q = search.value;
     render();
   });
-  app.replaceChildren(el("div", { class: "filters" }, [search]), summary, tableWrap);
+  app.replaceChildren(el("div", { class: "filters" }, [search]), sortHost, summary, listHost);
   render();
 }
 
@@ -132,7 +152,7 @@ export async function renderScenario(name) {
     return;
   }
   app.replaceChildren(
-    el("p", {}, [el("a", { href: "/scenarios", text: "< back to scenarios" })]),
+    el("p", {}, [el("a", { href: "/scenarios", text: "Back to scenarios" })]),
     el("h1", { text: scenario.name }),
     tabs([
       { label: "Fields", render: () => renderFields(scenario.fields) },
