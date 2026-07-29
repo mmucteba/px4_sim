@@ -1,0 +1,12 @@
+diff --git a/models/x500_base/model.sdf b/models/x500_base/model.sdf
+index bdeb665..96723c4 100644
+--- a/models/x500_base/model.sdf
++++ b/models/x500_base/model.sdf
+@@ -17,6 +17,7 @@
+         </inertia>
+       </inertial>
+       <gravity>true</gravity>
++      <enable_wind>true</enable_wind>
+       <velocity_decay />
+       <visual name="base_link_visual">
+         <pose>0 0 .025 0 0 3.141592654</pose>

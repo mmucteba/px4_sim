@@ -1,0 +1,38 @@
+px4:
+  repo: https://github.com/PX4/PX4-Autopilot.git
+  commit: 994dec2c4101b01424f0cd46aae29f3e5b3c6f64
+  describe: v1.18.0-alpha1-486-g994dec2c41
+  build_target: px4_sitl_default
+gz_models_submodule:
+  path: Tools/simulation/gz
+  repo: https://github.com/PX4/PX4-gazebo-models.git
+  commit: bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9
+patches:
+  - file: 0001-gz-bridge-sim-gps-used.patch
+    apply_in: px4_root
+    target: src/modules/simulation/gz_bridge/GZBridge.cpp
+    proves: GNSS loss actually takes effect (SIM_GPS_USED is polled)
+  - file: 0002-server-config-wind-effects.patch
+    apply_in: px4_root
+    target: src/modules/simulation/gz_bridge/server.config
+    proves: the Gazebo wind-effects system is loaded
+  - file: 0003-x500-base-enable-wind.patch
+    apply_in: gz_models_submodule      # NOTE: paths are submodule-relative
+    target: models/x500_base/model.sdf
+    proves: the vehicle body responds to wind
+  - file: 0004-airframes-cmakelists-register.patch
+    apply_in: px4_root
+    target: ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+    proves: airframes 4022/4023 are built into the ROMFS
+airframes:
+  - 4022_gz_x500_cam_lidar_down
+  - 4023_gz_x500_ark_flow
+models:
+  - x500_cam_lidar_down
+  - x500_ark_flow
+  - afbr_s50
+gazebo:
+  distro: gz-harmonic
+  gz_sim_version: "8.14.0"
+  apt_source: http://packages.osrfoundation.org/gazebo/ubuntu-stable noble main
+  web_launch_config: /usr/share/gz/gz-launch7/configs/websocket.gzlaunch
