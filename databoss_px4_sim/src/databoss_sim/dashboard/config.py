@@ -7,6 +7,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from databoss_sim.contracts.connections import DEFAULT_QGC_IP
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS_ROOT = PROJECT_ROOT / "experiments"
 RUNS_DIR = EXPERIMENTS_ROOT / "runs"
@@ -15,6 +17,9 @@ JOBS_DIR = EXPERIMENTS_ROOT / "jobs"
 JOB_LOCK_PATH = JOBS_DIR / ".active.lock"
 RUN_AS_USER = "px4"
 MIN_AVAILABLE_MEM_MB = 1200
+MIN_FREE_DISK_GB = 1.0
+WARN_FREE_DISK_GB = 3.0
+QGC_IP = DEFAULT_QGC_IP
 CANCEL_GRACE_S = 180.0
 JOB_LOG_CHUNK_BYTES = 65536
 JOB_REAPER_INTERVAL_S = 5.0

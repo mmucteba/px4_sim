@@ -23,6 +23,7 @@ Phase 17's read-only-display decision for this data.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,7 @@ from pydantic import BaseModel, ConfigDict
 # Confirmed via auto_takeoff_land_pxh_truth.py argparse defaults and,
 # independently, via zero commands.log overrides found across 179 real runs.
 DEFAULT_QGC_ENABLED = True
-DEFAULT_QGC_IP = "100.109.200.5"
+DEFAULT_QGC_IP = os.environ.get("DATABOSS_QGC_IP", "100.109.200.5")
 DEFAULT_QGC_LOCAL_PORT = 14555
 DEFAULT_QGC_REMOTE_PORT = 14550
 

@@ -96,6 +96,10 @@ def create_app() -> FastAPI:
     def serve_scenario_page(name: str) -> FileResponse:
         return FileResponse(INDEX_HTML)
 
+    @app.get("/launch", include_in_schema=False)
+    def serve_launch_page() -> FileResponse:
+        return FileResponse(INDEX_HTML)
+
     @app.get("/health", include_in_schema=False)
     def serve_health_page() -> FileResponse:
         return FileResponse(INDEX_HTML)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -17,6 +18,7 @@ from create_run_from_scenario import (
 )
 
 PYTHON = sys.executable
+DEFAULT_QGC_IP = os.environ.get("DATABOSS_QGC_IP", "100.109.200.5")
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -63,7 +65,7 @@ def main() -> int:
     parser.add_argument("--startup-timeout-s", type=float, default=150.0)
     parser.add_argument("--world-ready-timeout-s", type=float, default=120.0)
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
-    parser.add_argument("--qgc-ip", default="100.109.200.5")
+    parser.add_argument("--qgc-ip", default=DEFAULT_QGC_IP)
     parser.add_argument("--qgc-local-port", type=int, default=14555)
     parser.add_argument("--qgc-remote-port", type=int, default=14550)
     parser.add_argument("--qgc-rate", type=int, default=1000000)

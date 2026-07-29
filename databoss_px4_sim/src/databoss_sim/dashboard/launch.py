@@ -18,6 +18,7 @@ from databoss_sim.dashboard.config import (
     CANCEL_GRACE_S,
     MIN_AVAILABLE_MEM_MB,
     PROJECT_ROOT,
+    QGC_IP,
     RUN_AS_USER,
 )
 from databoss_sim.dashboard.job_registry import (
@@ -82,7 +83,7 @@ class LaunchRequest(BaseModel):
     global_position_timeout_s: float = 90.0
     global_position_stable_s: float = 5.0
     no_global_position_gate: bool = False
-    qgc_ip: str = "100.109.200.5"
+    qgc_ip: str = QGC_IP
     note: str = ""
     ignore_memory_guard: bool = False
     # QGroundControl is always enabled; there is intentionally no opt-out field.

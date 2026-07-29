@@ -46,7 +46,7 @@ export async function mountActiveJobBanner(container) {
     }
 
     elapsedNode = el("span", { text: elapsedText(active.started_utc) });
-    const cancel = el("button", { type: "button", text: "Cancel" });
+    const cancel = el("button", { class: "btn-danger", type: "button", text: "Cancel" });
     cancel.disabled = active.status === "cancelling";
     cancel.addEventListener("click", async () => {
       if (!window.confirm(`Cancel ${active.job_id}? This SIGTERMs the runner, which tears down Gazebo and PX4 and marks the run not-accepted.`)) return;
@@ -56,18 +56,34 @@ export async function mountActiveJobBanner(container) {
       poller.kick();
     });
 
+    const href = `/jobs/${encodeURIComponent(active.job_id)}`;
     const bits = [
-      el("strong", {}, [el("a", { href: `/jobs/${encodeURIComponent(active.job_id)}`, text: active.job_id })]),
+      el("div", {}, [
+        el("div", { class: "row-main" }, [el("a", { href, text: active.job_id })]),
+        el("div", { class: "row-meta" }, [
+          el("span", { text: active.scenario || "active job" }),
+          el("span", {}, [document.createTextNode("elapsed "), elapsedNode]),
+        ]),
+      ]),
       statusBadge(active),
-      el("span", {}, [document.createTextNode("elapsed "), elapsedNode]),
-      el("span", { text: active.scenario || "" }),
       runDirLink(active),
     ];
     if (active.stall_warning) {
       bits.push(el("span", { class: "badge status-legacy", text: active.stall_warning }));
     }
     bits.push(cancel);
-    container.appendChild(el("div", { class: "banner" }, bits));
+    const banner = el("div", { class: "banner active-job-banner", role: "link", tabindex: "0" }, bits);
+    banner.addEventListener("click", (ev) => {
+      const target = ev.target instanceof Element ? ev.target : ev.target.parentElement;
+      if (target?.closest("button, a")) return;
+      location.href = href;
+    });
+    banner.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      location.href = href;
+    });
+    container.appendChild(banner);
     scheduleTick();
   }
 

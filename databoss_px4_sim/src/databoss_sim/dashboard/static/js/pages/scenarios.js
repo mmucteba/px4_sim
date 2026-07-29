@@ -1,5 +1,5 @@
 import { el, tabs } from "../dom.js";
-import { getJSON, postJSON } from "../api.js";
+import { getJSON } from "../api.js";
 
 const BADGE = { editable: "badge-ok", readonly: "badge-info", derived: "badge-caution", dead: "badge-err", unknown: "badge-caution" };
 const STATUSES = ["editable", "readonly", "derived", "dead", "unknown"];
@@ -26,15 +26,6 @@ function yamlText(value, indent = 0) {
     return Object.entries(value).map(([k, v]) => v && typeof v === "object" ? `${pad}${k}:\n${yamlText(v, indent + 2)}` : `${pad}${k}: ${valueText(v)}`).join("\n");
   }
   return `${pad}${valueText(value)}`;
-}
-
-function numberInput(name, value, extra = {}) {
-  return el("input", { name, type: "number", step: "0.1", value, ...extra });
-}
-
-function addParsed(body, form, name, parse = (v) => v) {
-  const value = form.elements[name].value.trim();
-  if (value !== "") body[name] = parse(value);
 }
 
 export async function renderScenarios() {
@@ -124,48 +115,10 @@ function renderFields(fields) {
 }
 
 function renderLaunch(name) {
-  const form = el("form", { class: "gen" });
-  const result = el("div", {});
-  const inputs = {
-    hover_s: numberInput("hover_s", "25"),
-    startup_timeout_s: numberInput("startup_timeout_s", "150"),
-    world_ready_timeout_s: numberInput("world_ready_timeout_s", "120"),
-    land_timeout_s: numberInput("land_timeout_s", "70"),
-    gnss_start_used: numberInput("gnss_start_used", "10", { step: "1" }),
-    gnss_loss_after_takeoff_s: numberInput("gnss_loss_after_takeoff_s", "", { placeholder: "use scenario" }),
-    post_loss_hover_s: numberInput("post_loss_hover_s", ""),
-    failsafe_profile: el("select", { name: "failsafe_profile" }, ["", "default_px4", "delayed_observation"].map(v => el("option", { value: v, text: v || "blank" }))),
-    global_position_timeout_s: numberInput("global_position_timeout_s", "90"),
-    global_position_stable_s: numberInput("global_position_stable_s", "5"),
-    no_global_position_gate: el("input", { name: "no_global_position_gate", type: "checkbox" }),
-    qgc_ip: el("input", { name: "qgc_ip", type: "text", value: "100.109.200.5" }),
-    note: el("input", { name: "note", type: "text" }),
-  };
-  form.appendChild(el("p", { class: "help", text: "QGC and gz-web stay enabled for scenario launches." }));
-  for (const [label, input] of Object.entries(inputs)) {
-    form.appendChild(el("label", { text: label }));
-    form.appendChild(input);
-  }
-  form.appendChild(el("button", { type: "submit", text: "Launch" }));
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    result.replaceChildren();
-    const body = { scenario: name, no_global_position_gate: inputs.no_global_position_gate.checked };
-    for (const key of ["hover_s", "startup_timeout_s", "world_ready_timeout_s", "land_timeout_s", "gnss_loss_after_takeoff_s", "post_loss_hover_s", "global_position_timeout_s", "global_position_stable_s"]) addParsed(body, form, key, parseFloat);
-    addParsed(body, form, "gnss_start_used", v => parseInt(v, 10));
-    for (const key of ["failsafe_profile", "qgc_ip", "note"]) addParsed(body, form, key);
-    try {
-      const data = await postJSON("/api/launch", body);
-      location.href = `/jobs/${encodeURIComponent(data.job_id)}`;
-    } catch (e) {
-      const active = e.detail && e.detail.active_job_id;
-      const text = e.status === 401 ? "Write token required. Set the write token on the Create page." :
-        e.status === 409 ? `Launch blocked by active job: ${active || e.message}` :
-        "Launch failed: " + ((e && e.message) || e);
-      result.replaceChildren(el("div", { class: "error-box", text }));
-    }
-  });
-  return el("div", {}, [form, result]);
+  return el("div", { class: "stack" }, [
+    el("p", { class: "help", text: "Launch now has its own pre-flight page with explained inputs, host checks, and deployment blockers." }),
+    el("a", { class: "btn-primary", href: `/launch?scenario=${encodeURIComponent(name)}`, text: "Open launch page" }),
+  ]);
 }
 
 export async function renderScenario(name) {

@@ -3,10 +3,12 @@ import { renderRun } from "./pages/run_detail.js";
 import { renderComparison } from "./pages/comparison_detail.js";
 import { renderComparisons } from "./pages/comparisons.js";
 import { renderScenarios, renderScenario } from "./pages/scenarios.js";
+import { renderLaunch } from "./pages/launch.js";
 import { renderHealth } from "./pages/health.js";
 import { renderCreate } from "./pages/create.js";
 import { renderJobs } from "./pages/jobs.js";
 import { renderJob } from "./pages/job_detail.js";
+import { mountThemeToggle } from "./components/theme_toggle.js";
 
 function updateNavActive() {
   const path = location.pathname;
@@ -24,6 +26,7 @@ function route() {
   const jobMatch = path.match(/^\/jobs\/(.+)$/);
   const compMatch = path.match(/^\/comparisons\/(.+)$/);
   const scenarioMatch = path.match(/^\/scenarios\/(.+)$/);
+  if (path === "/launch") return renderLaunch();
   if (path === "/create") return renderCreate();
   if (path === "/jobs") return renderJobs();
   if (runMatch) return renderRun(decodeURIComponent(runMatch[1]));
@@ -36,4 +39,5 @@ function route() {
   return renderList();
 }
 
+mountThemeToggle(document.getElementById("theme-toggle"));
 route();
