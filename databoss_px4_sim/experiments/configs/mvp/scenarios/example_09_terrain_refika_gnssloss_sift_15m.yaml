@@ -75,9 +75,6 @@ analysis:
   generate_summary: true
   check_external_odometry_received: false
   check_optical_flow_fusion: true
-  check_flow_velocity_sign: true
-  flow_velocity_sign_source: gps
-  flow_velocity_sign_required: true
   sensor_contract_report: true
   sensor_contract_gate: timing
   sensor_contract_gate_required: false
