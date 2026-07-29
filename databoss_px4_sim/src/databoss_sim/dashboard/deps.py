@@ -13,7 +13,7 @@ import time
 
 from fastapi import Header, HTTPException
 
-from databoss_sim.dashboard.config import INDEX_CACHE_TTL_S, PROJECT_ROOT, WRITE_TOKEN_PATH
+from databoss_sim.dashboard.config import INDEX_CACHE_TTL_S, PROJECT_ROOT, REQUIRE_WRITE_TOKEN, WRITE_TOKEN_PATH
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -59,11 +59,15 @@ def _read_expected_token() -> str:
 def require_write_token(x_databoss_token: str | None = Header(default=None)) -> None:
     """FastAPI dependency for every mutating endpoint (POST /api/launch,
     /api/scenarios, /api/worlds/generate, /api/jobs/{id}/cancel - Phase
-    17C/17D). Read-only GET endpoints never depend on this - the dashboard
-    is Tailscale-reachable and reads stay open, per the Phase 17 plan's
-    explicit auth decision (bind address is the read-side boundary; this
-    token is the write-side boundary).
+    17C/17D). The write-token check is opt-in via
+    DATABOSS_DASHBOARD_REQUIRE_TOKEN=1; when enabled, read-only GET endpoints
+    never depend on this - the dashboard is Tailscale-reachable and reads stay
+    open, per the Phase 17 plan's explicit auth decision (bind address is the
+    read-side boundary; this token is the write-side boundary).
     """
+    if not REQUIRE_WRITE_TOKEN:
+        return
+
     expected = _read_expected_token()
     if not x_databoss_token or not hmac.compare_digest(x_databoss_token, expected):
         raise HTTPException(status_code=401, detail="missing or invalid X-Databoss-Token")

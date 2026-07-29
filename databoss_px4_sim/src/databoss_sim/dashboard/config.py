@@ -4,6 +4,7 @@ dashboard module needs, so nothing hardcodes PROJECT_ROOT separately.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -30,3 +31,15 @@ DASHBOARD_HOST = "100.78.93.35"
 DASHBOARD_PORT = 8600
 
 WRITE_TOKEN_PATH = PROJECT_ROOT / ".dashboard_token"
+
+# The dashboard binds to a Tailscale-only address, which is the real access
+# boundary; the write token was a second boundary behind it. Default off so a
+# local single-operator setup needs no token. Set
+# DATABOSS_DASHBOARD_REQUIRE_TOKEN=1 to re-enable it unchanged (e.g. if the
+# bind address is ever widened).
+REQUIRE_WRITE_TOKEN = os.environ.get("DATABOSS_DASHBOARD_REQUIRE_TOKEN", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
