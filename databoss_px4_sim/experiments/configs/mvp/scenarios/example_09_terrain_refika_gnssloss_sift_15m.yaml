@@ -1,6 +1,6 @@
 run:
-  name: example_05_terrain_refika_gnssloss_lk_15m
-  description: Refika terrain 15 m LK hover that cuts GNSS after takeoff for the primary loss-of-GNSS science case.
+  name: example_09_terrain_refika_gnssloss_sift_15m
+  description: Previously flown SIFT flow profile copied from the accepted Phase 16a configuration; it also changes frame rate, EKF delay, and send gates relative to example_05, so outcome differences cannot be attributed to SIFT alone and the comparison is confounded.
 vehicle:
   model: gz_x500_cam_lidar_down
   px4_airframe: x500_cam_lidar_down
@@ -19,7 +19,7 @@ world:
     alt_m: 937.2000000000007
   condition_is_physical: true
 route:
-  name: example_05_terrain_refika_gnssloss_lk_15m
+  name: example_09_terrain_refika_gnssloss_sift_15m
   type: hover
   altitude_agl_m: 15.0
   duration_s: 70
@@ -87,32 +87,26 @@ flow_recording:
   max_width: 640
 flow_bridge:
   enabled: true
-  estimator: lk
-  rate_hz: 40
+  estimator: sift
+  rate_hz: 20
   max_width: 320
   hfov_rad: 1.74
   axis_map: xy
   quality_in_min: 20
   quality_in_max: 100
-  lk_max_corners: 160
-  lk_quality_level: 0.01
-  lk_min_distance: 6.0
-  lk_min_tracks: 8
-  lk_mad_multiplier: 3.0
-  lk_max_flow_rate_rad_s: 7.4
-  send_min_quality: 0
-  send_min_matches: 0
-  reset_on_unsent: false
+  sift_n_features: 180
+  sift_ratio: 0.75
+  sift_min_matches: 8
+  send_min_range_m: 0.8
+  send_max_range_m: 60.0
+  send_min_quality: 20
+  send_min_matches: 8
+  reset_on_unsent: true
   prime_on_unsent: true
-  startup_prime_hz: 2
-  startup_prime_duration_s: 120
-  prearm_min_mavlink_samples: 3
-  prearm_timeout_s: 30
-  min_sent_samples: 100
+  min_sent_samples: 60
   ekf2_of_ctrl: 1
   ekf2_of_qmin: 17
-  ekf2_of_n_min: 0.3
-  ekf2_of_delay: 140
+  ekf2_of_delay: 111
 control:
   mode: offboard_local_position_hold
   setpoint_mode: velocity_xy_position_z
