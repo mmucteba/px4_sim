@@ -116,6 +116,32 @@ Transfer `generated_worlds/` out-of-band. It is gitignored and currently costs
 about 202 MB. Regenerating it costs Mapbox requests and will not necessarily
 produce byte-identical terrain assets.
 
+Build a transport bundle on the source host:
+
+```bash
+scripts/deploy/make_world_bundle.sh --output-dir /tmp/databoss-transfer
+```
+
+The script writes `databoss-worlds-<UTC-date>.tar.zst` when `zstd` is
+available, otherwise `databoss-worlds-<UTC-date>.tar.gz`, plus a sibling
+`databoss-worlds-<UTC-date>.sha256`. The archive also contains
+`generated_worlds/DATABOSS_WORLD_BUNDLE_MANIFEST.sha256`, which records the
+sha256 of each regular file and the preserved symlink targets.
+
+On the receiver, copy the two bundle files to the project root, verify the
+transport checksum, extract, verify the per-file manifest, and restore
+ownership:
+
+```bash
+cd /opt/databoss_px4_sim
+sha256sum -c databoss-worlds-<UTC-date>.sha256
+tar -I zstd -xf databoss-worlds-<UTC-date>.tar.zst
+grep -E '^[0-9a-f]{64}  ' generated_worlds/DATABOSS_WORLD_BUNDLE_MANIFEST.sha256 | sha256sum -c -
+sudo chown -R px4:px4 generated_worlds
+```
+
+For `.tar.gz` fallback bundles, use `tar -xzf` instead of `tar -I zstd -xf`.
+
 The terrain generator itself is a pristine upstream checkout at `/opt/gazebo_terrain_generator`.
 There is no server-side Mapbox secret to deploy. The Mapbox key is posted
 per-request from the browser and is not stored by the server.

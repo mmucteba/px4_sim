@@ -4877,3 +4877,43 @@ different context) - narrowed to the authoritative
 `terrain_visual.visual_mode == "colored_tiles"` field instead. And a
 missing `ValueError` handler in the scenario-creation endpoint turned a
 substitute-world rejection into a raw 500 instead of a clean 422.
+
+## 2026-07-29 — Phase 18 deployment transport and host-only PX4 state rescued
+
+Three PX4 behavior patches that existed only on this host were moved into
+`deploy/px4/*.patch` and verified by `git apply --check -R`: `GZBridge.cpp`
+`_sim_gps_used.update()` (without it, GNSS loss never actually happens),
+`server.config` `gz-sim-wind-effects-system` (without it, wind never
+applies), and x500_base `<enable_wind>true</enable_wind>` (without it, the
+vehicle ignores wind). All three fail silently when missing: PX4/Gazebo still
+launch, runners can still finish, and the resulting GNSS-loss or wind run is
+not what its scenario claims.
+
+Airframe `4023_gz_x500_ark_flow` also existed only in the local PX4 tree and
+was rescued into the repo-side deployment inventory.
+
+Important provenance caveat: every run archived before 2026-07-29 records
+`px4_git` via `rev-parse --short HEAD`, which cannot show `-dirty`, so those
+runs understate what they actually flew. Archived `environment.txt` files were
+deliberately NOT rewritten. Runs from now on record `git describe --always
+--dirty` plus a `px4_patches:` line.
+
+Phase 18 also de-hardcoded 25 modules: `DASHBOARD_HOST` and `PX4_ROOT` are now
+environment-overridable instead of pinned to this host's literal paths.
+
+Deployment support now includes `scripts/deploy/bootstrap.sh` and
+`scripts/deploy/check_deployment.py`. On this host, `check_deployment.py`
+reports 25 OK / 0 FAIL, and its patch checks were proven able to fail by
+breaking each patch in a temp fixture.
+
+`scripts/deploy/make_world_bundle.sh` now packages the gitignored
+`generated_worlds/` tree for out-of-band transfer, with an archive-level
+sha256 and an in-archive per-file manifest. Symlinks are deliberately
+preserved rather than dereferenced; the known visible host symlink
+`serefli_koschisar_flowtex_dim_real/mesh -> ../serefli_koschisar_flowtex/mesh`
+resolves inside the bundle source, and the script refuses a real bundle when
+permissions prevent a complete symlink audit.
+
+`bootstrap.sh` has never provisioned a real machine. This host lacks the disk
+to prove a full fresh deployment here, so the script has syntax, dry-run, and
+checker evidence, but not an end-to-end production provisioning proof.
