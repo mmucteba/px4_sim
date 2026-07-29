@@ -5,10 +5,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from databoss_sim.dashboard.deps import require_write_token
+from databoss_sim.dashboard.job_registry import BusyError
+from databoss_sim.dashboard.launch import LaunchError, WorldSmokeRequest, start_world_smoke_job
 from databoss_sim.dashboard.world_generation import (
     apply_wind,
     generate_world,
@@ -30,6 +32,40 @@ def get_terrain_imports() -> list[dict]:
     """Raw gazebo_terrain_generator packages available to import - see
     world_generation.list_unimported_terrain_packages()."""
     return list_unimported_terrain_packages()
+
+
+@router.post(
+    "/api/worlds/{world_name}/smoke_test",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_write_token)],
+)
+def smoke_test(world_name: str) -> dict:
+    matches = [w for w in list_worlds() if w.get("name") == world_name]
+    if not matches or not matches[0].get("sdf_path"):
+        raise HTTPException(status_code=404, detail=f"no such world: {world_name}")
+
+    try:
+        record = start_world_smoke_job(WorldSmokeRequest(sdf_path=matches[0]["sdf_path"]))
+    except BusyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "another job is already active", "active_job_id": exc.active_job_id},
+        )
+    except LaunchError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    except FileExistsError:
+        raise HTTPException(status_code=409, detail="job id collision; retry smoke test")
+
+    return {
+        "job_id": record.job_id,
+        "kind": record.kind,
+        "status": record.status,
+        "world": world_name,
+        "sdf_path": matches[0]["sdf_path"],
+        "command": record.command,
+        "log_url": f"/api/jobs/{record.job_id}/log",
+        "job_url": f"/api/jobs/{record.job_id}",
+    }
 
 
 class ImportTerrainRequest(BaseModel):

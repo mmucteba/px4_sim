@@ -339,6 +339,8 @@ def tail_file(path: Path, offset: int, max_bytes: int = JOB_LOG_CHUNK_BYTES) -> 
 
 
 def find_run_dir_for_job(record: JobRecord) -> Path | None:
+    if record.kind != "flight":
+        return None
     if not RUNS_DIR.is_dir():
         return None
     stem = Path(record.scenario).stem
