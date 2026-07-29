@@ -34,6 +34,7 @@ DEFAULT_PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Au
 PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
 STATUS_ORDER = ("OK", "FAIL", "WARN", "SKIP")
 COMPILED_PATCH_FILES = {"0001-gz-bridge-sim-gps-used.patch"}
+RUN_EXEC_USER = "px4"
 
 
 @dataclass
@@ -102,6 +103,42 @@ def _run_command(cmd: list[str], cwd: Path | None = None, timeout: int = 10) -> 
         timeout=timeout,
         check=False,
     )
+
+
+def _run_command_as_user(
+    cmd: list[str],
+    user: str,
+    cwd: Path | None = None,
+    timeout: int = 10,
+) -> subprocess.CompletedProcess[str] | None:
+    def run(candidate: list[str]) -> subprocess.CompletedProcess[str]:
+        try:
+            return _run_command(candidate, cwd=cwd, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return subprocess.CompletedProcess(
+                candidate,
+                124 if isinstance(exc, subprocess.TimeoutExpired) else 1,
+                "",
+                f"{type(exc).__name__}: {exc}",
+            )
+
+    try:
+        target = pwd.getpwnam(user)
+    except KeyError:
+        return None
+
+    if os.geteuid() == target.pw_uid:
+        return run(cmd)
+
+    runuser_path = shutil.which("runuser")
+    if os.geteuid() == 0 and runuser_path:
+        return run([runuser_path, "-u", user, "--", *cmd])
+
+    sudo_path = shutil.which("sudo")
+    if sudo_path:
+        return run([sudo_path, "-n", "-u", user, *cmd])
+
+    return None
 
 
 def _combined_output(proc: subprocess.CompletedProcess[str]) -> str:
@@ -583,6 +620,82 @@ def _check_paths() -> list[CheckResult]:
     return results
 
 
+def _git_safe_directory_for_user(repo_path: Path, user: str) -> tuple[Path, str | None]:
+    repo_path = repo_path.expanduser().resolve(strict=False)
+    candidates = [repo_path, *repo_path.parents]
+    last_output = ""
+
+    for candidate in candidates:
+        proc = _run_command_as_user(
+            [
+                "git",
+                "-c",
+                f"safe.directory={candidate}",
+                "-C",
+                str(repo_path),
+                "rev-parse",
+                "--show-toplevel",
+            ],
+            user,
+        )
+        if proc is None:
+            return repo_path, f"cannot run git as {user}; user is missing or sudo/runuser is unavailable"
+
+        output = _combined_output(proc)
+        if output:
+            last_output = output
+        if proc.returncode == 0 and proc.stdout.strip():
+            return Path(proc.stdout.strip()).resolve(strict=False), None
+
+    return repo_path, last_output or "could not resolve git toplevel"
+
+
+def _check_provenance() -> list[CheckResult]:
+    safe_dir, safe_error = _git_safe_directory_for_user(PROJECT_ROOT, RUN_EXEC_USER)
+    if safe_error:
+        return [CheckResult(
+            "databoss git provenance",
+            "FAIL",
+            f"could not resolve DATABOSS git toplevel as {RUN_EXEC_USER}: {_first_output_line(safe_error)}",
+        )]
+
+    proc = _run_command_as_user(
+        [
+            "git",
+            "-c",
+            f"safe.directory={safe_dir}",
+            "-C",
+            str(PROJECT_ROOT),
+            "describe",
+            "--always",
+            "--dirty",
+        ],
+        RUN_EXEC_USER,
+    )
+    if proc is None:
+        return [CheckResult(
+            "databoss git provenance",
+            "FAIL",
+            f"cannot run git as {RUN_EXEC_USER}; user is missing or sudo/runuser is unavailable",
+        )]
+
+    output = _combined_output(proc)
+    describe = proc.stdout.strip()
+    if proc.returncode == 0 and describe:
+        return [CheckResult(
+            "databoss git provenance",
+            "OK",
+            f"git describe as {RUN_EXEC_USER}: {describe} (safe.directory={safe_dir})",
+        )]
+
+    detail = _first_output_line(output) or f"git describe exited {proc.returncode}"
+    return [CheckResult(
+        "databoss git provenance",
+        "FAIL",
+        f"git describe as {RUN_EXEC_USER} failed: {detail} (safe.directory={safe_dir})",
+    )]
+
+
 def check_patches(px4_root: Path | None = None) -> list[CheckResult]:
     pins = _load_pins()
     resolved_px4_root = _resolve_px4_root(px4_root)
@@ -600,6 +713,7 @@ def run_all_checks(px4_root: Path | None = None) -> dict[str, list[CheckResult]]
         "gazebo": _check_gazebo(pins),
         "python": _check_python(),
         "paths": _check_paths(),
+        "provenance": _check_provenance(),
     }
 
 

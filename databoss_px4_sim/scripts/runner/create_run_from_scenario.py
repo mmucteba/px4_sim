@@ -44,6 +44,49 @@ def sh(cmd: list[str]) -> str:
         return f"unavailable: {exc}"
 
 
+def git_safe_directory(repo_path: Path) -> Path:
+    repo_path = repo_path.expanduser().resolve(strict=False)
+    candidates = [repo_path, *repo_path.parents]
+
+    for candidate in candidates:
+        try:
+            proc = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={candidate}",
+                    "-C",
+                    str(repo_path),
+                    "rev-parse",
+                    "--show-toplevel",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            continue
+        if proc.returncode == 0 and proc.stdout.strip():
+            return Path(proc.stdout.strip()).resolve(strict=False)
+
+    return repo_path
+
+
+def git_describe(repo_path: Path) -> str:
+    safe_dir = git_safe_directory(repo_path)
+    return sh([
+        "git",
+        "-c",
+        f"safe.directory={safe_dir}",
+        "-C",
+        str(repo_path),
+        "describe",
+        "--always",
+        "--dirty",
+    ])
+
+
 def px4_patch_summary() -> str:
     try:
         if not PX4_ROOT.is_dir():
@@ -168,8 +211,8 @@ def write_environment(path: Path) -> None:
         "",
         "## Git",
         "",
-        f"databoss_git: {sh(['git', '-C', str(PROJECT_ROOT), 'describe', '--always', '--dirty'])}",
-        f"px4_git: {sh(['git', '-C', str(PX4_ROOT), 'describe', '--always', '--dirty'])}",
+        f"databoss_git: {git_describe(PROJECT_ROOT)}",
+        f"px4_git: {git_describe(PX4_ROOT)}",
         f"px4_patches: {px4_patch_summary()}",
         "",
     ]
