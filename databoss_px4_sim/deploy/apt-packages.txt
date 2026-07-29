@@ -1,0 +1,9 @@
+# DATABOSS top-level apt packages for Ubuntu 24.04/Harmonic.
+# Do not list the libgz dependency closure here; apt resolves it.
+gz-harmonic
+python3-gz-math7
+python3-gz-msgs10
+python3-gz-sim8
+python3-gz-transport13
+xvfb
+ruby

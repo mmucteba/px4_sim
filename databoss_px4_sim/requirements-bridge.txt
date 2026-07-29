@@ -1,0 +1,8 @@
+# DATABOSS live flow/rangefinder MAVLink bridge venv.
+# This environment MUST be created as:
+#   /usr/bin/python3 -m venv --system-site-packages venv_bridge
+# It inherits apt-only gz.transport13/gz.msgs10 bindings and the system cv2,
+# which are absent from the main venv. See docs/phases/phase_08g_live_flow_bridge.md D1.
+pymavlink==2.4.49
+fastcrc==0.3.6
+lxml==6.1.1
