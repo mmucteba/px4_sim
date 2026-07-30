@@ -1,0 +1,9 @@
+source: generated via gazebo_terrain_generator web UI by operator
+tool_repo: https://github.com/saiaravind19/gazebo_terrain_generator
+generated: 2026-07-10
+location: Serefli Kochisar (Sereflikochisar), Ankara Province, Turkey
+spherical_coordinates: {lat_deg: 38.9667425790774, lon_deg: 33.564598215693906, elevation_m: 1079.4}
+terrain_size_m: [192.66, 190.66, 55.4]
+buildings: false
+helipad: false
+notes: small polygon; aerial.png 60 KB (browser-renderable). PX4 sensor plugins added by DATABOSS import step.

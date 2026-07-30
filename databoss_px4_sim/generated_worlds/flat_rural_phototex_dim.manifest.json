@@ -1,0 +1,8 @@
+{
+  "generated_sdf": "/opt/databoss_px4_sim/generated_worlds/flat_rural_phototex_dim.sdf",
+  "source_yaml": "/opt/databoss_px4_sim/experiments/configs/mvp/worlds/flat_rural_phototex_dim.yaml",
+  "world_name": "flat_rural_phototex_dim",
+  "texture_preset": "photo_speckle",
+  "lighting_preset": "dim_overcast_no_shadows",
+  "wind_enabled": false
+}

@@ -9,7 +9,9 @@ experiments/runs/
 experiments/batches/
 experiments/comparisons/
 experiments/inspections/
-generated_worlds/
+# generated_worlds/ is TRACKED - see the exclusion rules in the repo-root
+# /opt/.gitignore, which owns them. Every scenario references
+# world.sdf_path: generated_worlds/..., so a clone without worlds cannot fly.
 
 # Dashboard control-panel runtime state: one dir per launched job holding
 # job.json, console.log and the generated launch.sh. This is process state,

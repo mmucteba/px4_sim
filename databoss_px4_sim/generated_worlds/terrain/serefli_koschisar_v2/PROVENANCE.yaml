@@ -1,0 +1,17 @@
+source: generated via gazebo_terrain_generator web UI by operator
+tool_repo: https://github.com/saiaravind19/gazebo_terrain_generator
+imported_utc: '2026-07-27T13:33:56.485727+00:00'
+raw_package: generated_worlds/terrain/_generator_output/serefli_koschisar
+spherical_coordinates:
+  lat_deg: 38.9667425790774
+  lon_deg: 33.564598215693906
+  elevation_m: 1079.4000000000015
+import_preparation_applied:
+- gz-sim-air-pressure-system
+- gz-sim-magnetometer-system
+- gz-sim-contact-system
+- gz-sim-apply-link-wrench-system
+- 'render_engine: ogre2 -> ogre'
+- databoss_launch_pad
+notes: Imported via the dashboard's import_terrain_world(), reusing the exact plugin/pad
+  XML from the real serefli_koschisar import (phase_09a).
