@@ -1,0 +1,10 @@
+{
+  "generated_sdf": "/opt/databoss_px4_sim/generated_worlds/flat_rural_phototex_noon.sdf",
+  "source_yaml": "/opt/databoss_px4_sim/experiments/configs/mvp/worlds/flat_rural_phototex_noon.yaml",
+  "world_name": "flat_rural_phototex_noon",
+  "texture_preset": "photo_speckle",
+  "lighting_preset": "noon_clear_no_shadows",
+  "wind_enabled": false,
+  "wind_mean_mps": null,
+  "wind_direction_vector_enu": null
+}

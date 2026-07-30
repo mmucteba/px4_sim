@@ -1,0 +1,3160 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="flat_rural_phototex_noon">
+
+    <scene>
+      <ambient>0.550 0.550 0.550 1.000</ambient>
+      <background>0.700 0.820 0.950 1.000</background>
+      <shadows>false</shadows>
+    </scene>
+
+
+    <light name="sun" type="directional">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.86 0.76 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.35 0.15 -0.92</direction>
+    </light>
+
+
+
+    <model name="databoss_ground">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="ground_collision">
+          <pose>0 0 -0.005 0 0 0</pose>
+          <geometry>
+            <box><size>240 240 0.01</size></box>
+          </geometry>
+        </collision>
+
+        <collision name="ground_base_collision">
+          <pose>0 0 -0.099 0 0 0</pose>
+          <geometry>
+            <box><size>240 240 0.2</size></box>
+          </geometry>
+        </collision>
+        <visual name="ground_base">
+          <pose>0 0 -0.099 0 0 0</pose>
+          <geometry>
+            <box><size>240 240 0.2</size></box>
+          </geometry>
+          <material>
+            <ambient>0.350 0.350 0.320 1.000</ambient>
+            <diffuse>0.350 0.350 0.320 1.000</diffuse>
+            <specular>0.02 0.02 0.02 1</specular>
+          </material>
+        </visual>
+
+        <visual name="tile_0_0">
+          <pose>-110 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_0 -->
+
+        </visual>
+
+        <visual name="tile_0_1">
+          <pose>-110 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_1 -->
+
+        </visual>
+
+        <visual name="tile_0_2">
+          <pose>-110 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_2 -->
+
+        </visual>
+
+        <visual name="tile_0_3">
+          <pose>-110 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_3 -->
+
+        </visual>
+
+        <visual name="tile_0_4">
+          <pose>-110 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_4 -->
+
+        </visual>
+
+        <visual name="tile_0_5">
+          <pose>-110 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_5 -->
+
+        </visual>
+
+        <visual name="tile_0_6">
+          <pose>-110 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_6 -->
+
+        </visual>
+
+        <visual name="tile_0_7">
+          <pose>-110 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_7 -->
+
+        </visual>
+
+        <visual name="tile_0_8">
+          <pose>-110 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_8 -->
+
+        </visual>
+
+        <visual name="tile_0_9">
+          <pose>-110 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_9 -->
+
+        </visual>
+
+        <visual name="tile_0_10">
+          <pose>-110 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_10 -->
+
+        </visual>
+
+        <visual name="tile_0_11">
+          <pose>-110 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_0_11 -->
+
+        </visual>
+
+        <visual name="tile_1_0">
+          <pose>-90 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_0 -->
+
+        </visual>
+
+        <visual name="tile_1_1">
+          <pose>-90 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_1 -->
+
+        </visual>
+
+        <visual name="tile_1_2">
+          <pose>-90 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_2 -->
+
+        </visual>
+
+        <visual name="tile_1_3">
+          <pose>-90 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_3 -->
+
+        </visual>
+
+        <visual name="tile_1_4">
+          <pose>-90 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_4 -->
+
+        </visual>
+
+        <visual name="tile_1_5">
+          <pose>-90 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_5 -->
+
+        </visual>
+
+        <visual name="tile_1_6">
+          <pose>-90 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_6 -->
+
+        </visual>
+
+        <visual name="tile_1_7">
+          <pose>-90 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_7 -->
+
+        </visual>
+
+        <visual name="tile_1_8">
+          <pose>-90 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_8 -->
+
+        </visual>
+
+        <visual name="tile_1_9">
+          <pose>-90 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_9 -->
+
+        </visual>
+
+        <visual name="tile_1_10">
+          <pose>-90 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_10 -->
+
+        </visual>
+
+        <visual name="tile_1_11">
+          <pose>-90 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_1_11 -->
+
+        </visual>
+
+        <visual name="tile_2_0">
+          <pose>-70 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_0 -->
+
+        </visual>
+
+        <visual name="tile_2_1">
+          <pose>-70 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_1 -->
+
+        </visual>
+
+        <visual name="tile_2_2">
+          <pose>-70 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_2 -->
+
+        </visual>
+
+        <visual name="tile_2_3">
+          <pose>-70 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_3 -->
+
+        </visual>
+
+        <visual name="tile_2_4">
+          <pose>-70 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_4 -->
+
+        </visual>
+
+        <visual name="tile_2_5">
+          <pose>-70 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_5 -->
+
+        </visual>
+
+        <visual name="tile_2_6">
+          <pose>-70 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_6 -->
+
+        </visual>
+
+        <visual name="tile_2_7">
+          <pose>-70 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_7 -->
+
+        </visual>
+
+        <visual name="tile_2_8">
+          <pose>-70 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_8 -->
+
+        </visual>
+
+        <visual name="tile_2_9">
+          <pose>-70 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_9 -->
+
+        </visual>
+
+        <visual name="tile_2_10">
+          <pose>-70 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_10 -->
+
+        </visual>
+
+        <visual name="tile_2_11">
+          <pose>-70 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_2_11 -->
+
+        </visual>
+
+        <visual name="tile_3_0">
+          <pose>-50 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_0 -->
+
+        </visual>
+
+        <visual name="tile_3_1">
+          <pose>-50 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_1 -->
+
+        </visual>
+
+        <visual name="tile_3_2">
+          <pose>-50 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_2 -->
+
+        </visual>
+
+        <visual name="tile_3_3">
+          <pose>-50 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_3 -->
+
+        </visual>
+
+        <visual name="tile_3_4">
+          <pose>-50 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_4 -->
+
+        </visual>
+
+        <visual name="tile_3_5">
+          <pose>-50 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_5 -->
+
+        </visual>
+
+        <visual name="tile_3_6">
+          <pose>-50 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_6 -->
+
+        </visual>
+
+        <visual name="tile_3_7">
+          <pose>-50 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_7 -->
+
+        </visual>
+
+        <visual name="tile_3_8">
+          <pose>-50 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_8 -->
+
+        </visual>
+
+        <visual name="tile_3_9">
+          <pose>-50 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_9 -->
+
+        </visual>
+
+        <visual name="tile_3_10">
+          <pose>-50 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_10 -->
+
+        </visual>
+
+        <visual name="tile_3_11">
+          <pose>-50 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_3_11 -->
+
+        </visual>
+
+        <visual name="tile_4_0">
+          <pose>-30 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_0 -->
+
+        </visual>
+
+        <visual name="tile_4_1">
+          <pose>-30 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_1 -->
+
+        </visual>
+
+        <visual name="tile_4_2">
+          <pose>-30 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_2 -->
+
+        </visual>
+
+        <visual name="tile_4_3">
+          <pose>-30 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_3 -->
+
+        </visual>
+
+        <visual name="tile_4_4">
+          <pose>-30 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_4 -->
+
+        </visual>
+
+        <visual name="tile_4_5">
+          <pose>-30 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_5 -->
+
+        </visual>
+
+        <visual name="tile_4_6">
+          <pose>-30 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_6 -->
+
+        </visual>
+
+        <visual name="tile_4_7">
+          <pose>-30 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_7 -->
+
+        </visual>
+
+        <visual name="tile_4_8">
+          <pose>-30 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_8 -->
+
+        </visual>
+
+        <visual name="tile_4_9">
+          <pose>-30 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_9 -->
+
+        </visual>
+
+        <visual name="tile_4_10">
+          <pose>-30 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_10 -->
+
+        </visual>
+
+        <visual name="tile_4_11">
+          <pose>-30 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_4_11 -->
+
+        </visual>
+
+        <visual name="tile_5_0">
+          <pose>-10 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_0 -->
+
+        </visual>
+
+        <visual name="tile_5_1">
+          <pose>-10 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_1 -->
+
+        </visual>
+
+        <visual name="tile_5_2">
+          <pose>-10 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_2 -->
+
+        </visual>
+
+        <visual name="tile_5_3">
+          <pose>-10 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_3 -->
+
+        </visual>
+
+        <visual name="tile_5_4">
+          <pose>-10 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_4 -->
+
+        </visual>
+
+        <visual name="tile_5_5">
+          <pose>-10 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_5 -->
+
+        </visual>
+
+        <visual name="tile_5_6">
+          <pose>-10 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_6 -->
+
+        </visual>
+
+        <visual name="tile_5_7">
+          <pose>-10 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_7 -->
+
+        </visual>
+
+        <visual name="tile_5_8">
+          <pose>-10 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_8 -->
+
+        </visual>
+
+        <visual name="tile_5_9">
+          <pose>-10 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_9 -->
+
+        </visual>
+
+        <visual name="tile_5_10">
+          <pose>-10 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_10 -->
+
+        </visual>
+
+        <visual name="tile_5_11">
+          <pose>-10 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_5_11 -->
+
+        </visual>
+
+        <visual name="tile_6_0">
+          <pose>10 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_0 -->
+
+        </visual>
+
+        <visual name="tile_6_1">
+          <pose>10 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_1 -->
+
+        </visual>
+
+        <visual name="tile_6_2">
+          <pose>10 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_2 -->
+
+        </visual>
+
+        <visual name="tile_6_3">
+          <pose>10 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_3 -->
+
+        </visual>
+
+        <visual name="tile_6_4">
+          <pose>10 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_4 -->
+
+        </visual>
+
+        <visual name="tile_6_5">
+          <pose>10 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_5 -->
+
+        </visual>
+
+        <visual name="tile_6_6">
+          <pose>10 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_6 -->
+
+        </visual>
+
+        <visual name="tile_6_7">
+          <pose>10 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_7 -->
+
+        </visual>
+
+        <visual name="tile_6_8">
+          <pose>10 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_8 -->
+
+        </visual>
+
+        <visual name="tile_6_9">
+          <pose>10 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_9 -->
+
+        </visual>
+
+        <visual name="tile_6_10">
+          <pose>10 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_10 -->
+
+        </visual>
+
+        <visual name="tile_6_11">
+          <pose>10 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_6_11 -->
+
+        </visual>
+
+        <visual name="tile_7_0">
+          <pose>30 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_0 -->
+
+        </visual>
+
+        <visual name="tile_7_1">
+          <pose>30 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_1 -->
+
+        </visual>
+
+        <visual name="tile_7_2">
+          <pose>30 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_2 -->
+
+        </visual>
+
+        <visual name="tile_7_3">
+          <pose>30 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_3 -->
+
+        </visual>
+
+        <visual name="tile_7_4">
+          <pose>30 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_4 -->
+
+        </visual>
+
+        <visual name="tile_7_5">
+          <pose>30 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_5 -->
+
+        </visual>
+
+        <visual name="tile_7_6">
+          <pose>30 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_6 -->
+
+        </visual>
+
+        <visual name="tile_7_7">
+          <pose>30 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_7 -->
+
+        </visual>
+
+        <visual name="tile_7_8">
+          <pose>30 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_8 -->
+
+        </visual>
+
+        <visual name="tile_7_9">
+          <pose>30 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_9 -->
+
+        </visual>
+
+        <visual name="tile_7_10">
+          <pose>30 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_10 -->
+
+        </visual>
+
+        <visual name="tile_7_11">
+          <pose>30 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_7_11 -->
+
+        </visual>
+
+        <visual name="tile_8_0">
+          <pose>50 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_0 -->
+
+        </visual>
+
+        <visual name="tile_8_1">
+          <pose>50 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_1 -->
+
+        </visual>
+
+        <visual name="tile_8_2">
+          <pose>50 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_2 -->
+
+        </visual>
+
+        <visual name="tile_8_3">
+          <pose>50 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_3 -->
+
+        </visual>
+
+        <visual name="tile_8_4">
+          <pose>50 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_4 -->
+
+        </visual>
+
+        <visual name="tile_8_5">
+          <pose>50 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_5 -->
+
+        </visual>
+
+        <visual name="tile_8_6">
+          <pose>50 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_6 -->
+
+        </visual>
+
+        <visual name="tile_8_7">
+          <pose>50 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_7 -->
+
+        </visual>
+
+        <visual name="tile_8_8">
+          <pose>50 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_8 -->
+
+        </visual>
+
+        <visual name="tile_8_9">
+          <pose>50 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_9 -->
+
+        </visual>
+
+        <visual name="tile_8_10">
+          <pose>50 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_10 -->
+
+        </visual>
+
+        <visual name="tile_8_11">
+          <pose>50 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_8_11 -->
+
+        </visual>
+
+        <visual name="tile_9_0">
+          <pose>70 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_0 -->
+
+        </visual>
+
+        <visual name="tile_9_1">
+          <pose>70 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_1 -->
+
+        </visual>
+
+        <visual name="tile_9_2">
+          <pose>70 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_2 -->
+
+        </visual>
+
+        <visual name="tile_9_3">
+          <pose>70 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_3 -->
+
+        </visual>
+
+        <visual name="tile_9_4">
+          <pose>70 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_4 -->
+
+        </visual>
+
+        <visual name="tile_9_5">
+          <pose>70 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_5 -->
+
+        </visual>
+
+        <visual name="tile_9_6">
+          <pose>70 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_6 -->
+
+        </visual>
+
+        <visual name="tile_9_7">
+          <pose>70 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_7 -->
+
+        </visual>
+
+        <visual name="tile_9_8">
+          <pose>70 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_8 -->
+
+        </visual>
+
+        <visual name="tile_9_9">
+          <pose>70 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_9 -->
+
+        </visual>
+
+        <visual name="tile_9_10">
+          <pose>70 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_10 -->
+
+        </visual>
+
+        <visual name="tile_9_11">
+          <pose>70 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_9_11 -->
+
+        </visual>
+
+        <visual name="tile_10_0">
+          <pose>90 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_0 -->
+
+        </visual>
+
+        <visual name="tile_10_1">
+          <pose>90 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_1 -->
+
+        </visual>
+
+        <visual name="tile_10_2">
+          <pose>90 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_2 -->
+
+        </visual>
+
+        <visual name="tile_10_3">
+          <pose>90 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_3 -->
+
+        </visual>
+
+        <visual name="tile_10_4">
+          <pose>90 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_4 -->
+
+        </visual>
+
+        <visual name="tile_10_5">
+          <pose>90 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_5 -->
+
+        </visual>
+
+        <visual name="tile_10_6">
+          <pose>90 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_6 -->
+
+        </visual>
+
+        <visual name="tile_10_7">
+          <pose>90 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_7 -->
+
+        </visual>
+
+        <visual name="tile_10_8">
+          <pose>90 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_8 -->
+
+        </visual>
+
+        <visual name="tile_10_9">
+          <pose>90 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_9 -->
+
+        </visual>
+
+        <visual name="tile_10_10">
+          <pose>90 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_10 -->
+
+        </visual>
+
+        <visual name="tile_10_11">
+          <pose>90 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_10_11 -->
+
+        </visual>
+
+        <visual name="tile_11_0">
+          <pose>110 -110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_0 -->
+
+        </visual>
+
+        <visual name="tile_11_1">
+          <pose>110 -90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_1 -->
+
+        </visual>
+
+        <visual name="tile_11_2">
+          <pose>110 -70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_2 -->
+
+        </visual>
+
+        <visual name="tile_11_3">
+          <pose>110 -50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_3 -->
+
+        </visual>
+
+        <visual name="tile_11_4">
+          <pose>110 -30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_4 -->
+
+        </visual>
+
+        <visual name="tile_11_5">
+          <pose>110 -10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_5 -->
+
+        </visual>
+
+        <visual name="tile_11_6">
+          <pose>110 10 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_6 -->
+
+        </visual>
+
+        <visual name="tile_11_7">
+          <pose>110 30 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_7 -->
+
+        </visual>
+
+        <visual name="tile_11_8">
+          <pose>110 50 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_8 -->
+
+        </visual>
+
+        <visual name="tile_11_9">
+          <pose>110 70 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_9 -->
+
+        </visual>
+
+        <visual name="tile_11_10">
+          <pose>110 90 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_10 -->
+
+        </visual>
+
+        <visual name="tile_11_11">
+          <pose>110 110 0.002 0 0 0</pose>
+          <geometry>
+            <box><size>20 20 0.004</size></box>
+          </geometry>
+
+          <material>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>file:///opt/databoss_px4_sim/generated_worlds/textures/ground_speckle_2048.png</albedo_map>
+                <roughness>1.0</roughness>
+                <metalness>0.0</metalness>
+              </metal>
+            </pbr>
+          </material>
+          <!-- material_id: tile_11_11 -->
+
+        </visual>
+
+      </link>
+    </model>
+
+
+    <model name="barn_low">
+      <static>true</static>
+      <pose>28 -22 3 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>14 9 6</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>14 9 6</size></box>
+          </geometry>
+
+          <material>
+            <ambient>0.450 0.120 0.080 1.000</ambient>
+            <diffuse>0.450 0.120 0.080 1.000</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+          <!-- material_id: barn_low -->
+
+        </visual>
+      </link>
+    </model>
+
+    <model name="hay_block_a">
+      <static>true</static>
+      <pose>-32 18 1.2 0 0 0.35</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>6 4 2.4</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>6 4 2.4</size></box>
+          </geometry>
+
+          <material>
+            <ambient>0.700 0.580 0.220 1.000</ambient>
+            <diffuse>0.700 0.580 0.220 1.000</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+          <!-- material_id: hay_block_a -->
+
+        </visual>
+      </link>
+    </model>
+
+    <model name="field_marker_a">
+      <static>true</static>
+      <pose>45 35 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>1</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>1</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+
+          <material>
+            <ambient>0.850 0.850 0.150 1.000</ambient>
+            <diffuse>0.850 0.850 0.150 1.000</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+          <!-- material_id: field_marker_a -->
+
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>
