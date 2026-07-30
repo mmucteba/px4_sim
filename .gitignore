@@ -31,7 +31,30 @@ databoss_px4_sim/experiments/runs
 databoss_px4_sim/experiments/batches
 databoss_px4_sim/experiments/comparisons
 databoss_px4_sim/experiments/inspections
-databoss_px4_sim/generated_worlds
+# databoss_px4_sim/generated_worlds IS TRACKED. Every scenario references
+# world.sdf_path: generated_worlds/..., so a clone without these worlds cannot fly
+# anything. Only unreferenced bulk is excluded (~163 MB), keeping the tracked
+# world payload around 27 MB.
+databoss_px4_sim/generated_worlds/terrain/Joshimath/
+databoss_px4_sim/generated_worlds/terrain/mesh/
+databoss_px4_sim/generated_worlds/terrain/*_web_mesh/
+# _generator_output holds the RAW terrain-generator packages that produced the
+# imported worlds (~3.3 MB). Tracked so a fresh host can re-import the same terrain
+# without re-pulling it through the generator's web UI; PROVENANCE.yaml records the
+# lat/lon of each, but the raw package is what import_terrain_world() consumes.
+# per-world smoke-test results are run artifacts, regenerated on demand
+databoss_px4_sim/generated_worlds/**/*.smoke.json
+# browser-visualisation meshes only: no flight world references web_terrain.dae
+# (flight worlds use mesh/height_map.png + mesh/buildings.dae), and they are 12 MB each
+databoss_px4_sim/generated_worlds/**/web_terrain.dae
+# Worlds with unresolvable mesh references - excluded rather than shipped broken.
+# None is referenced by any scenario, and two are already broken ON DISK:
+#   Joshimath.world           -> needs terrain/mesh/ (67 MB, unreferenced bulk)
+#   *_flowtex_dim.world       -> references mesh/flow_detail.png which does not exist
+#   *_flowtex_dim_real.world  -> has NO mesh directory at all
+databoss_px4_sim/generated_worlds/terrain/Joshimath.world
+databoss_px4_sim/generated_worlds/terrain/serefli_koschisar_flowtex_dim/
+databoss_px4_sim/generated_worlds/terrain/serefli_koschisar_flowtex_dim_real/
 
 # Phase 17 dashboard: generated index (regenerate with
 # build_experiments_index.py, never hand-edited) and the write-access
