@@ -1,0 +1,101 @@
+* { box-sizing: border-box; }
+
+html { overflow-x: hidden; }
+
+body {
+  min-width: 0;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+}
+
+img, canvas, svg, video { max-width: 100%; }
+
+.page {
+  width: min(1600px, 100% - 2 * var(--space-4));
+  margin-inline: auto;
+  padding-block: var(--space-4) var(--space-5);
+}
+
+header.site-header, .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-height: var(--header-height);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-alt) 94%, transparent);
+}
+
+.site-header h1 {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.site-header nav, nav {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.site-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.stack > * + * { margin-top: var(--space-3); }
+
+.cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+section { margin-bottom: var(--space-4); }
+
+.table-scroll, .report-html table, pre, .log-tail, .file-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.report-html { max-width: var(--measure); }
+
+@media (max-width: 720px) {
+  .page {
+    width: min(100% - 2 * var(--space-3), 1600px);
+    padding-block: var(--space-3) var(--space-4);
+  }
+
+  .site-header {
+    align-items: flex-start;
+    padding-inline: var(--space-3);
+  }
+
+  .site-header nav {
+    justify-content: flex-start;
+    order: 3;
+    flex-basis: 100%;
+  }
+}

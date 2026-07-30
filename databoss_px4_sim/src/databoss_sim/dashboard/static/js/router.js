@@ -1,12 +1,16 @@
+import { renderOverview } from "./pages/overview.js";
 import { renderList } from "./pages/runs.js";
 import { renderRun } from "./pages/run_detail.js";
 import { renderComparison } from "./pages/comparison_detail.js";
 import { renderComparisons } from "./pages/comparisons.js";
 import { renderScenarios, renderScenario } from "./pages/scenarios.js";
+import { renderVehicles } from "./pages/vehicles.js";
+import { renderLaunch } from "./pages/launch.js";
 import { renderHealth } from "./pages/health.js";
 import { renderCreate } from "./pages/create.js";
 import { renderJobs } from "./pages/jobs.js";
 import { renderJob } from "./pages/job_detail.js";
+import { mountThemeToggle } from "./components/theme_toggle.js";
 
 function updateNavActive() {
   const path = location.pathname;
@@ -24,8 +28,12 @@ function route() {
   const jobMatch = path.match(/^\/jobs\/(.+)$/);
   const compMatch = path.match(/^\/comparisons\/(.+)$/);
   const scenarioMatch = path.match(/^\/scenarios\/(.+)$/);
+  if (path === "/") return renderOverview();
+  if (path === "/runs") return renderList();
+  if (path === "/launch") return renderLaunch();
   if (path === "/create") return renderCreate();
   if (path === "/jobs") return renderJobs();
+  if (path === "/vehicles") return renderVehicles();
   if (runMatch) return renderRun(decodeURIComponent(runMatch[1]));
   if (jobMatch) return renderJob(decodeURIComponent(jobMatch[1]));
   if (compMatch) return renderComparison(decodeURIComponent(compMatch[1]));
@@ -33,7 +41,8 @@ function route() {
   if (scenarioMatch) return renderScenario(decodeURIComponent(scenarioMatch[1]));
   if (path === "/scenarios") return renderScenarios();
   if (path === "/health") return renderHealth();
-  return renderList();
+  return renderOverview();
 }
 
+mountThemeToggle(document.getElementById("theme-toggle"));
 route();

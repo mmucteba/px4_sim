@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -17,6 +18,7 @@ from create_run_from_scenario import (
 )
 
 PYTHON = sys.executable
+DEFAULT_QGC_IP = os.environ.get("DATABOSS_QGC_IP", "100.109.200.5")
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -63,7 +65,7 @@ def main() -> int:
     parser.add_argument("--startup-timeout-s", type=float, default=150.0)
     parser.add_argument("--world-ready-timeout-s", type=float, default=120.0)
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
-    parser.add_argument("--qgc-ip", default="100.109.200.5")
+    parser.add_argument("--qgc-ip", default=DEFAULT_QGC_IP)
     parser.add_argument("--qgc-local-port", type=int, default=14555)
     parser.add_argument("--qgc-remote-port", type=int, default=14550)
     parser.add_argument("--qgc-rate", type=int, default=1000000)
@@ -218,8 +220,23 @@ def main() -> int:
         print("ERROR: align step failed", file=sys.stderr)
         return rc
 
+    print("== Step 4: run plots and stats (non-fatal) ==")
+    plots_cmd = [
+        PYTHON,
+        "scripts/analysis/generate_run_plots.py",
+        str(run_dir),
+    ]
+    try:
+        rc, out = run_cmd(plots_cmd, PROJECT_ROOT)
+        step_results.append({"step": "generate_run_plots", "returncode": rc, "output_tail": out[-4000:], "non_fatal": True})
+        if rc != 0:
+            print("WARNING: run plot/stat generation failed non-fatally", file=sys.stderr)
+    except Exception as exc:
+        step_results.append({"step": "generate_run_plots", "returncode": None, "output_tail": str(exc)[-4000:], "non_fatal": True})
+        print(f"WARNING: run plot/stat generation raised non-fatally: {exc}", file=sys.stderr)
+
     if flow_velocity_sign_enabled:
-        print("== Step 4: flow velocity sign sentinel ==")
+        print("== Step 5: flow velocity sign sentinel ==")
         sign_cmd = [
             PYTHON,
             "scripts/analysis/check_flow_velocity_sign.py",
@@ -236,7 +253,7 @@ def main() -> int:
             return rc
 
     if sensor_contract_report_enabled:
-        print("== Step 5: sensor contract report ==")
+        print("== Step 6: sensor contract report ==")
         report_cmd = [
             PYTHON,
             "scripts/analysis/sensor_contract_report.py",
@@ -298,6 +315,8 @@ def main() -> int:
             f"- Postprocess: `{post_md}`",
             f"- EKF vs truth metrics: `{metrics_md}`",
             f"- Flow velocity sign sentinel: `{run_dir / 'flow_velocity_sign.json'}`",
+            f"- Run stats: `{run_dir / 'run_stats.json'}`",
+            f"- Plot manifest: `{run_dir / 'plots' / '_manifest.json'}`",
             "",
             "## Result",
             "",

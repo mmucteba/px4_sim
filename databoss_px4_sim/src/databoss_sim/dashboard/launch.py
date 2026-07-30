@@ -18,6 +18,7 @@ from databoss_sim.dashboard.config import (
     CANCEL_GRACE_S,
     MIN_AVAILABLE_MEM_MB,
     PROJECT_ROOT,
+    QGC_IP,
     RUN_AS_USER,
 )
 from databoss_sim.dashboard.job_registry import (
@@ -41,6 +42,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.runner.create_run_from_scenario import load_yaml, validate_scenario  # noqa: E402
 
 _START_GUARD = threading.Lock()
+RUNNER_ROOT = Path("/opt/databoss_px4_sim")
 
 
 class LaunchError(RuntimeError):
@@ -82,7 +84,7 @@ class LaunchRequest(BaseModel):
     global_position_timeout_s: float = 90.0
     global_position_stable_s: float = 5.0
     no_global_position_gate: bool = False
-    qgc_ip: str = "100.109.200.5"
+    qgc_ip: str = QGC_IP
     note: str = ""
     ignore_memory_guard: bool = False
     # QGroundControl is always enabled; there is intentionally no opt-out field.
@@ -131,7 +133,7 @@ def resolve_scenario_path(scenario: str) -> Path:
 
 def scenario_arg_for_script(path: Path) -> str:
     try:
-        return str(path.resolve().relative_to(PROJECT_ROOT))
+        return str(path.resolve().relative_to(RUNNER_ROOT))
     except ValueError:
         return str(path.resolve())
 
@@ -251,7 +253,7 @@ def build_launch_script(job_path: Path, req: LaunchRequest) -> Path:
     cmd = _script_command(req)
     lines = [
         "#!/bin/bash",
-        "cd /opt/databoss_px4_sim || exit 1",
+        f"cd {RUNNER_ROOT} || exit 1",
         "export MPLCONFIGDIR=/tmp/databoss-matplotlib-px4",
         "export PYTHONUNBUFFERED=1",
         "exec " + " \\\n  ".join(_quote(part) for part in cmd),

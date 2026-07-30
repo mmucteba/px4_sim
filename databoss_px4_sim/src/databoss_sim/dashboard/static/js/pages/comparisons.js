@@ -3,6 +3,27 @@ import { getJSON } from "../api.js";
 
 const COLUMNS = ["comparison_id", "title", "case_count", "has_report_md", "warnings"];
 
+function present(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function comparisonRow(c) {
+  const left = [el("div", { class: "row-main", text: c.comparison_id })];
+  if (present(c.title)) {
+    left.push(el("div", { class: "row-meta" }, [el("span", { text: c.title })]));
+  }
+  const right = [
+    el("span", { class: "row-metric", text: `${c.case_count ?? 0} cases` }),
+    el("span", { class: c.has_report_md ? "badge badge-ok" : "badge badge-caution", text: c.has_report_md ? "report.md" : "no report.md" }),
+    el("span", { class: "row-metric", text: `${(c.warnings || []).length} warnings` }),
+    el("span", { class: "row-chevron", text: ">" }),
+  ];
+  return el("a", { class: "list-row archive-row", href: `/comparisons/${encodeURIComponent(c.comparison_id)}` }, [
+    el("div", {}, left),
+    el("div", { class: "cluster archive-row-tail" }, right),
+  ]);
+}
+
 export async function renderComparisons() {
   const app = document.getElementById("app");
   app.replaceChildren(el("span", { class: "spinner" }), document.createTextNode("loading..."));
@@ -19,11 +40,13 @@ export async function renderComparisons() {
   const state = { q: params.get("q") || "", sortKey: "comparison_id", sortDir: 1 };
   const searchInput = el("input", {
     type: "text",
+    "aria-label": "search comparisons",
     placeholder: "search comparison_id / title...",
     value: state.q,
   });
   const summary = el("p", {});
-  const tableWrap = el("div", { class: "table-scroll" });
+  const sortHost = el("div", { class: "cluster sort-controls" });
+  const listHost = el("div", { class: "list" });
 
   function syncUrl() {
     const p = new URLSearchParams();
@@ -55,22 +78,18 @@ export async function renderComparisons() {
     });
 
     summary.textContent = `${filtered.length} of ${comparisons.length} comparisons`;
-    tableWrap.replaceChildren();
+    sortHost.replaceChildren(el("span", { class: "help", text: "Sort" }));
     syncUrl();
-    if (!filtered.length) {
-      tableWrap.appendChild(el("p", {
-        class: "help",
-        text: comparisons.length ? "No comparisons match the current search." : "No comparisons have been indexed yet.",
-      }));
-      return;
-    }
-
-    const table = el("table", {});
-    const headRow = el("tr", {});
     for (const key of COLUMNS) {
-      const arrow = state.sortKey === key ? (state.sortDir === 1 ? " ▲" : " ▼") : "";
-      const th = el("th", { class: "sortable", text: key + arrow });
-      th.addEventListener("click", () => {
+      const active = state.sortKey === key;
+      const arrow = active ? (state.sortDir === 1 ? " ▲" : " ▼") : "";
+      const button = el("button", {
+        class: active ? "btn sort-active" : "btn-ghost",
+        type: "button",
+        text: key + arrow,
+        "aria-pressed": active ? "true" : "false",
+      });
+      button.addEventListener("click", () => {
         if (state.sortKey === key) state.sortDir = -state.sortDir;
         else {
           state.sortKey = key;
@@ -78,26 +97,25 @@ export async function renderComparisons() {
         }
         render();
       });
-      headRow.appendChild(th);
+      sortHost.appendChild(button);
     }
-    table.appendChild(headRow);
 
+    listHost.replaceChildren();
     for (const c of filtered) {
-      table.appendChild(el("tr", {}, [
-        el("td", {}, [el("a", { href: `/comparisons/${encodeURIComponent(c.comparison_id)}`, text: c.comparison_id })]),
-        el("td", { text: c.title || "" }),
-        el("td", { text: String(c.case_count ?? "") }),
-        el("td", { text: c.has_report_md ? "yes" : "no" }),
-        el("td", { text: String((c.warnings || []).length) }),
-      ]));
+      listHost.appendChild(comparisonRow(c));
     }
-    tableWrap.appendChild(table);
+    if (!filtered.length) {
+      listHost.appendChild(el("p", {
+        class: "empty",
+        text: comparisons.length ? "No comparisons match the current search." : "No comparisons have been indexed yet.",
+      }));
+    }
   }
 
   searchInput.addEventListener("input", () => {
     state.q = searchInput.value;
     render();
   });
-  app.replaceChildren(el("div", { class: "filters" }, [searchInput]), summary, tableWrap);
+  app.replaceChildren(el("div", { class: "filters" }, [searchInput]), sortHost, summary, listHost);
   render();
 }

@@ -55,10 +55,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PX4_REPO="$(awk '/^[[:space:]]*repo: / && !seen {print $2; seen=1}' "$PROJECT_ROOT/deploy/px4/px4_pins.yaml")"
-PX4_COMMIT="$(awk '/^[[:space:]]*commit: / && !seen {print $2; seen=1}' "$PROJECT_ROOT/deploy/px4/px4_pins.yaml")"
-PX4_BUILD_TARGET="$(awk '/^[[:space:]]*build_target: / {print $2; exit}' "$PROJECT_ROOT/deploy/px4/px4_pins.yaml")"
-GZ_SUBMODULE_PATH="$(awk '/^[[:space:]]*path: Tools\/simulation\/gz/ {print $2; exit}' "$PROJECT_ROOT/deploy/px4/px4_pins.yaml")"
+PX4_PINS_PATH="${DATABOSS_PX4_PINS_PATH:-$PROJECT_ROOT/deploy/px4/px4_pins.yaml}"
+PX4_REPO="$(awk '/^[[:space:]]*repo: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
+PX4_COMMIT="$(awk '/^[[:space:]]*commit: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
+PX4_BUILD_TARGET="$(awk '/^[[:space:]]*build_target: / {print $2; exit}' "$PX4_PINS_PATH")"
+GZ_SUBMODULE_PATH="$(awk '/^[[:space:]]*path: Tools\/simulation\/gz/ {print $2; exit}' "$PX4_PINS_PATH")"
 OSRF_KEYRING="/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg"
 OSRF_SOURCE="/etc/apt/sources.list.d/gazebo-stable.list"
 OSRF_SOURCE_LINE="deb [arch=amd64 signed-by=$OSRF_KEYRING] http://packages.osrfoundation.org/gazebo/ubuntu-stable noble main"
@@ -116,6 +117,35 @@ fail_or_warn() {
   fi
   echo "ERROR: $message" >&2
   exit 1
+}
+
+read_pin_scalar_sequence() {
+  local key="$1"
+  awk -v key="$key" '
+    /^[^[:space:]#][^:]*:[[:space:]]*($|#)/ {
+      current = $0
+      sub(/:.*/, "", current)
+      in_key = (current == key)
+      next
+    }
+    in_key && /^[[:space:]]*-[[:space:]]*/ {
+      item = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", item)
+      sub(/[[:space:]]*#.*/, "", item)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
+      if (item != "" && item !~ /:/) {
+        print item
+      }
+    }
+  ' "$PX4_PINS_PATH"
+}
+
+read_required_pin_scalar_sequence() {
+  local key="$1"
+  mapfile -t PIN_SEQUENCE_RESULT < <(read_pin_scalar_sequence "$key")
+  if [[ "${#PIN_SEQUENCE_RESULT[@]}" -eq 0 ]]; then
+    fail_or_warn "$PX4_PINS_PATH key '$key' resolved to an empty scalar list."
+  fi
 }
 
 on_error() {
@@ -321,12 +351,20 @@ apply_px4_patches() {
 
 install_models_and_airframes() {
   step "7. DATABOSS models and airframes"
+  local model airframe
+  local -a models=()
+  local -a airframes=()
+  local -a PIN_SEQUENCE_RESULT=()
+  read_required_pin_scalar_sequence models
+  models=("${PIN_SEQUENCE_RESULT[@]}")
+  read_required_pin_scalar_sequence airframes
+  airframes=("${PIN_SEQUENCE_RESULT[@]}")
   run_cmd "install -d $PX4_ROOT/$GZ_SUBMODULE_PATH/models"
-  for model in x500_cam_lidar_down x500_ark_flow afbr_s50; do
+  for model in "${models[@]}"; do
     run_cmd "rsync -a --delete $PROJECT_ROOT/src/databoss_sim/models/$model/ $PX4_ROOT/$GZ_SUBMODULE_PATH/models/$model/"
   done
   run_cmd "install -d $PX4_ROOT/ROMFS/px4fmu_common/init.d-posix/airframes"
-  for airframe in 4022_gz_x500_cam_lidar_down 4023_gz_x500_ark_flow; do
+  for airframe in "${airframes[@]}"; do
     run_cmd "install -m 0644 $PROJECT_ROOT/src/databoss_sim/airframes/$airframe $PX4_ROOT/ROMFS/px4fmu_common/init.d-posix/airframes/$airframe"
   done
 }

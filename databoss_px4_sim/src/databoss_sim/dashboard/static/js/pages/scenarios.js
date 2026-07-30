@@ -1,5 +1,5 @@
 import { el, tabs } from "../dom.js";
-import { getJSON, postJSON } from "../api.js";
+import { getJSON } from "../api.js";
 
 const BADGE = { editable: "badge-ok", readonly: "badge-info", derived: "badge-caution", dead: "badge-err", unknown: "badge-caution" };
 const STATUSES = ["editable", "readonly", "derived", "dead", "unknown"];
@@ -28,13 +28,27 @@ function yamlText(value, indent = 0) {
   return `${pad}${valueText(value)}`;
 }
 
-function numberInput(name, value, extra = {}) {
-  return el("input", { name, type: "number", step: "0.1", value, ...extra });
+function present(value) {
+  return value !== null && value !== undefined && value !== "";
 }
 
-function addParsed(body, form, name, parse = (v) => v) {
-  const value = form.elements[name].value.trim();
-  if (value !== "") body[name] = parse(value);
+function scenarioMeta(scenario) {
+  return [scenario.run_name, scenario.description, scenario.vehicle_model]
+    .filter(present)
+    .map((value) => el("span", { text: value }));
+}
+
+function scenarioRow(scenario) {
+  const left = [el("div", { class: "row-main", text: scenario.name })];
+  const meta = scenarioMeta(scenario);
+  if (meta.length) left.push(el("div", { class: "row-meta" }, meta));
+  const tail = [];
+  if (scenario.error) tail.push(badge("dead", "YAML error"));
+  tail.push(el("span", { class: "row-chevron", text: ">" }));
+  return el("a", { class: "list-row archive-row", href: `/scenarios/${encodeURIComponent(scenario.name)}` }, [
+    el("div", {}, left),
+    el("div", { class: "cluster archive-row-tail" }, tail),
+  ]);
 }
 
 export async function renderScenarios() {
@@ -49,9 +63,10 @@ export async function renderScenarios() {
   }
 
   const state = { q: new URLSearchParams(location.search).get("q") || "", sortKey: "name", sortDir: 1 };
-  const search = el("input", { type: "text", placeholder: "search name / run / description / vehicle...", value: state.q });
+  const search = el("input", { type: "text", "aria-label": "search scenarios", placeholder: "search name / run / description / vehicle...", value: state.q });
   const summary = el("p", {});
-  const tableWrap = el("div", { class: "table-scroll" });
+  const sortHost = el("div", { class: "cluster sort-controls" });
+  const listHost = el("div", { class: "list" });
 
   function syncUrl() {
     const p = new URLSearchParams();
@@ -70,41 +85,37 @@ export async function renderScenarios() {
       return av < bv ? -state.sortDir : av > bv ? state.sortDir : 0;
     });
     summary.textContent = `${rows.length} of ${scenarios.length} scenarios`;
-    tableWrap.replaceChildren();
+    sortHost.replaceChildren(el("span", { class: "help", text: "Sort" }));
     syncUrl();
-    if (!rows.length) {
-      tableWrap.appendChild(el("p", { class: "help", text: scenarios.length ? "No scenarios match the current search." : "No scenarios were found." }));
-      return;
-    }
-    const table = el("table", {});
-    const head = el("tr", {});
-    for (const key of ["name", "run_name", "description", "vehicle_model", "status"]) {
-      const th = el("th", { class: key === "status" ? "" : "sortable", text: key + (state.sortKey === key ? (state.sortDir === 1 ? " ▲" : " ▼") : "") });
-      if (key !== "status") th.addEventListener("click", () => {
+    for (const key of ["name", "run_name", "description", "vehicle_model"]) {
+      const active = state.sortKey === key;
+      const button = el("button", {
+        class: active ? "btn sort-active" : "btn-ghost",
+        type: "button",
+        text: key + (active ? (state.sortDir === 1 ? " ▲" : " ▼") : ""),
+        "aria-pressed": active ? "true" : "false",
+      });
+      button.addEventListener("click", () => {
         state.sortDir = state.sortKey === key ? -state.sortDir : 1;
         state.sortKey = key;
         render();
       });
-      head.appendChild(th);
+      sortHost.appendChild(button);
     }
-    table.appendChild(head);
+    listHost.replaceChildren();
     for (const s of rows) {
-      table.appendChild(el("tr", {}, [
-        el("td", {}, [el("a", { href: `/scenarios/${encodeURIComponent(s.name)}`, text: s.name })]),
-        el("td", { text: s.run_name || "" }),
-        el("td", { text: s.description || "" }),
-        el("td", { text: s.vehicle_model || "" }),
-        el("td", {}, s.error ? [badge("dead", "YAML error")] : []),
-      ]));
+      listHost.appendChild(scenarioRow(s));
     }
-    tableWrap.appendChild(table);
+    if (!rows.length) {
+      listHost.appendChild(el("p", { class: "empty", text: scenarios.length ? "No scenarios match the current search." : "No scenarios were found." }));
+    }
   }
 
   search.addEventListener("input", () => {
     state.q = search.value;
     render();
   });
-  app.replaceChildren(el("div", { class: "filters" }, [search]), summary, tableWrap);
+  app.replaceChildren(el("div", { class: "filters" }, [search]), sortHost, summary, listHost);
   render();
 }
 
@@ -124,48 +135,10 @@ function renderFields(fields) {
 }
 
 function renderLaunch(name) {
-  const form = el("form", { class: "gen" });
-  const result = el("div", {});
-  const inputs = {
-    hover_s: numberInput("hover_s", "25"),
-    startup_timeout_s: numberInput("startup_timeout_s", "150"),
-    world_ready_timeout_s: numberInput("world_ready_timeout_s", "120"),
-    land_timeout_s: numberInput("land_timeout_s", "70"),
-    gnss_start_used: numberInput("gnss_start_used", "10", { step: "1" }),
-    gnss_loss_after_takeoff_s: numberInput("gnss_loss_after_takeoff_s", "", { placeholder: "use scenario" }),
-    post_loss_hover_s: numberInput("post_loss_hover_s", ""),
-    failsafe_profile: el("select", { name: "failsafe_profile" }, ["", "default_px4", "delayed_observation"].map(v => el("option", { value: v, text: v || "blank" }))),
-    global_position_timeout_s: numberInput("global_position_timeout_s", "90"),
-    global_position_stable_s: numberInput("global_position_stable_s", "5"),
-    no_global_position_gate: el("input", { name: "no_global_position_gate", type: "checkbox" }),
-    qgc_ip: el("input", { name: "qgc_ip", type: "text", value: "100.109.200.5" }),
-    note: el("input", { name: "note", type: "text" }),
-  };
-  form.appendChild(el("p", { class: "help", text: "QGC and gz-web stay enabled for scenario launches." }));
-  for (const [label, input] of Object.entries(inputs)) {
-    form.appendChild(el("label", { text: label }));
-    form.appendChild(input);
-  }
-  form.appendChild(el("button", { type: "submit", text: "Launch" }));
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    result.replaceChildren();
-    const body = { scenario: name, no_global_position_gate: inputs.no_global_position_gate.checked };
-    for (const key of ["hover_s", "startup_timeout_s", "world_ready_timeout_s", "land_timeout_s", "gnss_loss_after_takeoff_s", "post_loss_hover_s", "global_position_timeout_s", "global_position_stable_s"]) addParsed(body, form, key, parseFloat);
-    addParsed(body, form, "gnss_start_used", v => parseInt(v, 10));
-    for (const key of ["failsafe_profile", "qgc_ip", "note"]) addParsed(body, form, key);
-    try {
-      const data = await postJSON("/api/launch", body);
-      location.href = `/jobs/${encodeURIComponent(data.job_id)}`;
-    } catch (e) {
-      const active = e.detail && e.detail.active_job_id;
-      const text = e.status === 401 ? "Write token required. Set the write token on the Create page." :
-        e.status === 409 ? `Launch blocked by active job: ${active || e.message}` :
-        "Launch failed: " + ((e && e.message) || e);
-      result.replaceChildren(el("div", { class: "error-box", text }));
-    }
-  });
-  return el("div", {}, [form, result]);
+  return el("div", { class: "stack" }, [
+    el("p", { class: "help", text: "Launch now has its own pre-flight page with explained inputs, host checks, and deployment blockers." }),
+    el("a", { class: "btn-primary", href: `/launch?scenario=${encodeURIComponent(name)}`, text: "Open launch page" }),
+  ]);
 }
 
 export async function renderScenario(name) {
@@ -179,7 +152,7 @@ export async function renderScenario(name) {
     return;
   }
   app.replaceChildren(
-    el("p", {}, [el("a", { href: "/scenarios", text: "< back to scenarios" })]),
+    el("p", {}, [el("a", { href: "/scenarios", text: "Back to scenarios" })]),
     el("h1", { text: scenario.name }),
     tabs([
       { label: "Fields", render: () => renderFields(scenario.fields) },

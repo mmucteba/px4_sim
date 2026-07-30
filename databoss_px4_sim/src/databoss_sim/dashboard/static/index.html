@@ -4,19 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DATABOSS Dashboard</title>
-<link rel="stylesheet" href="/static/css/style.css">
+<script>try{const t=localStorage.getItem("databoss_theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/components.css">
 </head>
 <body>
 <header class="site-header">
-  <h1><a href="/" style="text-decoration:none;color:inherit;">DATABOSS Dashboard</a></h1>
+  <h1><a class="brand-link" href="/">DATABOSS Dashboard</a></h1>
   <nav>
-    <a href="/">Runs</a>
+    <a href="/">Overview</a>
+    <a href="/runs">Runs</a>
+    <a href="/launch">Launch</a>
     <a href="/jobs">Jobs</a>
     <a href="/comparisons">Comparisons</a>
     <a href="/scenarios">Scenarios</a>
+    <a href="/vehicles">Vehicles</a>
     <a href="/create">Create</a>
     <a href="/health">Health</a>
   </nav>
+  <div class="site-actions" id="theme-toggle"></div>
 </header>
 <div class="page">
   <div id="app"><span class="spinner"></span>Loading...</div>

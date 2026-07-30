@@ -11,8 +11,9 @@ export function el(tag, attrs, children) {
 export function kv(pairs) {
   const div = el("div", { class: "kv" });
   for (const [k, v] of pairs) {
+    if (v === null || v === undefined || v === "") continue;
     div.appendChild(el("div", { class: "k", text: k }));
-    div.appendChild(el("div", { text: v === null || v === undefined ? "-" : String(v) }));
+    div.appendChild(el("div", { text: String(v) }));
   }
   return div;
 }

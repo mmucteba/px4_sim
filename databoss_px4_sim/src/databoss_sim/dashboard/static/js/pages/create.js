@@ -10,22 +10,22 @@ export async function renderCreate() {
   ]);
 
   app.innerHTML = "";
-  app.appendChild(el("p", { text: "Builds a complete scenario YAML from scratch - every field a real run needs, not a partial edit of an existing file - and hands back the file plus the exact command to run it yourself. Nothing here starts or stops a simulation. Fields not shown below are filled with the same safe defaults every accepted run uses (camera/rangefinder proof on, full logging, evidence-backed analysis) and aren't meant to be tuned per scenario." }));
+  app.appendChild(el("p", { class: "help", text: "Builds a complete scenario YAML from scratch - every field a real run needs, not a partial edit of an existing file - and hands back the file plus the exact command to run it yourself. Nothing here starts or stops a simulation. Fields not shown below are filled with the same safe defaults every accepted run uses (camera/rangefinder proof on, full logging, evidence-backed analysis) and aren't meant to be tuned per scenario." }));
 
   // --- token ---
   if (authMode.write_token_required) {
-    const tokenSection = el("section", {}, [
+    const tokenInput = el("input", { id: "write-token", type: "text", value: getToken(), placeholder: "X-Databoss-Token" });
+    const tokenSection = el("section", { class: "tile stack" }, [
       el("h2", { text: "Write token" }),
       el("p", { class: "help", text: "Required for both forms below. Generate one on the host with scripts/dashboard/generate_token.py, then paste it here (stored only in this browser's localStorage, sent only to this dashboard)." }),
+      el("div", { class: "field" }, [el("label", { for: "write-token", text: "Token" }), tokenInput]),
     ]);
-    const tokenInput = el("input", { type: "text", value: getToken(), placeholder: "X-Databoss-Token" });
     tokenInput.addEventListener("change", () => setToken(tokenInput.value.trim()));
-    tokenSection.appendChild(tokenInput);
     app.appendChild(tokenSection);
   }
 
   // --- create scenario ---
-  const scenarioSection = el("section", {});
+  const scenarioSection = el("section", { class: "stack" });
   scenarioSection.appendChild(el("h2", { text: "Create scenario" }));
   const form = el("form", { class: "gen" });
 
@@ -222,7 +222,7 @@ export async function renderCreate() {
   app.appendChild(scenarioSection);
 
   // --- create world ---
-  const worldSection = el("section", {});
+  const worldSection = el("section", { class: "stack" });
   worldSection.appendChild(el("h2", { text: "Create world" }));
   const wform = el("form", { class: "gen" });
   const wNewName = el("input", { type: "text", placeholder: "new_world_name (no .yaml)" });
@@ -287,7 +287,7 @@ export async function renderCreate() {
 
   // --- apply wind to an existing world (flat OR terrain, separately from
   // how that world's ground/terrain was generated) ---
-  const windSection = el("section", {});
+  const windSection = el("section", { class: "stack" });
   windSection.appendChild(el("h2", { text: "Apply wind to an existing world" }));
   windSection.appendChild(el("p", { class: "help", text: "Adds wind to any already-existing world - flat or real terrain - as a new, separately-named world. Never modifies the source. Wind on a flat world is proven (Phase 16); wind on a terrain world is mechanically the same fix but has not actually been flown yet - treat it as experimental until a real run confirms it." }));
   const awForm = el("form", { class: "gen" });
@@ -331,7 +331,7 @@ export async function renderCreate() {
   app.appendChild(windSection);
 
   // --- import a real terrain world ---
-  const terrainSection = el("section", {});
+  const terrainSection = el("section", { class: "stack" });
   terrainSection.appendChild(el("h2", { text: "Import terrain world" }));
   terrainSection.appendChild(el("p", { class: "help", text: "Real heightmap terrain (satellite imagery + elevation, not the flat generator above) comes from a separate tool, gazebo_terrain_generator, proxied in below. Draw an area, generate it there, then import it here - the DATABOSS import step (PX4 sensor plugins, render engine fix, launch pad) makes it actually flyable and puts it in the World picker above. You'll still need your own Mapbox key inside that tool - that part is unchanged, this dashboard doesn't hold or proxy Mapbox credentials." }));
   terrainSection.appendChild(el("p", {}, [
@@ -376,7 +376,7 @@ export async function renderCreate() {
           el("td", { text: p.already_imported ? "already imported" : "available", class: p.already_imported ? "help" : "" }),
         ]));
       }
-      importListDiv.appendChild(t);
+      importListDiv.appendChild(el("div", { class: "table-scroll" }, [t]));
     }
     tPackageSelect.innerHTML = "";
     for (const p of pkgs.filter(p => !p.already_imported)) {

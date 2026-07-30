@@ -1896,7 +1896,7 @@ def main() -> int:
              "caused a false 'world not ready' failure. Still bounded by "
              "--startup-timeout-s.")
     parser.add_argument("--land-timeout-s", type=float, default=70.0)
-    parser.add_argument("--qgc-ip", default="100.109.200.5", help="QGroundControl Tailscale/IP target")
+    parser.add_argument("--qgc-ip", default=os.environ.get("DATABOSS_QGC_IP", "100.109.200.5"), help="QGroundControl Tailscale/IP target")
     parser.add_argument("--qgc-local-port", type=int, default=14555)
     parser.add_argument("--qgc-remote-port", type=int, default=14550)
     parser.add_argument("--qgc-rate", type=int, default=1000000)

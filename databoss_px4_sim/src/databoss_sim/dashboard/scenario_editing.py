@@ -11,6 +11,8 @@ hardcoded lookup table - this generalizes to any future model automatically.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +20,20 @@ import yaml
 
 from databoss_sim.dashboard.config import PROJECT_ROOT
 
+# Same cross-boundary import pattern vehicle_generation.py already uses, so the
+# camera-FOV resolution has ONE implementation shared with
+# check_model_sync_and_fov.py rather than a second copy that drifts.
+SCRIPTS_ANALYSIS_DIR = PROJECT_ROOT / "scripts" / "analysis"
+if str(SCRIPTS_ANALYSIS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ANALYSIS_DIR))
+
+from sdf_inspect import resolve_camera_hfov  # noqa: E402
+
 DATABOSS_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
+PX4_PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
+PX4_MODELS_DIR = Path(
+    os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot")
+) / "Tools" / "simulation" / "gz" / "models"
 SCENARIOS_DIR = PROJECT_ROOT / "experiments" / "configs" / "mvp" / "scenarios"
 
 # Field classification, grounded in the Phase 17 audit of what
@@ -336,6 +351,24 @@ def apply_scenario_edits(
         airframe = derive_px4_airframe(vehicle_model)
         _set_path(new_scenario, "vehicle.px4_airframe", airframe)
         _set_path(new_scenario, "vehicle.gazebo_model_name", derive_gazebo_model_name(airframe))
+        # Pin flow_bridge.hfov_rad to the selected vehicle's REAL camera FOV.
+        # FIELD_CLASSIFICATION has always described this field as derived, but the
+        # derivation was never implemented: a scenario built for a 2.2 rad composed
+        # vehicle silently kept the template's 1.74 (caught 2026-07-30). The bridge
+        # converts pixel flow to angular rate using this FOV, so a stale value is a
+        # direct scale error on every optical-flow sample - the same class of defect
+        # as an image resize without focal-length scaling.
+        # Only touched when the scenario actually has a flow_bridge block AND the
+        # vehicle has a resolvable camera; a camera-less vehicle leaves it alone
+        # rather than writing null or a wrong number.
+        if isinstance(new_scenario.get("flow_bridge"), dict):
+            hfov, _camera_source = resolve_camera_hfov(
+                DATABOSS_MODELS_DIR / derive_px4_airframe(vehicle_model) / "model.sdf",
+                PX4_MODELS_DIR,
+                DATABOSS_MODELS_DIR,
+            )
+            if hfov is not None:
+                _set_path(new_scenario, "flow_bridge.hfov_rad", hfov)
 
     altitude = _get_path(new_scenario, "route.altitude_agl_m")
     if altitude is not None and _get_path(new_scenario, "control.z_m") is not None:
@@ -450,13 +483,28 @@ def derive_gazebo_model_name(px4_airframe: str) -> str:
 
 
 def find_available_vehicle_models() -> list[str]:
-    """Returns vehicle.model-style names (gz_-prefixed) for every model
-    directory that actually exists on disk under src/databoss_sim/models/ -
-    dynamically enumerated, not hardcoded, matching the same principle
-    check_model_sync_and_fov.py already established in Phase 17B."""
-    if not DATABOSS_MODELS_DIR.is_dir():
+    """Returns vehicle.model-style names (gz_-prefixed) for disk-backed
+    models that also have a registered PX4 airframe.
+
+    Sensor-only submodels can live under src/databoss_sim/models/ too, but
+    only NNNN_gz_<model> entries in deploy/px4/px4_pins.yaml under
+    airframes are bootable vehicles. The directory scan stays dynamic and
+    unhardcoded, matching the principle check_model_sync_and_fov.py
+    established in Phase 17B, but the picker excludes models PX4 cannot
+    launch.
+    """
+    if not DATABOSS_MODELS_DIR.is_dir() or not PX4_PINS_PATH.is_file():
         return []
-    return sorted(f"gz_{p.name}" for p in DATABOSS_MODELS_DIR.iterdir() if p.is_dir())
+    with PX4_PINS_PATH.open() as f:
+        pins = yaml.safe_load(f) or {}
+    registered_models: set[str] = set()
+    for airframe in pins.get("airframes") or []:
+        if not isinstance(airframe, str):
+            continue
+        prefix, sep, model = airframe.partition("_gz_")
+        if sep and prefix.isdigit() and model:
+            registered_models.add(model)
+    return sorted(f"gz_{p.name}" for p in DATABOSS_MODELS_DIR.iterdir() if p.is_dir() and p.name in registered_models)
 
 
 def default_scenario_template() -> dict[str, Any]:

@@ -8,26 +8,18 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.analysis.ulog_topics import TARGET_TOPICS
+
 try:
     from pyulog import ULog
 except Exception as exc:
     print(f"ERROR: pyulog is not available: {exc}", file=sys.stderr)
     print("Install with: python -m pip install pyulog", file=sys.stderr)
     sys.exit(2)
-
-
-TARGET_TOPICS = [
-    "vehicle_local_position",
-    "vehicle_gps_position",
-    "vehicle_attitude",
-    "sensor_accel",
-    "sensor_gyro",
-    "vehicle_imu",
-    "sensor_baro",
-    "vehicle_magnetometer",
-    "estimator_status",
-    "estimator_innovations",
-]
 
 
 def safe_name(name: str) -> str:

@@ -16,6 +16,11 @@ except ImportError:
     sys.exit(2)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.analysis.ulog_topics import TARGET_TOPICS
+
 RUNS_DIR = PROJECT_ROOT / "experiments" / "runs"
 
 POSE_NAME_RE = re.compile(r'name:\s*"([^"]+)"')
@@ -27,18 +32,7 @@ Y_RE = re.compile(rf"\by:\s*({FLOAT_RE})")
 Z_RE = re.compile(rf"\bz:\s*({FLOAT_RE})")
 W_RE = re.compile(rf"\bw:\s*({FLOAT_RE})")
 
-TARGET_DATASETS = [
-    "vehicle_local_position",
-    "vehicle_gps_position",
-    "vehicle_attitude",
-    "sensor_accel",
-    "sensor_gyro",
-    "vehicle_imu",
-    "sensor_baro",
-    "vehicle_magnetometer",
-    "estimator_status",
-    "estimator_innovations",
-]
+TARGET_DATASETS = TARGET_TOPICS
 
 
 def safe_name(name: str) -> str:

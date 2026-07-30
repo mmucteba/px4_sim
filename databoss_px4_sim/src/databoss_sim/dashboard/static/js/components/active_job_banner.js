@@ -8,7 +8,7 @@ function statusBadge(job) {
 
 function elapsedText(startedUtc) {
   const start = Date.parse(startedUtc || "");
-  if (!Number.isFinite(start)) return "-";
+  if (!Number.isFinite(start)) return "elapsed unavailable";
   const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
   const mins = Math.floor(seconds / 60);
   const hrs = Math.floor(mins / 60);
@@ -46,7 +46,7 @@ export async function mountActiveJobBanner(container) {
     }
 
     elapsedNode = el("span", { text: elapsedText(active.started_utc) });
-    const cancel = el("button", { type: "button", text: "Cancel" });
+    const cancel = el("button", { class: "btn-danger", type: "button", text: "Cancel" });
     cancel.disabled = active.status === "cancelling";
     cancel.addEventListener("click", async () => {
       if (!window.confirm(`Cancel ${active.job_id}? This SIGTERMs the runner, which tears down Gazebo and PX4 and marks the run not-accepted.`)) return;
@@ -56,18 +56,24 @@ export async function mountActiveJobBanner(container) {
       poller.kick();
     });
 
+    const href = `/jobs/${encodeURIComponent(active.job_id)}`;
     const bits = [
-      el("strong", {}, [el("a", { href: `/jobs/${encodeURIComponent(active.job_id)}`, text: active.job_id })]),
+      el("div", {}, [
+        el("div", { class: "row-main" }, [el("a", { href, text: active.job_id })]),
+        el("div", { class: "row-meta" }, [
+          el("span", { text: active.scenario || "active job" }),
+          el("span", {}, [document.createTextNode("elapsed "), elapsedNode]),
+        ]),
+      ]),
       statusBadge(active),
-      el("span", {}, [document.createTextNode("elapsed "), elapsedNode]),
-      el("span", { text: active.scenario || "" }),
       runDirLink(active),
     ];
     if (active.stall_warning) {
       bits.push(el("span", { class: "badge status-legacy", text: active.stall_warning }));
     }
     bits.push(cancel);
-    container.appendChild(el("div", { class: "banner" }, bits));
+    const banner = el("div", { class: "banner active-job-banner" }, bits);
+    container.appendChild(banner);
     scheduleTick();
   }
 

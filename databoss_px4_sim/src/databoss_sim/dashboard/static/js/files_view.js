@@ -21,7 +21,7 @@ function fileRow(entry) {
       src: entry.url,
       alt: entry.name,
       loading: "lazy",
-      style: "max-width:90px;max-height:60px;object-fit:cover;border-radius:4px;vertical-align:middle;",
+      class: "file-thumb",
     }));
     row.appendChild(link);
     container.appendChild(row);
@@ -30,13 +30,13 @@ function fileRow(entry) {
 
   const previewable = entry.kind === "markdown" || entry.kind === "json" || entry.kind === "text";
   if (previewable && !entry.preview_disabled) {
-    const pre = el("pre", { class: "file-preview", style: "display:none;" });
-    const btn = el("button", { type: "button", class: "tab-btn", text: "view" });
+    const pre = el("pre", { class: "file-preview", hidden: "" });
+    const btn = el("button", { type: "button", class: "btn-ghost", text: "view" });
     let loaded = false;
     btn.addEventListener("click", async () => {
-      const visible = pre.style.display !== "none";
+      const visible = !pre.hidden;
       if (visible) {
-        pre.style.display = "none";
+        pre.hidden = true;
         btn.textContent = "view";
         return;
       }
@@ -50,7 +50,7 @@ function fileRow(entry) {
         }
         loaded = true;
       }
-      pre.style.display = "block";
+      pre.hidden = false;
       btn.textContent = "hide";
     });
     row.appendChild(btn);

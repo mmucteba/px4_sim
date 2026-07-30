@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import re
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BATCH_RUNS_DIR = PROJECT_ROOT / "experiments" / "batches"
 PYTHON = sys.executable
+DEFAULT_QGC_IP = os.environ.get("DATABOSS_QGC_IP", "100.109.200.5")
 
 RUN_DIR_RE = re.compile(r"run_dir=(/opt/databoss_px4_sim/experiments/runs/[^\s]+)")
 
@@ -88,7 +90,7 @@ def build_case_cmd(defaults: dict, case: dict) -> list[str]:
     qgc_case = case.get("qgc", {})
 
     qgc_enabled = qgc_case.get("enabled", qgc_default.get("enabled", True))
-    qgc_ip = qgc_case.get("ip", qgc_default.get("ip", "100.109.200.5"))
+    qgc_ip = qgc_case.get("ip", qgc_default.get("ip", DEFAULT_QGC_IP))
     qgc_local_port = qgc_case.get("local_port", qgc_default.get("local_port", 14555))
     qgc_remote_port = qgc_case.get("remote_port", qgc_default.get("remote_port", 14550))
     qgc_rate = qgc_case.get("rate", qgc_default.get("rate", 1000000))
