@@ -71,6 +71,7 @@ async function renderStats(runId) {
     statsGroup("Accuracy", stats.accuracy),
     statsGroup("GNSS", stats.gnss),
     statsGroup("Flow", stats.flow),
+    statsGroup("Flow Fusion", stats.flow_fusion),
   ].filter(Boolean);
   if (!groups.length) return el("p", { class: "empty", text: "Stats have not been generated for this run." });
   return el("div", { class: "stats-grid" }, groups);

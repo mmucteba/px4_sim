@@ -43,6 +43,8 @@ DEFAULT_PINS_PATH = PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"
 DEFAULT_PATCH_PATH = PROJECT_ROOT / "deploy" / "px4" / "0004-airframes-cmakelists-register.patch"
 DEFAULT_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
 DEFAULT_AIRFRAMES_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "airframes"
+REPO_MODELS_REL = Path("src/databoss_sim/models")
+REPO_AIRFRAMES_REL = Path("src/databoss_sim/airframes")
 
 PX4_MODELS_REL = Path("Tools/simulation/gz/models")
 PX4_AIRFRAMES_REL = Path("ROMFS/px4fmu_common/init.d-posix/airframes")
@@ -140,6 +142,14 @@ def _write_access_result(label: str, path: Path, *, project_root: Path) -> StepR
         return _fail(label, f"{path} is missing; create it before installing vehicles")
     if os.access(path, os.W_OK):
         return _ok(label, f"{path} is writable")
+    if label in {"preflight write repo models", "preflight write repo airframes"}:
+        return _fail(
+            label,
+            f"{path} is not writable by uid {os.geteuid()}; this is project-tree ownership drift. "
+            f"scripts/deploy/bootstrap.sh fix_ownership() covers {project_root}, so fix this repo path with "
+            f"`sudo chown px4:px4 {path}`.",
+            [f"sudo chown px4:px4 {path}"],
+        )
     if path == project_root / "deploy" / "px4":
         return _fail(
             label,
@@ -173,12 +183,16 @@ def preflight(
     px4_root: Path,
     pins_path: Path,
     project_root: Path = PROJECT_ROOT,
+    models_dir: Path | None = None,
+    airframes_dir: Path | None = None,
     lock_path: Path = JOB_LOCK_PATH,
     allowed_active_job_id: str | None = None,
 ) -> list[StepResult]:
     results: list[StepResult] = []
+    models_dir = models_dir or project_root / REPO_MODELS_REL
+    airframes_dir = airframes_dir or project_root / REPO_AIRFRAMES_REL
     filename = _discover_airframe_filename(name, project_root)
-    model_dir = _repo_model_dir(name, project_root)
+    model_dir = models_dir / name
     if model_dir.is_dir():
         results.append(_ok("preflight repo model", f"{model_dir} exists"))
     else:
@@ -187,16 +201,18 @@ def preflight(
     if filename is None:
         results.append(_fail(
             "preflight repo airframe",
-            f"no unique `*_gz_{name}` file exists under {project_root / 'src/databoss_sim/airframes'}; run the composer first",
+            f"no unique `*_gz_{name}` file exists under {airframes_dir}; run the composer first",
         ))
     else:
-        airframe_path = _repo_airframe_path(filename, project_root)
+        airframe_path = airframes_dir / filename
         if airframe_path.is_file():
             results.append(_ok("preflight repo airframe", f"{airframe_path} exists"))
         else:
             results.append(_fail("preflight repo airframe", f"{airframe_path} is missing; run the vehicle composer first"))
 
     write_targets = [
+        ("preflight write repo models", models_dir),
+        ("preflight write repo airframes", airframes_dir),
         ("preflight write PX4 models", px4_root / PX4_MODELS_REL),
         ("preflight write PX4 airframes", px4_root / PX4_AIRFRAMES_REL),
         ("preflight write PX4 CMakeLists", px4_root / PX4_AIRFRAMES_CMAKE_REL),
@@ -235,6 +251,18 @@ def preflight(
         results.append(_ok("preflight flight interlock", f"no active job lock at {lock_path}"))
 
     return results
+
+
+def generation_preflight(
+    *,
+    models_dir: Path = DEFAULT_MODELS_DIR,
+    airframes_dir: Path = DEFAULT_AIRFRAMES_DIR,
+    project_root: Path = PROJECT_ROOT,
+) -> list[StepResult]:
+    return [
+        _write_access_result("preflight write repo models", models_dir, project_root=project_root),
+        _write_access_result("preflight write repo airframes", airframes_dir, project_root=project_root),
+    ]
 
 
 def install_model(

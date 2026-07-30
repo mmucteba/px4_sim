@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import filecmp
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from databoss_sim.dashboard.vehicle_install import (
     DEFAULT_PINS_PATH,
     DEFAULT_PX4_ROOT,
     PX4_MODELS_REL,
+    generation_preflight,
     preflight,
     start_vehicle_install_job,
 )
@@ -37,6 +39,65 @@ class GenerateVehicleRequest(BaseModel):
     sensors: list[dict[str, Any]] = Field(default_factory=list)
     boot_params: dict[str, Any] = Field(default_factory=dict)
     write: bool = False
+
+
+def _relative_paths(paths: list[Path]) -> list[str]:
+    out: list[str] = []
+    for path in paths:
+        try:
+            out.append(str(path.relative_to(PROJECT_ROOT)))
+        except ValueError:
+            out.append(str(path))
+    return out
+
+
+def _existing_vehicle_output_paths(name: str) -> list[Path]:
+    model_dir = DEFAULT_MODELS_DIR / name
+    return [path for path in (model_dir / "model.sdf", model_dir / "model.config") if path.exists()]
+
+
+def _conflict_detail(paths: list[Path]) -> dict[str, Any]:
+    display_paths = _relative_paths(paths)
+    return {
+        "message": "vehicle output already exists; refusing to overwrite: " + ", ".join(display_paths),
+        "paths": display_paths,
+        "fix": "choose a new vehicle name or remove the existing generated files after confirming they are no longer needed",
+    }
+
+
+def _paths_from_file_exists(exc: FileExistsError) -> list[Path]:
+    message = str(exc)
+    _, sep, tail = message.partition(": ")
+    if not sep:
+        return []
+    return [Path(part.strip()) for part in tail.split(",") if part.strip()]
+
+
+def _write_root_for_error_path(path: Path | None) -> Path:
+    if path is None:
+        return DEFAULT_MODELS_DIR
+    path = path.resolve(strict=False)
+    for root in (DEFAULT_MODELS_DIR, DEFAULT_AIRFRAMES_DIR):
+        root_resolved = root.resolve(strict=False)
+        if path == root_resolved or root_resolved in path.parents:
+            return root
+    return path
+
+
+def _write_error_detail(exc: OSError) -> dict[str, str]:
+    filename = exc.filename or getattr(exc, "filename2", None)
+    failed_path = Path(filename) if filename else None
+    write_root = _write_root_for_error_path(failed_path)
+    attempted = str(failed_path) if failed_path else str(write_root)
+    return {
+        "message": (
+            f"cannot write generated vehicle at {attempted}; {write_root} is not writable by uid {os.geteuid()}. "
+            f"Fix ownership with `sudo chown px4:px4 {write_root}`."
+        ),
+        "path": attempted,
+        "write_root": str(write_root),
+        "fix": f"sudo chown px4:px4 {write_root}",
+    }
 
 
 def _pins_airframes(path: Path | None = None) -> dict[str, str]:
@@ -159,8 +220,12 @@ def list_vehicles() -> list[dict]:
 @router.post("/api/vehicles/generate", dependencies=[Depends(require_write_token)])
 def generate_vehicle(req: GenerateVehicleRequest) -> dict:
     spec = req.model_dump(exclude={"write"})
+    if req.write and re.fullmatch(r"^[a-z0-9_]+$", req.name):
+        existing = _existing_vehicle_output_paths(req.name)
+        if existing:
+            raise HTTPException(status_code=409, detail=_conflict_detail(existing))
     try:
-        composed = compose_vehicle(spec)
+        composed = compose_vehicle(spec, databoss_models_dir=DEFAULT_MODELS_DIR)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -169,8 +234,13 @@ def generate_vehicle(req: GenerateVehicleRequest) -> dict:
         try:
             written = write_vehicle(composed, DEFAULT_MODELS_DIR, DEFAULT_AIRFRAMES_DIR, overwrite=False)
         except FileExistsError as exc:
-            raise HTTPException(status_code=409, detail=str(exc))
-        written_paths = [str(path.relative_to(PROJECT_ROOT)) for path in written]
+            paths = _paths_from_file_exists(exc)
+            raise HTTPException(status_code=409, detail=_conflict_detail(paths) if paths else str(exc))
+        except PermissionError as exc:
+            raise HTTPException(status_code=500, detail=_write_error_detail(exc))
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=_write_error_detail(exc))
+        written_paths = _relative_paths(written)
 
     return {
         "name": req.name,
@@ -184,6 +254,18 @@ def generate_vehicle(req: GenerateVehicleRequest) -> dict:
         "written": req.write,
         "written_paths": written_paths,
     }
+
+
+@router.get("/api/vehicles/generate/preflight")
+def vehicle_generation_preflight() -> list[dict]:
+    return [
+        result.asdict()
+        for result in generation_preflight(
+            models_dir=DEFAULT_MODELS_DIR,
+            airframes_dir=DEFAULT_AIRFRAMES_DIR,
+            project_root=PROJECT_ROOT,
+        )
+    ]
 
 
 @router.post(

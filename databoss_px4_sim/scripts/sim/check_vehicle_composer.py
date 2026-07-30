@@ -118,14 +118,48 @@ ARK_FLOW_SPEC: dict[str, Any] = {
 }
 
 
+FIRST_DATABOSS_AUTOSTART_ID = 4024
+
+
+def independent_next_free_autostart_id(
+    airframes_dir: Path = PX4_AIRFRAMES_DIR,
+    first: int = FIRST_DATABOSS_AUTOSTART_ID,
+) -> int:
+    """Lowest free autostart ID >= `first`, computed by this check's OWN scan.
+
+    Deliberately NOT vehicle_generation._next_free_autostart_id: comparing the
+    composer against its own helper would be tautological and would still pass if
+    the allocator were broken. Two independent computations must agree.
+
+    This replaces a hardcoded `expected_autostart_id=4024`, which broke the moment
+    a real vehicle was installed and took 4024 - the composer correctly returned
+    4025 and the test failed. Every future install would have broken it again.
+    """
+    used: set[int] = set()
+    if airframes_dir.is_dir():
+        for path in airframes_dir.glob("*_gz_*"):
+            prefix = path.name.split("_", 1)[0]
+            if prefix.isdigit():
+                used.add(int(prefix))
+    candidate = first
+    while candidate in used:
+        candidate += 1
+    return candidate
+
+
 @dataclass(frozen=True)
 class GoldenCase:
     label: str
     spec: dict[str, Any]
     target_model: Path
     target_airframe: Path
-    expected_autostart_id: int
     expected_camera_hfov_rad: float | None
+
+    @property
+    def expected_autostart_id(self) -> int:
+        # Resolved at access time, so the expectation tracks whatever is really
+        # installed rather than a literal frozen at authoring time.
+        return independent_next_free_autostart_id()
 
 
 GOLDEN_CASES = (
@@ -134,7 +168,6 @@ GOLDEN_CASES = (
         spec=CAM_LIDAR_SPEC,
         target_model=PROJECT_ROOT / "src/databoss_sim/models/x500_cam_lidar_down/model.sdf",
         target_airframe=PROJECT_ROOT / "src/databoss_sim/airframes/4022_gz_x500_cam_lidar_down",
-        expected_autostart_id=4024,
         expected_camera_hfov_rad=1.74,
     ),
     GoldenCase(
@@ -142,7 +175,6 @@ GOLDEN_CASES = (
         spec=ARK_FLOW_SPEC,
         target_model=PROJECT_ROOT / "src/databoss_sim/models/x500_ark_flow/model.sdf",
         target_airframe=PROJECT_ROOT / "src/databoss_sim/airframes/4023_gz_x500_ark_flow",
-        expected_autostart_id=4024,
         expected_camera_hfov_rad=0.733038,
     ),
 )

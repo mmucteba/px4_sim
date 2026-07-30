@@ -34,6 +34,45 @@ DEGENERATE_LIDAR_REASON = (
     "a degenerate 1x1 gpu_lidar renders a 1-pixel depth image whose single ray goes "
     "to inf under vehicle roll (verified 2026-07-13, 82% inf on East legs)"
 )
+# PX4's GZBridge HARDCODES the lidar topic it subscribes to, in C++:
+#   src/modules/simulation/gz_bridge/GZBridge.cpp:279
+#     "/link/lidar_sensor_link/sensor/lidar/scan"
+# and the runner's default_rangefinder_scan_topic() mirrors it
+# (scripts/runner/auto_takeoff_land_pxh_truth.py:902). So for the NATIVE
+# distance_sensor path these two names are not free choices.
+NATIVE_LIDAR_LINK_NAME = "lidar_sensor_link"
+NATIVE_LIDAR_SENSOR_NAME = "lidar"
+
+# The two patterns this project actually supports:
+#   A) native GZBridge path - names MUST be the canonical pair above, and
+#      SIM_GZ_EN_LIDAR stays enabled. This is x500_cam_lidar_down.
+#   B) MAVLink-injected path - any names allowed, but the airframe MUST set
+#      SIM_GZ_EN_LIDAR 0 at BOOT (GZBridge::init() reads it once; it is
+#      reboot_required, so a runtime `param set` is too late) and
+#      scripts/sim/rangefinder_mavlink_bridge.py supplies the range instead.
+#      This is x500_ark_flow.
+# A vehicle matching NEITHER produces no range data at all: verified by a real
+# flight on 2026-07-30 that armed, held 15.06 m for 63.6 s and landed cleanly,
+# yet was failed by the rangefinder gate with ulog_distance_sensor_rows=0
+# (run 20260730_091657_hover_test_test_15m_gnss_off_sift).
+PATTERN_B_PARAM = "SIM_GZ_EN_LIDAR"
+
+NON_CANONICAL_LIDAR_REASON = (
+    f"PX4 hardcodes the native rangefinder topic as "
+    f"/link/{NATIVE_LIDAR_LINK_NAME}/sensor/{NATIVE_LIDAR_SENSOR_NAME}/scan in "
+    f"GZBridge.cpp:279, so custom lidar names produce ZERO distance_sensor rows on "
+    f"the native path. Either use link_name={NATIVE_LIDAR_LINK_NAME!r} / "
+    f"sensor_name={NATIVE_LIDAR_SENSOR_NAME!r} (pattern A, the default), or set "
+    f"boot_params.{PATTERN_B_PARAM}: 0 to take the MAVLink-injected path "
+    f"(pattern B, as x500_ark_flow does) which also requires "
+    f"scripts/sim/rangefinder_mavlink_bridge.py to supply the range."
+)
+
+MULTI_NATIVE_LIDAR_REASON = (
+    "GZBridge subscribes to exactly one lidar topic, so at most one gpu_lidar can "
+    f"use the native path. Additional lidars need boot_params.{PATTERN_B_PARAM}: 0."
+)
+
 X500_ONLY_REASON = (
     "x500 pulls in x500_base, which is the exact file patched by "
     "deploy/px4/0003-x500-base-enable-wind.patch. A vehicle on another base silently "
@@ -177,11 +216,15 @@ def _parse_sensor(raw: dict[str, Any], index: int) -> SensorSpec:
     if kind == "gpu_lidar":
         return GpuLidarSensorSpec(
             kind=kind,
-            link_name=str(_required(raw, "link_name", context)),
+            # Default to the names PX4 hardcodes (see NATIVE_LIDAR_* below). These
+            # used to be _required, which is how a real vehicle got `lidar_link` /
+            # `down_lidar` from an operator form and produced zero distance_sensor
+            # rows in flight.
+            link_name=str(raw.get("link_name", NATIVE_LIDAR_LINK_NAME)),
             housing=raw.get("housing"),
             housing_mount=_six(raw["housing_mount"], f"{context}.housing_mount") if "housing_mount" in raw else None,
             mount=_six(_required(raw, "mount", context), f"{context}.mount"),
-            sensor_name=str(_required(raw, "sensor_name", context)),
+            sensor_name=str(raw.get("sensor_name", NATIVE_LIDAR_SENSOR_NAME)),
             sensor_pose=_six(_required(raw, "sensor_pose", context), f"{context}.sensor_pose"),
             h_samples=int(_required(raw, "h_samples", context)),
             v_samples=int(_required(raw, "v_samples", context)),
@@ -339,9 +382,29 @@ def _validate(
             raise ValueError(f"name collides with existing DATABOSS model: {databoss_models_dir / spec.name}")
         if (px4_models_dir / spec.name).exists():
             raise ValueError(f"name collides with existing PX4 model: {px4_models_dir / spec.name}")
+    # Pattern B is opted into by disabling the native GZBridge lidar path at boot.
+    # Accept 0 as int or str, since boot_params come straight from YAML/JSON.
+    pattern_b = str(spec.boot_params.get(PATTERN_B_PARAM, "")).strip() == "0"
+    native_lidars = 0
     for sensor in spec.sensors:
-        if isinstance(sensor, GpuLidarSensorSpec) and sensor.h_samples == 1 and sensor.v_samples == 1:
+        if not isinstance(sensor, GpuLidarSensorSpec):
+            continue
+        if sensor.h_samples == 1 and sensor.v_samples == 1:
             raise ValueError(f"gpu_lidar {sensor.sensor_name!r} rejects h_samples == 1 and v_samples == 1: {DEGENERATE_LIDAR_REASON}")
+        canonical = (
+            sensor.link_name == NATIVE_LIDAR_LINK_NAME
+            and sensor.sensor_name == NATIVE_LIDAR_SENSOR_NAME
+        )
+        if not canonical and not pattern_b:
+            raise ValueError(
+                f"gpu_lidar link_name={sensor.link_name!r} sensor_name={sensor.sensor_name!r} "
+                f"is not the canonical pair and {PATTERN_B_PARAM} is not 0: "
+                f"{NON_CANONICAL_LIDAR_REASON}"
+            )
+        if canonical and not pattern_b:
+            native_lidars += 1
+    if native_lidars > 1:
+        raise ValueError(f"{native_lidars} gpu_lidars claim the native path: {MULTI_NATIVE_LIDAR_REASON}")
 
 
 def _render_inertial(mass: float, inertia_diagonal: tuple[float, float, float], indent: str) -> list[str]:

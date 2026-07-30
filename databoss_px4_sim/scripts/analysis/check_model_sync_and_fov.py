@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import yaml  # noqa: E402
 
-from sdf_inspect import extract_sensor_block, sdf_value  # noqa: E402
+from sdf_inspect import extract_sensor_block, resolve_camera_hfov, sdf_value  # noqa: E402
 
 DEFAULT_DATABOSS_MODELS_DIR = PROJECT_ROOT / "src" / "databoss_sim" / "models"
 PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
@@ -242,9 +242,16 @@ def check_fov_consistency(
 
         model_dir_name = resolve_model_dir_name(vehicle_model)
         databoss_model_sdf = databoss_models_dir / model_dir_name / "model.sdf"
-        camera_submodel = find_camera_submodel(databoss_model_sdf, px4_models_dir)
+        # resolve_camera_hfov handles BOTH shapes: a camera owned by an <include>d
+        # submodel (hand-authored vehicles) and one declared inline in the vehicle's
+        # own SDF (composer-generated). Resolving only the submodel shape reported
+        # UNRESOLVED for every composed vehicle, so a real FOV mismatch could not be
+        # detected - see the docstring in sdf_inspect.resolve_camera_hfov.
+        actual, camera_source = resolve_camera_hfov(
+            databoss_model_sdf, px4_models_dir, databoss_models_dir
+        )
 
-        if camera_submodel is None:
+        if camera_source is None:
             results.append(
                 FovCheckResult(
                     scenario=path.name, vehicle_model=vehicle_model, camera_submodel=None,
@@ -253,7 +260,10 @@ def check_fov_consistency(
             )
             continue
 
-        actual = get_camera_hfov(px4_models_dir, camera_submodel)
+        # camera_submodel keeps its existing meaning for the submodel shape and
+        # carries the literal "inline" for the inline shape, so the column stays
+        # diagnosable without breaking existing --json consumers.
+        camera_submodel = camera_source
         if actual is None or declared is None:
             status = "UNRESOLVED"
         elif abs(float(declared) - actual) <= FOV_TOLERANCE_RAD:

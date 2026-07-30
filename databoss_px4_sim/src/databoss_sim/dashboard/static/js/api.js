@@ -1,7 +1,21 @@
+function errorMessage(url, status, data) {
+  const detail = data.detail;
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail.message === "string") return detail.message;
+  if (detail) return JSON.stringify(detail);
+  return `${url}: ${status}`;
+}
+
 export async function getJSON(url) {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(url + ": " + r.status);
-  return r.json();
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const err = new Error(errorMessage(url, r.status, data));
+    err.status = r.status;
+    err.detail = data.detail;
+    throw err;
+  }
+  return data;
 }
 
 export function getToken() {
@@ -20,11 +34,9 @@ export async function postJSON(url, body) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const detail = data.detail;
-    const message = typeof detail === "string" ? detail : detail ? JSON.stringify(detail) : `${url}: ${r.status}`;
-    const err = new Error(message);
+    const err = new Error(errorMessage(url, r.status, data));
     err.status = r.status;
-    err.detail = detail;
+    err.detail = data.detail;
     throw err;
   }
   return data;

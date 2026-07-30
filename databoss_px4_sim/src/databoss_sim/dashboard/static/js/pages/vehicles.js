@@ -231,6 +231,20 @@ function renderSensorEditor(sensors, rerender) {
   return host;
 }
 
+function renderGenerationPreflight(items, loading = false) {
+  if (loading) {
+    return el("p", { class: "help" }, [el("span", { class: "spinner" }), document.createTextNode("checking repo write access...")]);
+  }
+  if (!items) {
+    return el("p", { class: "help", text: "Repo write preflight has not run yet." });
+  }
+  const failures = items.filter((item) => item.status === "FAIL");
+  if (!failures.length) {
+    return el("p", { class: "help", text: "Repo write preflight is clear." });
+  }
+  return el("ul", { class: "vehicle-blockers" }, failures.map((item) => el("li", { text: item.message })));
+}
+
 function renderComposeForm(reloadVehicles) {
   const name = textInput("", { placeholder: "x500_new_sensor_stack" });
   const description = textInput("", { placeholder: "what this vehicle adds" });
@@ -240,6 +254,8 @@ function renderComposeForm(reloadVehicles) {
   const sensors = [];
   const sensorHost = el("div", {});
   const result = el("div", {});
+  const generationPreflightHost = el("div", {});
+  let generationPreflight = null;
 
   function rerenderSensors() {
     sensorHost.replaceChildren(renderSensorEditor(sensors, rerenderSensors));
@@ -266,9 +282,39 @@ function renderComposeForm(reloadVehicles) {
     };
   }
 
+  function generationFailures() {
+    return (generationPreflight || []).filter((item) => item.status === "FAIL");
+  }
+
+  function updateGenerateState() {
+    generate.disabled = !generationPreflight || generationFailures().length > 0;
+  }
+
+  async function loadGenerationPreflight() {
+    generationPreflight = null;
+    generate.disabled = true;
+    generationPreflightHost.replaceChildren(renderGenerationPreflight(generationPreflight, true));
+    try {
+      generationPreflight = await getJSON("/api/vehicles/generate/preflight");
+      generationPreflightHost.replaceChildren(renderGenerationPreflight(generationPreflight));
+      updateGenerateState();
+    } catch (e) {
+      generationPreflightHost.replaceChildren(el("div", { class: "error-box", text: "Failed to load repo write preflight: " + ((e && e.message) || e) }));
+      generate.disabled = true;
+    }
+    return generationFailures();
+  }
+
   async function submit(write) {
     result.replaceChildren();
     try {
+      if (write) {
+        const failures = await loadGenerationPreflight();
+        if (failures.length) {
+          result.replaceChildren(el("p", { class: "err", text: failures.map((item) => item.message).join(" ") }));
+          return;
+        }
+      }
       const data = await postJSON("/api/vehicles/generate", buildSpec(write));
       const pairs = [
         ["airframe", data.airframe_filename],
@@ -287,6 +333,7 @@ function renderComposeForm(reloadVehicles) {
 
   const preview = el("button", { class: "btn", type: "button", text: "Preview" });
   const generate = el("button", { class: "btn-primary", type: "button", text: "Generate" });
+  generate.disabled = true;
   preview.addEventListener("click", () => submit(false));
   generate.addEventListener("click", () => submit(true));
 
@@ -303,9 +350,11 @@ function renderComposeForm(reloadVehicles) {
       sensorHost,
     ]),
     el("div", { class: "launch-actions" }, [preview, generate]),
+    generationPreflightHost,
   ]);
   form.addEventListener("submit", (ev) => ev.preventDefault());
   rerenderSensors();
+  loadGenerationPreflight();
   return el("div", { class: "vehicle-compose-layout" }, [form, result]);
 }
 
