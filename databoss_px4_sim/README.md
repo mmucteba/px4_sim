@@ -15,8 +15,8 @@ pinned patches, models, airframes, and generated vehicle assets into that tree.
 Clone the repo and bootstrap a target host:
 
 ```bash
-git clone git@github.com:mmucteba/px4_sim.git databoss_px4_sim
-cd databoss_px4_sim
+git clone git@github.com:mmucteba/px4_sim.git px4_sim
+cd px4_sim/databoss_px4_sim          # the project lives in this subdirectory
 sudo scripts/deploy/bootstrap.sh --yes
 ```
 
