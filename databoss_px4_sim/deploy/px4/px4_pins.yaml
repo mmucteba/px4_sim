@@ -35,12 +35,14 @@ airframes:
   - 4023_gz_x500_ark_flow
   - 4024_gz_test_test
   - 4025_gz_x500_e2e_widecam
+  - 4026_gz_test_test_2
 models:
   - x500_cam_lidar_down
   - x500_ark_flow
   - afbr_s50
   - test_test
   - x500_e2e_widecam
+  - test_test_2
 gazebo:
   distro: gz-harmonic
   gz_sim_version: "8.14.0"
