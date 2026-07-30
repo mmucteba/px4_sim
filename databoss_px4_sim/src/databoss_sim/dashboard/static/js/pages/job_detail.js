@@ -198,7 +198,7 @@ function renderRail(job, runStatus, cancel) {
     vizCheck("9002 enum-patch proxy", viz["9002"]),
     vizCheck("9003 raw runner bridge", viz["9003"], " (reference only)"),
     checkRow("muted", "paste URL", "ws://localhost:9002"),
-    checkRow("muted", "SSH tunnel", "ssh -N -L 9002:127.0.0.1:9002 root@100.78.93.35"),
+    checkRow("muted", "SSH tunnel", `ssh -N -L 9002:127.0.0.1:9002 root@${window.location.hostname}`),
     checkRow("muted", "viewer", el("a", { href: "https://app.gazebosim.org/visualization", text: "app.gazebosim.org" })),
   ];
   const gzSection = el("section", { class: "tile stack" }, [el("h2", { text: "gz-web" }), ...gzRows]);

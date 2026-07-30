@@ -23,6 +23,6 @@ WantedBy=multi-user.target
 #   sudo systemctl status databoss-dashboard
 #
 # This makes the dashboard an always-on service reachable at
-# http://100.78.93.35:8600/ from any device on the tailnet. Confirm the
+# http://<DATABOSS_DASHBOARD_HOST>:8600/ from any device that can reach it. Confirm the
 # host is NOT reachable on this port via its public IP before relying on
 # this (see Phase 17A verification in the plan).

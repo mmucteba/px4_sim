@@ -88,7 +88,7 @@ function renderConnectionLinks(conn) {
     ["gz-web publication Hz", conn.gazebo_web_publication_hz],
     ["viewer", "https://app.gazebosim.org/visualization"],
     ["paste URL", "ws://localhost:9002"],
-    ["SSH tunnel", "ssh -N -L 9002:127.0.0.1:9002 root@100.78.93.35"],
+    ["SSH tunnel", `ssh -N -L 9002:127.0.0.1:9002 root@${window.location.hostname}`],
     ["proxy start command", GZ_PROXY_CMD],
     ["flow_bridge enabled", conn.flow_bridge_enabled], ["estimator", conn.flow_bridge_estimator],
     ["flow_bridge rate Hz", conn.flow_bridge_rate_hz], ["axis_map", conn.axis_map],
