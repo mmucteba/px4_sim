@@ -18,6 +18,8 @@ import shutil
 import stat
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -32,6 +34,7 @@ from scripts.analysis.check_model_sync_and_fov import _sha256  # noqa: E402
 
 DEFAULT_PX4_ROOT = Path(os.environ.get("DATABOSS_PX4_ROOT", "/opt/sim_px4/PX4-Autopilot"))
 PINS_PATH = Path(os.environ.get("DATABOSS_PX4_PINS_PATH", PROJECT_ROOT / "deploy" / "px4" / "px4_pins.yaml"))
+TERRAIN_GENERATOR_URL = os.environ.get("DATABOSS_TERRAIN_GENERATOR_URL", "http://127.0.0.1:8080")
 STATUS_ORDER = ("OK", "FAIL", "WARN", "SKIP")
 COMPILED_PATCH_FILES = {"0001-gz-bridge-sim-gps-used.patch"}
 RUN_EXEC_USER = "px4"
@@ -512,6 +515,127 @@ def _check_gazebo(pins: dict[str, Any]) -> list[CheckResult]:
     return results
 
 
+def _git_as_exec_user(repo_path: Path, args: list[str], timeout: int = 10) -> subprocess.CompletedProcess[str] | None:
+    return _run_command_as_user(
+        [
+            "git",
+            "-c",
+            f"safe.directory={repo_path}",
+            "-C",
+            str(repo_path),
+            *args,
+        ],
+        RUN_EXEC_USER,
+        timeout=timeout,
+    )
+
+
+def _check_terrain_generator(pins: dict[str, Any]) -> list[CheckResult]:
+    results: list[CheckResult] = []
+    terrain = pins.get("terrain_generator")
+    if not isinstance(terrain, dict):
+        return [CheckResult("terrain pins", "FAIL", f"{PINS_PATH} is missing top-level terrain_generator mapping")]
+
+    root = Path(str(terrain.get("root", ""))).expanduser()
+    pinned_commit = str(terrain.get("commit", "")).strip()
+    pinned_uv = str(terrain.get("uv_version", "")).strip()
+
+    if root.is_dir():
+        results.append(CheckResult("terrain root", "OK", str(root)))
+    else:
+        results.append(CheckResult("terrain root", "FAIL", f"{root} does not exist"))
+
+    if (root / ".git").exists():
+        results.append(CheckResult("terrain git repo", "OK", f"{root} has .git"))
+    else:
+        results.append(CheckResult("terrain git repo", "FAIL", f"{root} is not a git repo"))
+        results.append(CheckResult("terrain head", "SKIP", "no git repo"))
+        results.append(CheckResult("terrain checkout clean", "SKIP", "no git repo"))
+
+    if (root / ".git").exists():
+        proc = _git_as_exec_user(root, ["rev-parse", "HEAD"])
+        if proc is None:
+            results.append(CheckResult(
+                "terrain head",
+                "FAIL",
+                f"cannot run git as {RUN_EXEC_USER}; user is missing or sudo/runuser is unavailable",
+            ))
+        else:
+            output = _combined_output(proc)
+            head = proc.stdout.strip()
+            if proc.returncode != 0 or not head:
+                detail = _first_output_line(output) or f"git rev-parse exited {proc.returncode}"
+                results.append(CheckResult("terrain head", "FAIL", f"could not read HEAD as {RUN_EXEC_USER}: {detail}"))
+            elif pinned_commit and head.startswith(pinned_commit):
+                results.append(CheckResult("terrain head", "OK", f"HEAD {head} matches pinned {pinned_commit}"))
+            else:
+                results.append(CheckResult("terrain head", "FAIL", f"HEAD {head or '<empty>'} differs from pinned {pinned_commit or '<empty>'}"))
+
+        proc = _git_as_exec_user(root, ["status", "--porcelain"])
+        if proc is None:
+            results.append(CheckResult(
+                "terrain checkout clean",
+                "FAIL",
+                f"cannot run git status as {RUN_EXEC_USER}; user is missing or sudo/runuser is unavailable",
+            ))
+        else:
+            output = _combined_output(proc)
+            if proc.returncode != 0:
+                detail = _first_output_line(output) or f"git status exited {proc.returncode}"
+                results.append(CheckResult("terrain checkout clean", "FAIL", f"could not read git status as {RUN_EXEC_USER}: {detail}"))
+            elif proc.stdout.strip():
+                changed = len(proc.stdout.splitlines())
+                results.append(CheckResult(
+                    "terrain checkout clean",
+                    "WARN",
+                    f"{root} has {changed} changed path(s); bootstrap will refuse to change the checkout",
+                ))
+            else:
+                results.append(CheckResult("terrain checkout clean", "OK", f"{root} has no local changes"))
+
+    uv_path = shutil.which("uv")
+    if uv_path is None:
+        results.append(CheckResult("uv on PATH", "FAIL", "uv executable is not on PATH"))
+    else:
+        proc = _run_command([uv_path, "--version"], timeout=8)
+        version_line = _first_output_line(_combined_output(proc))
+        version = version_line.split()[1] if len(version_line.split()) >= 2 else ""
+        if proc.returncode != 0 or not version_line:
+            results.append(CheckResult("uv on PATH", "FAIL", f"{uv_path} exists but `uv --version` failed"))
+        elif pinned_uv and version != pinned_uv:
+            results.append(CheckResult("uv on PATH", "FAIL", f"{uv_path} reports {version_line}; pinned uv {pinned_uv}"))
+        else:
+            results.append(CheckResult("uv on PATH", "OK", f"{uv_path} reports {version_line}; pinned uv {pinned_uv}"))
+
+    uv_venv = root / ".venv"
+    if uv_venv.is_dir():
+        results.append(CheckResult("uv sync result", "OK", f"{uv_venv} exists"))
+    else:
+        results.append(CheckResult("uv sync result", "FAIL", f"{uv_venv} is missing; rerun terrain generator `uv sync`"))
+
+    try:
+        with urllib.request.urlopen(TERRAIN_GENERATOR_URL, timeout=1.0) as response:
+            results.append(CheckResult(
+                "terrain HTTP service",
+                "OK",
+                f"{TERRAIN_GENERATOR_URL} responded HTTP {response.status}",
+            ))
+    except urllib.error.HTTPError as exc:
+        results.append(CheckResult(
+            "terrain HTTP service",
+            "OK",
+            f"{TERRAIN_GENERATOR_URL} responded HTTP {exc.code}",
+        ))
+    except Exception as exc:
+        results.append(CheckResult(
+            "terrain HTTP service",
+            "WARN",
+            f"{TERRAIN_GENERATOR_URL} did not respond: {type(exc).__name__}: {exc}",
+        ))
+
+    return results
+
+
 def _python_import_check(python_path: Path, modules: list[str]) -> tuple[str, str, dict[str, Any]]:
     if not python_path.is_file():
         return "FAIL", f"{python_path} is missing", {}
@@ -711,6 +835,7 @@ def run_all_checks(px4_root: Path | None = None) -> dict[str, list[CheckResult]]
         "airframes": _check_airframes(resolved_px4_root, pins),
         "models": _check_models(resolved_px4_root, pins),
         "gazebo": _check_gazebo(pins),
+        "terrain_generator": _check_terrain_generator(pins),
         "python": _check_python(),
         "paths": _check_paths(),
         "provenance": _check_provenance(),

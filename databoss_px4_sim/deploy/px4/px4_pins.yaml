@@ -7,6 +7,12 @@ gz_models_submodule:
   path: Tools/simulation/gz
   repo: https://github.com/PX4/PX4-gazebo-models.git
   commit: bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9
+terrain_generator:
+  root: /opt/gazebo_terrain_generator
+  repo: https://github.com/saiaravind19/gazebo_terrain_generator.git
+  commit: 4946f4c
+  output_path: generated_worlds/terrain/_generator_output
+  uv_version: 0.11.28
 patches:
   - file: 0001-gz-bridge-sim-gps-used.patch
     apply_in: px4_root
