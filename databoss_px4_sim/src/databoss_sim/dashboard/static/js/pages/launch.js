@@ -18,11 +18,15 @@ const DEFAULTS = {
   note: "",
 };
 
+const HOVER_HELP = "Total airborne budget. The runner subtracts takeoff climb, warmup, and for GNSS-loss runs the pre-cut wait from this value. This launch field is authoritative; the scenario's route.duration_s is never read by the runner.";
+const POST_LOSS_HOVER_HELP = "When set, directly sets the post-GNSS-cut commanded hold and replaces the hover_s subtraction. For GNSS-denied work, this is the hold number that actually matters; the scenario's route.duration_s is never read by the runner.";
+const RUNNER_GNSS_LOSS_AFTER_OFFBOARD_DEFAULT_S = 3.0;
+
 const FIELD_GROUPS = [
   {
     legend: "Flight",
     fields: [
-      ["hover_s", "number", "How long to hold altitude before landing (seconds)."],
+      ["hover_s", "number", HOVER_HELP],
       ["gnss_start_used", "number", "Satellite count PX4 starts with. 10 = healthy GNSS."],
     ],
   },
@@ -30,7 +34,7 @@ const FIELD_GROUPS = [
     legend: "GNSS loss",
     fields: [
       ["gnss_loss_after_takeoff_s", "number", "Seconds after takeoff to cut GNSS. Leave blank for no cut."],
-      ["post_loss_hover_s", "number", "Seconds to keep hovering after GNSS is cut. Leave blank to use hover_s."],
+      ["post_loss_hover_s", "number", POST_LOSS_HOVER_HELP],
       ["failsafe_profile", "select", "How PX4 reacts to losing position. default_px4 fails safe fast; delayed_observation waits so you can observe the drift."],
     ],
   },
@@ -99,6 +103,125 @@ function checkRow(kind, name, detail) {
     el("strong", { text: name }),
     el("span", { text: detail }),
   ]);
+}
+
+function hasOwn(obj, key) {
+  return obj && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function finiteScenarioNumber(obj, key) {
+  if (!hasOwn(obj, key)) return { ok: false, missing: true };
+  const value = Number(obj[key]);
+  return Number.isFinite(value) ? { ok: true, value } : { ok: false, missing: false };
+}
+
+function finiteInput(input) {
+  const raw = input.value.trim();
+  if (raw === "") return { ok: false, blank: true };
+  const value = Number(raw);
+  return Number.isFinite(value) ? { ok: true, value } : { ok: false, blank: false };
+}
+
+function fmtSeconds(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function selectedScenarioContent(state) {
+  return state.selectedDetail?.content || null;
+}
+
+function gnssLossConfigured(content, inputs) {
+  const launchOverride = finiteInput(inputs.gnss_loss_after_takeoff_s);
+  if (launchOverride.ok) return true;
+  return Boolean(content?.gnss?.loss_enabled);
+}
+
+function renderEffectiveHoldPreview(state, inputs) {
+  const panel = el("section", { class: "tile stack" }, [el("h2", { text: "Effective Hold" })]);
+  panel.appendChild(checkRow("muted", "Authoritative field", "route.duration_s in the scenario is ignored; these launch inputs control the runner."));
+
+  if (state.selectedDetailLoading) {
+    panel.appendChild(checkRow("muted", "Scenario timing", "loading selected scenario..."));
+    return panel;
+  }
+  if (state.selectedDetailError) {
+    panel.appendChild(checkRow("err", "Scenario timing", state.selectedDetailError));
+    return panel;
+  }
+
+  const content = selectedScenarioContent(state);
+  if (!content) {
+    panel.appendChild(checkRow("warn", "Scenario timing", "unavailable until the selected scenario detail is loaded."));
+    return panel;
+  }
+
+  const control = content.control || {};
+  if (!hasOwn(content, "control") || !hasOwn(control, "mode")) {
+    panel.appendChild(checkRow("warn", "Scenario timing", "unavailable: selected scenario does not declare control.mode."));
+    return panel;
+  }
+  if (control.mode !== "offboard_local_position_hold") {
+    panel.appendChild(checkRow("warn", "Scenario timing", `unavailable: control.mode is ${control.mode}, not offboard_local_position_hold.`));
+    return panel;
+  }
+
+  const hover = finiteInput(inputs.hover_s);
+  if (!hover.ok) {
+    panel.appendChild(checkRow("warn", "hover_s", "unavailable: hover_s must be a number."));
+    return panel;
+  }
+
+  const takeoff = finiteScenarioNumber(control, "start_after_takeoff_s");
+  const warmup = finiteScenarioNumber(control, "warmup_s");
+  if (!takeoff.ok || !warmup.ok) {
+    const missing = [];
+    if (!takeoff.ok) missing.push("control.start_after_takeoff_s");
+    if (!warmup.ok) missing.push("control.warmup_s");
+    panel.appendChild(checkRow("warn", "Scenario timing", `unavailable: ${missing.join(" and ")} must be present numeric values in the selected scenario.`));
+    return panel;
+  }
+
+  const gnssLoss = gnssLossConfigured(content, inputs);
+  const postLoss = finiteInput(inputs.post_loss_hover_s);
+  const waitParts = [
+    `takeoff ${fmtSeconds(takeoff.value)}`,
+    `warmup ${fmtSeconds(warmup.value)}`,
+  ];
+  let preWait = takeoff.value + warmup.value;
+  let preCutSource = "";
+  if (gnssLoss) {
+    const preCut = finiteScenarioNumber(control, "gnss_loss_after_offboard_s");
+    const preCutValue = preCut.ok ? preCut.value : RUNNER_GNSS_LOSS_AFTER_OFFBOARD_DEFAULT_S;
+    preCutSource = preCut.ok ? "" : " (runner default; scenario omits control.gnss_loss_after_offboard_s)";
+    preWait += preCutValue;
+    waitParts.push(`pre-cut ${fmtSeconds(preCutValue)}${preCutSource}`);
+  }
+
+  const preWaitText = `${fmtSeconds(preWait)} (${waitParts.join(" + ")})`;
+  if (gnssLoss && postLoss.ok) {
+    const clamped = Math.max(0, postLoss.value);
+    panel.appendChild(checkRow(
+      clamped > 0 ? "ok" : "warn",
+      "Commanded hold",
+      `post_loss_hover_s ${fmtSeconds(postLoss.value)} replaces hover_s subtraction = ${fmtSeconds(clamped)} s post-GNSS-cut commanded hold; pre-waits still occur before the cut: ${preWaitText}.`,
+    ));
+    if (postLoss.value <= 0) {
+      panel.appendChild(checkRow("warn", "Clamp warning", `runner clamps max(0, ${fmtSeconds(postLoss.value)}) to ${fmtSeconds(clamped)} s, so this holds for no time after GNSS cut.`));
+    }
+    return panel;
+  }
+
+  const rawHold = hover.value - preWait;
+  const clampedHold = Math.max(0, rawHold);
+  panel.appendChild(checkRow(
+    clampedHold > 0 ? "ok" : "warn",
+    "Commanded hold",
+    `hover_s ${fmtSeconds(hover.value)} - pre-waits ${preWaitText} = ${fmtSeconds(rawHold)} s, runner commands ${fmtSeconds(clampedHold)} s hold.`,
+  ));
+  if (rawHold <= 0) {
+    panel.appendChild(checkRow("warn", "Clamp warning", `runner clamps max(0, ${fmtSeconds(rawHold)}) to 0 s; this launch would hold for no time before landing.`));
+  }
+  return panel;
 }
 
 function fieldNode(name, type, help) {
@@ -209,6 +332,7 @@ function buildForm(state, rerender) {
   const form = el("form", { class: "stack" });
   const result = el("div", {});
   const checksHost = el("div", {});
+  const effectiveHoldHost = el("div", {});
   const inputs = {};
   let qgcDirty = false;
 
@@ -238,6 +362,14 @@ function buildForm(state, rerender) {
     qgcDirty = true;
   });
   applyHostDefaults();
+
+  function refreshEffectiveHoldPreview() {
+    effectiveHoldHost.replaceChildren(renderEffectiveHoldPreview(state, inputs));
+  }
+
+  for (const key of ["hover_s", "gnss_loss_after_takeoff_s", "post_loss_hover_s"]) {
+    inputs[key].addEventListener("input", refreshEffectiveHoldPreview);
+  }
 
   const launchButton = el("button", { class: "btn-primary", type: "submit", text: "Launch" });
   const launchReason = el("span", { class: "help" });
@@ -284,6 +416,8 @@ function buildForm(state, rerender) {
 
   inputs.ignore_memory_guard.addEventListener("change", refreshChecksPanel);
 
+  form.appendChild(effectiveHoldHost);
+  refreshEffectiveHoldPreview();
   form.appendChild(checksHost);
   refreshChecksPanel();
   form.appendChild(el("div", { class: "launch-actions" }, [launchButton, launchReason]));
@@ -335,6 +469,10 @@ export async function renderLaunch() {
   const state = {
     scenarios: [],
     selected: null,
+    selectedDetail: null,
+    selectedDetailLoading: false,
+    selectedDetailError: "",
+    selectedDetailRequest: 0,
     query: "",
     host: null,
     deployment: null,
@@ -354,14 +492,40 @@ export async function renderLaunch() {
     state.selected = state.scenarios.find((scenario) => scenario.name === initialScenario) || { name: initialScenario };
   }
 
+  async function loadSelectedScenarioDetail(name) {
+    const request = ++state.selectedDetailRequest;
+    state.selectedDetail = null;
+    state.selectedDetailError = "";
+    state.selectedDetailLoading = true;
+    render();
+    try {
+      const detail = await getJSON(`/api/scenarios/${encodeURIComponent(name)}`);
+      if (request !== state.selectedDetailRequest) return;
+      state.selectedDetail = detail;
+    } catch (e) {
+      if (request !== state.selectedDetailRequest) return;
+      state.selectedDetailError = "Failed to load selected scenario timing: " + ((e && e.message) || e);
+    } finally {
+      if (request !== state.selectedDetailRequest) return;
+      state.selectedDetailLoading = false;
+      render();
+    }
+  }
+
   function selectScenario(scenario) {
     state.selected = scenario;
+    state.selectedDetail = null;
+    state.selectedDetailError = "";
     history.replaceState(null, "", `/launch?scenario=${encodeURIComponent(scenario.name)}`);
-    render();
+    loadSelectedScenarioDetail(scenario.name);
   }
 
   function changeScenario() {
     state.selected = null;
+    state.selectedDetail = null;
+    state.selectedDetailError = "";
+    state.selectedDetailLoading = false;
+    state.selectedDetailRequest += 1;
     history.replaceState(null, "", "/launch");
     render();
   }
@@ -398,6 +562,7 @@ export async function renderLaunch() {
   }
 
   render();
+  if (state.selected) loadSelectedScenarioDetail(state.selected.name);
 
   try {
     const [host, deployment] = await Promise.all([getJSON("/api/host"), getJSON("/api/checks/deployment")]);
