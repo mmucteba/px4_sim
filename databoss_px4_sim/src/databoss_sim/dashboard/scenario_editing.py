@@ -555,7 +555,6 @@ def default_scenario_template() -> dict[str, Any]:
             "name": None,  # overwritten with new_name at write time
             "type": "hover",
             "altitude_agl_m": 2.5,
-            "duration_s": 30,
             "waypoints": [],
         },
         "gnss": {
