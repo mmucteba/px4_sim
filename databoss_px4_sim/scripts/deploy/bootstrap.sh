@@ -11,9 +11,11 @@ EOF
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PX4_ROOT="/opt/sim_px4/PX4-Autopilot"
-TERRAIN_ROOT="/opt/gazebo_terrain_generator"
-TERRAIN_REPO="https://github.com/saiaravind19/gazebo_terrain_generator.git"
-TERRAIN_COMMIT="4946f4c"
+TERRAIN_ROOT=""
+TERRAIN_REPO=""
+TERRAIN_COMMIT=""
+TERRAIN_OUTPUT_PATH=""
+TERRAIN_UV_VERSION=""
 DRY_RUN=0
 SKIP_PX4_BUILD=0
 SKIP_TERRAIN_GENERATOR=0
@@ -56,10 +58,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 PX4_PINS_PATH="${DATABOSS_PX4_PINS_PATH:-$PROJECT_ROOT/deploy/px4/px4_pins.yaml}"
-PX4_REPO="$(awk '/^[[:space:]]*repo: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
-PX4_COMMIT="$(awk '/^[[:space:]]*commit: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
-PX4_BUILD_TARGET="$(awk '/^[[:space:]]*build_target: / {print $2; exit}' "$PX4_PINS_PATH")"
-GZ_SUBMODULE_PATH="$(awk '/^[[:space:]]*path: Tools\/simulation\/gz/ {print $2; exit}' "$PX4_PINS_PATH")"
+PX4_REPO=""
+PX4_COMMIT=""
+PX4_BUILD_TARGET=""
+GZ_SUBMODULE_PATH=""
 OSRF_KEYRING="/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg"
 OSRF_SOURCE="/etc/apt/sources.list.d/gazebo-stable.list"
 OSRF_SOURCE_LINE="deb [arch=amd64 signed-by=$OSRF_KEYRING] http://packages.osrfoundation.org/gazebo/ubuntu-stable noble main"
@@ -146,6 +148,66 @@ read_required_pin_scalar_sequence() {
   if [[ "${#PIN_SEQUENCE_RESULT[@]}" -eq 0 ]]; then
     fail_or_warn "$PX4_PINS_PATH key '$key' resolved to an empty scalar list."
   fi
+}
+
+read_pin_mapping_scalar() {
+  local section="$1"
+  local key="$2"
+  awk -v section="$section" -v key="$key" '
+    /^[^[:space:]#][^:]*:[[:space:]]*($|#|[^#]*)/ {
+      current = $0
+      sub(/:.*/, "", current)
+      in_section = (current == section)
+      next
+    }
+    in_section {
+      pattern = "^[[:space:]]+" key ":[[:space:]]*"
+      if ($0 ~ pattern) {
+        value = $0
+        sub(pattern, "", value)
+        sub(/[[:space:]]*#.*/, "", value)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "\"\"" || value == "\047\047") {
+          value = ""
+        }
+        print value
+        exit
+      }
+    }
+  ' "$PX4_PINS_PATH"
+}
+
+read_required_pin_mapping_scalar() {
+  local section="$1"
+  local key="$2"
+  local value
+  value="$(read_pin_mapping_scalar "$section" "$key")"
+  if [[ -z "$value" ]]; then
+    fail_or_warn "$PX4_PINS_PATH key '$section.$key' resolved to an empty scalar." >&2
+  fi
+  printf '%s\n' "$value"
+}
+
+resolve_project_path() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$PROJECT_ROOT" "$path"
+  fi
+}
+
+load_pinned_config() {
+  PX4_REPO="$(awk '/^[[:space:]]*repo: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
+  PX4_COMMIT="$(awk '/^[[:space:]]*commit: / && !seen {print $2; seen=1}' "$PX4_PINS_PATH")"
+  PX4_BUILD_TARGET="$(awk '/^[[:space:]]*build_target: / {print $2; exit}' "$PX4_PINS_PATH")"
+  GZ_SUBMODULE_PATH="$(awk '/^[[:space:]]*path: Tools\/simulation\/gz/ {print $2; exit}' "$PX4_PINS_PATH")"
+
+  TERRAIN_ROOT="$(read_required_pin_mapping_scalar terrain_generator root)"
+  TERRAIN_REPO="$(read_required_pin_mapping_scalar terrain_generator repo)"
+  TERRAIN_COMMIT="$(read_required_pin_mapping_scalar terrain_generator commit)"
+  TERRAIN_OUTPUT_PATH="$(read_required_pin_mapping_scalar terrain_generator output_path)"
+  TERRAIN_UV_VERSION="$(read_required_pin_mapping_scalar terrain_generator uv_version)"
 }
 
 on_error() {
@@ -400,12 +462,27 @@ build_venvs() {
   fi
 }
 
+install_uv() {
+  local uv_path
+  uv_path="$(command -v uv || true)"
+  if [[ -n "$uv_path" ]]; then
+    echo "SKIP: uv already on PATH at $uv_path ($("$uv_path" --version))."
+    return
+  fi
+
+  run_cmd "curl -LsSf https://astral.sh/uv/$TERRAIN_UV_VERSION/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh"
+}
+
 sync_terrain_generator() {
   step "10. Terrain generator"
   if [[ "$SKIP_TERRAIN_GENERATOR" -eq 1 ]]; then
     echo "SKIP: --skip-terrain-generator requested."
     return
   fi
+  local terrain_output_abs
+  terrain_output_abs="$(resolve_project_path "$TERRAIN_OUTPUT_PATH")"
+  echo "INFO: terrain generator pins repo=$TERRAIN_REPO commit=$TERRAIN_COMMIT root=$TERRAIN_ROOT output=$terrain_output_abs uv=$TERRAIN_UV_VERSION."
+  install_uv
   if [[ ! -d "$TERRAIN_ROOT/.git" ]]; then
     run_cmd "git clone $TERRAIN_REPO $TERRAIN_ROOT"
   fi
@@ -414,18 +491,33 @@ sync_terrain_generator() {
     # Only reachable in --dry-run: a real run cloned it just above.
     dry_skip "cd $TERRAIN_ROOT && git checkout $TERRAIN_COMMIT" "terrain generator not cloned yet"
   else
-    current_head="$(git_as_px4 "$TERRAIN_ROOT" rev-parse --short=7 HEAD)"
+    if ! current_head="$(git_as_px4 "$TERRAIN_ROOT" rev-parse --short=7 HEAD 2>/dev/null)"; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        dry_skip "cd $TERRAIN_ROOT && git rev-parse --short=7 HEAD" "could not read terrain generator HEAD as px4"
+        current_head=""
+      else
+        fail_or_warn "could not read $TERRAIN_ROOT HEAD as px4."
+      fi
+    fi
     if [[ "$current_head" == "$TERRAIN_COMMIT" ]]; then
       echo "SKIP: terrain generator already at $TERRAIN_COMMIT."
     else
-      if [[ -n "$(git_as_px4 "$TERRAIN_ROOT" status --porcelain)" ]]; then
+      if ! terrain_status="$(git_as_px4 "$TERRAIN_ROOT" status --porcelain 2>/dev/null)"; then
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+          dry_skip "cd $TERRAIN_ROOT && git status --porcelain" "could not read terrain generator status as px4"
+          terrain_status=""
+        else
+          fail_or_warn "could not read $TERRAIN_ROOT status as px4."
+        fi
+      fi
+      if [[ -n "$terrain_status" ]]; then
         fail_or_warn "$TERRAIN_ROOT has local changes; refusing to change terrain generator checkout."
       else
         run_as_px4 "cd $TERRAIN_ROOT && git fetch origin && git checkout $TERRAIN_COMMIT"
       fi
     fi
   fi
-  run_as_px4 "cd $TERRAIN_ROOT && GAZEBO_TERRAIN_OUTPUT_PATH=$PROJECT_ROOT/generated_worlds/terrain/_generator_output uv sync"
+  run_as_px4 "cd $TERRAIN_ROOT && PATH=/usr/local/bin:\$PATH GAZEBO_TERRAIN_OUTPUT_PATH=$terrain_output_abs uv sync"
 }
 
 ensure_dashboard_token() {
@@ -461,6 +553,7 @@ run_deployment_check() {
   run_cmd "$PROJECT_ROOT/venv/bin/python $PROJECT_ROOT/scripts/deploy/check_deployment.py --px4-root $PX4_ROOT"
 }
 
+load_pinned_config
 preflight
 install_apt_packages
 install_system_python_packages
