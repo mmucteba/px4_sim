@@ -1,26 +1,41 @@
-# QGroundControl Connection Over Tailscale
+# QGroundControl Tailscale Connection
 
-Status:
-Working.
+QGroundControl is a viewer/operator monitor for DATABOSS runs. The runner does
+not depend on manual QGC actions.
 
-Mac QGroundControl Tailscale IP:
-100.109.200.5
+Configure the QGC destination with:
 
-PX4 server command:
-deactivate 2>/dev/null || true
-cd /opt/sim_px4/PX4-Autopilot
-HEADLESS=1 make px4_sitl gz_x500
+```bash
+export DATABOSS_QGC_IP=<qgc-host-ip>
+```
 
-PX4 shell command:
-mavlink start -m config -u 14555 -o 14550 -t 100.109.200.5 -r 1000000 -x
+For a local-only deployment, use:
 
-Validation:
-mavlink status showed:
-- GCS heartbeat valid
-- partner IP: 100.109.200.5
-- rx messages from sysid 255
-- dropped packets: 0
+```bash
+export DATABOSS_QGC_IP=127.0.0.1
+```
 
-Notes:
-This PX4 build does not support `mavlink start -m normal`.
-Use `-m config` for QGroundControl.
+PX4/QGC UDP convention:
+
+```text
+PX4 local UDP port:  14555
+QGC remote UDP port: 14550
+```
+
+The runner starts the PX4 MAVLink stream in this shape:
+
+```bash
+mavlink start -m config -u 14555 -o 14550 -t "$DATABOSS_QGC_IP" -r 1000000 -x
+```
+
+For dashboard binding on the same host, set:
+
+```bash
+export DATABOSS_DASHBOARD_HOST=127.0.0.1
+```
+
+For LAN or tailnet access, set `DATABOSS_DASHBOARD_HOST` to the address the
+dashboard should bind and `DATABOSS_QGC_IP` to the machine running QGC.
+
+See `docs/DEPLOYMENT.md` for the complete deployment wiring, including
+`DATABOSS_PX4_ROOT` and `DATABOSS_PX4_PINS_PATH`.

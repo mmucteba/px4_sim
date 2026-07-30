@@ -4917,3 +4917,61 @@ permissions prevent a complete symlink audit.
 `bootstrap.sh` has never provisioned a real machine. This host lacks the disk
 to prove a full fresh deployment here, so the script has syntax, dry-run, and
 checker evidence, but not an end-to-end production provisioning proof.
+
+## 2026-07-30 — Phases 19-20 dashboard, analytics, vehicle pipeline, scrub, and first GitHub push
+
+Phase 19 partially landed the dashboard redesign/control-panel work but is not
+claimed complete. The landed pieces gave the dashboard operator-facing launch,
+overview/archive, run/comparison/scenario/health pages, and the static asset
+checks needed to keep the browser UI honest.
+
+Per-run analytics now generate a default plot/stat pack for every run:
+`scripts/analysis/generate_run_plots.py` writes 14 plots plus
+`run_stats.json` and `run_stats.md`, and the run detail page surfaces them on
+Stats and Plots tabs. Plot/stat generation is non-fatal so an analysis failure
+does not erase otherwise useful run evidence.
+
+Phase 20 accepted the vehicle composition/install pipeline. The repo now has 5
+models (`afbr_s50`, `test_test`, `x500_ark_flow`, `x500_cam_lidar_down`,
+`x500_e2e_widecam`) and 4 DATABOSS airframes
+(`4022_gz_x500_cam_lidar_down`, `4023_gz_x500_ark_flow`,
+`4024_gz_test_test`, `4025_gz_x500_e2e_widecam`). The dashboard `/vehicles`
+page and `scripts/sim/add_vehicle.py` share the same path: compose a spec,
+optionally write repo-side model/airframe files, install into PX4, register the
+airframe, refresh `deploy/px4/px4_pins.yaml`, regenerate
+`0004-airframes-cmakelists-register.patch`, and require a PX4 reconfigure/build
+before the new target is runnable. `check_deployment.py` now reports 33 OK / 0
+FAIL / 0 WARN / 0 SKIP; `check_static_assets.py` reports 81 OK / 0 FAIL.
+
+Phase 20C fixed five bugs exposed by using the new pipeline for real:
+
+1. `flow_bridge.hfov_rad` was not pinned from the selected vehicle, so a 2.2
+   rad wide-camera vehicle silently inherited the template 1.74 rad value, a
+   26% optical-flow scale error.
+2. Camera FOV resolution only handled included camera submodels; composed
+   inline cameras now resolve through shared SDF inspection.
+3. Native PX4/Gazebo `gpu_lidar` naming is now guarded: the bridge hardcodes
+   `lidar_sensor_link/lidar`, and a real run
+   `20260730_091657_hover_test_test_15m_gnss_off_sift` flew 63.6 s at 15.06 m
+   but produced `ulog_distance_sensor_rows=0` when that topic name was wrong.
+4. `check_vehicle_composer` no longer hardcodes autostart id 4024; it verifies
+   the independently computed lowest free id >= 4024 and was checked against a
+   scratch 4022-4026 occupied set where it followed to 4027.
+5. Flow-fusion stats are now airborne-masked instead of including pre-takeoff
+   samples. The current profile fuses 99.0% airborne samples with 0.0%
+   rejected, but `gate_discriminating` is false because the assigned noise
+   (`EKF2_OF_N_MIN=0.3`, implied sigma 0.303 rad/s) is 4-7x the measured signal
+   (0.041/0.072 rad/s).
+
+Phase 20D removed the remaining display-only tailnet IP leaks from tracked
+dashboard JavaScript and the dashboard service file; the audit result was that
+no tailnet address remained in tracked `.js`/`.service`/`.html` files.
+Historical docs still retain old IPs as evidence; the tracked runtime assets no
+longer bake them in.
+
+The repo was pushed to GitHub for the first time at
+`git@github.com:mmucteba/px4_sim.git` and merged through
+`3204987 Merge Phase 17-20 work into main`. Current branch target is `main`.
+Fresh clone deployment is now possible through Git, but the clone still does
+not include gitignored `generated_worlds/`, so scenarios cannot fly until those
+worlds are transferred or regenerated.

@@ -1,15 +1,25 @@
 # DATABOSS Deployment
 
 This document is the human counterpart to `scripts/deploy/bootstrap.sh`. The
-target host is Ubuntu 24.04.1 LTS on x86_64 with Python 3.12.3.
+target host is Ubuntu 24.04 noble on x86_64 with Python 3.12.
+
+## Host Requirements
+
+- Ubuntu 24.04 noble. `bootstrap.sh` pins the OSRF apt source to `noble`.
+- Gazebo Harmonic, currently `gz sim` 8.14.0 from OSRF noble packages.
+- At least 2 CPU cores and at least 4 GB RAM; more is strongly advised.
+- At least 15 GB free disk before deployment.
+- The reference host is 2 cores / 3 GB RAM. That is the documented lower bound,
+  not a recommendation. `bootstrap.sh` warns that `make px4_sitl_default`
+  "takes a long time on a 2-core host".
 
 ## Input Inventory
 
 | Item | Required value | Source of truth |
 |---|---:|---|
-| OS | Ubuntu 24.04.1 LTS, x86_64 | deployment target |
-| CPU/RAM | 2 cores, 3 GB RAM minimum observed; warn below 8 GB RAM | deployment target |
-| Free disk | refuse below 20 GB free; full deployment costs about 8 GB | measured deployment size |
+| OS | Ubuntu 24.04 noble, x86_64 | deployment target |
+| CPU/RAM | 2 cores / 4 GB minimum documented; more strongly advised | deployment target |
+| Free disk | at least 15 GB free | deployment target |
 | Gazebo | `gz-harmonic`, `gz sim` 8.14.0 | OSRF noble apt source |
 | OSRF apt source | `http://packages.osrfoundation.org/gazebo/ubuntu-stable noble main` | `deploy/px4/px4_pins.yaml` |
 | OSRF keyring | `/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg` | deployment target |
@@ -19,8 +29,8 @@ target host is Ubuntu 24.04.1 LTS on x86_64 with Python 3.12.3.
 | System Python pins | `deploy/requirements-system.txt` | system Python `/usr/local/lib/python3.12/dist-packages` |
 | PX4 repo/pin | `deploy/px4/px4_pins.yaml` | repo deployment manifest |
 | PX4 patches | `deploy/px4/*.patch` | repo deployment manifest |
-| DATABOSS models | `src/databoss_sim/models/*` | copied into PX4, not symlinked |
-| DATABOSS airframes | `src/databoss_sim/airframes/4022_*`, `4023_*` | copied into PX4 ROMFS |
+| DATABOSS models | `afbr_s50`, `test_test`, `x500_ark_flow`, `x500_cam_lidar_down`, `x500_e2e_widecam` | copied into PX4, not symlinked |
+| DATABOSS airframes | `4022_gz_x500_cam_lidar_down`, `4023_gz_x500_ark_flow`, `4024_gz_test_test`, `4025_gz_x500_e2e_widecam` | copied into PX4 ROMFS |
 | Terrain generator | `https://github.com/saiaravind19/gazebo_terrain_generator.git` at `4946f4c` | pristine upstream checkout |
 | Terrain output | `generated_worlds/terrain/_generator_output/` | `GAZEBO_TERRAIN_OUTPUT_PATH` |
 | Dashboard service | `scripts/dashboard/databoss-dashboard.service` | copied to systemd |
@@ -96,25 +106,51 @@ The bootstrap script:
    prerequisites instead of duplicating PX4's package list.
 7. Applies PX4 patches with `git apply --check`, treating reverse-apply success
    as already applied.
-8. Copies DATABOSS models and airframes into PX4.
-9. Builds `make px4_sitl_default` as the `px4` user unless skipped.
-10. Builds `venv/` and `venv_bridge/`.
-11. Clones and syncs the terrain generator unless skipped.
-12. Generates `.dashboard_token` if absent. It is only needed when
+8. Reads the model and airframe inventory from `deploy/px4/px4_pins.yaml` and
+   fails loudly if either pins list is empty.
+9. Copies DATABOSS models and airframes into PX4.
+10. Builds `make px4_sitl_default` as the `px4` user unless skipped.
+11. Builds `venv/` and `venv_bridge/`.
+12. Clones and syncs the terrain generator unless skipped.
+13. Generates `.dashboard_token` if absent. It is only needed when
    `DATABOSS_DASHBOARD_REQUIRE_TOKEN=1`.
-13. Ensures `experiments/` and `generated_worlds/` are owned by `px4`.
-14. Installs and enables the dashboard systemd unit.
-15. Runs `scripts/deploy/check_deployment.py` last and exits non-zero if it
+14. Ensures `experiments/` and `generated_worlds/` are owned by `px4`.
+15. Installs and enables the dashboard systemd unit.
+16. Runs `scripts/deploy/check_deployment.py` last and exits non-zero if it
    fails.
 
 Do not treat a skipped PX4 build as proof of readiness. The final deployment
-check must pass.
+check must pass. Current expected result is `33 OK, 0 FAIL, 0 WARN, 0 SKIP`;
+the checker validates 4 DATABOSS airframes and 5 DATABOSS models.
 
-## Out-of-Band Transfer
+## Clone-Based Deployment
 
-Transfer `generated_worlds/` out-of-band. It is gitignored and currently costs
-about 202 MB. Regenerating it costs Mapbox requests and will not necessarily
-produce byte-identical terrain assets.
+The repo now has a GitHub remote:
+
+```text
+git@github.com:mmucteba/px4_sim.git
+```
+
+On a new target, clone the repo, run bootstrap, then restore or regenerate
+`generated_worlds/` before attempting flights:
+
+```bash
+git clone git@github.com:mmucteba/px4_sim.git /opt/databoss_px4_sim
+cd /opt/databoss_px4_sim
+sudo scripts/deploy/bootstrap.sh --yes
+```
+
+The clone contains source, specs, deployment pins, patches, dashboard assets,
+scenario YAML, and checks. It does **not** contain `generated_worlds/`.
+Current scenarios reference `world.sdf_path: generated_worlds/...`, so a clone
+can pass source/deployment checks while still lacking the worlds needed to fly.
+
+## World Transfer
+
+Transfer `generated_worlds/` out-of-band or regenerate it. It is gitignored;
+the current scenario set needs about 27 MB of generated world files.
+Regenerating terrain can cost Mapbox requests and may not produce
+byte-identical terrain assets.
 
 Build a transport bundle on the source host:
 
@@ -148,7 +184,9 @@ per-request from the browser and is not stored by the server.
 
 ## Ownership
 
-Runs execute as the `px4` user. Keep these paths writable by `px4`:
+Runs execute as the `px4` user. `bootstrap.sh` runs `fix_ownership()` on
+`$PROJECT_ROOT`, which chowns the DATABOSS repo to `px4:px4`. Keep these paths
+writable by `px4`:
 
 ```text
 experiments/
@@ -159,9 +197,32 @@ generated_worlds/terrain/_generator_output/
 Root-owned files in `experiments/` or `generated_worlds/` previously broke
 `/api/runs` with HTTP 500 responses.
 
+Gotcha: `fix_ownership()` only touches `$PROJECT_ROOT`. It does **not** chown
+the external PX4 checkout. In particular,
+`/opt/sim_px4/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt`
+is outside the repo and can remain unwritable by `px4`, which breaks dashboard
+vehicle installs when they need to register a new airframe.
+
 ## QGC and gz-web Wiring
 
 QGroundControl is a viewer/operator monitor, not the experiment engine.
+
+For a local-only deployment:
+
+```bash
+export DATABOSS_QGC_IP=127.0.0.1
+export DATABOSS_DASHBOARD_HOST=127.0.0.1
+```
+
+For a LAN or tailnet deployment, set `DATABOSS_DASHBOARD_HOST` to the address
+the dashboard should bind and `DATABOSS_QGC_IP` to the machine running QGC.
+
+PX4/deployment path overrides:
+
+```bash
+export DATABOSS_PX4_ROOT=/opt/sim_px4/PX4-Autopilot
+export DATABOSS_PX4_PINS_PATH=/opt/databoss_px4_sim/deploy/px4/px4_pins.yaml
+```
 
 PX4/QGC UDP convention:
 
@@ -170,10 +231,10 @@ PX4 local UDP port:  14555
 QGC remote UDP port: 14550
 ```
 
-Known PX4 MAVLink command:
+Runner-started PX4 MAVLink shape:
 
 ```bash
-mavlink start -m config -u 14555 -o 14550 -t 100.109.200.5 -r 1000000 -x
+mavlink start -m config -u 14555 -o 14550 -t "$DATABOSS_QGC_IP" -r 1000000 -x
 ```
 
 Gazebo web convention:
