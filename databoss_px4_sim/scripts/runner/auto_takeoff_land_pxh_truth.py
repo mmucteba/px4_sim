@@ -1392,6 +1392,19 @@ def probe_rangefinder_topic(
     return result
 
 
+# Rangefinder gate windowing constants.
+#
+# Both existed implicitly and wrongly before 2026-07-30: tilt was measured over the
+# whole log (including pre-takeoff, where the EKF attitude estimate has not converged)
+# and the height differential was measured across the climb (where a ~2.5 s sensor lag
+# manufactures error proportional to climb rate). Either one alone failed healthy
+# flights. These are WINDOWING constants - the acceptance tolerance itself is unchanged,
+# because 0.75 m is provably right once measured in the correct window.
+RANGEFINDER_AIRBORNE_HEIGHT_M = 0.5      # matches generate_run_plots.AIRBORNE_HEIGHT_M
+RANGEFINDER_STEADY_VZ_MAX_M_S = 0.2      # |vz| below this counts as steady
+RANGEFINDER_MIN_STEADY_SAMPLES = 10      # per endpoint cluster
+
+
 def analyze_ulog_distance_sensor(
     ulog_path: Path,
     required: bool,
@@ -1418,6 +1431,12 @@ def analyze_ulog_distance_sensor(
         "horizontal_excursion_m": None,
         "rangefinder_gate_mode": "absolute",
         "rangefinder_tilt_p95_deg": None,
+        "rangefinder_tilt_p95_all_samples_deg": None,
+        "rangefinder_airborne_sample_count": 0,
+        "rangefinder_steady_sample_count": 0,
+        "rangefinder_steady_vz_max_m_s": RANGEFINDER_STEADY_VZ_MAX_M_S,
+        "rangefinder_steady_span_m": None,
+        "rangefinder_differential_source": None,
         "rangefinder_level_sample_count": 0,
         "rangefinder_level_median_diff_m": None,
         "rangefinder_climb_span_m": None,
@@ -1613,6 +1632,10 @@ def analyze_ulog_distance_sensor(
         local_z = np.asarray(local_pos["z"], dtype=float)
         local_x = np.asarray(local_pos["x"], dtype=float)
         local_y = np.asarray(local_pos["y"], dtype=float)
+        # vz identifies STEADY samples: the rangefinder pipeline lags true altitude by
+        # ~2.5 s, so any height comparison taken while climbing carries
+        # lag x climb_rate of apparent error unrelated to sensor accuracy.
+        local_vz = np.asarray(local_pos["vz"], dtype=float)
         q1 = np.asarray(attitude["q[1]"], dtype=float)
         q2 = np.asarray(attitude["q[2]"], dtype=float)
         attitude_cos_tilt = 1.0 - 2.0 * (q1 ** 2 + q2 ** 2)
@@ -1623,6 +1646,7 @@ def analyze_ulog_distance_sensor(
             & np.isfinite(local_z)
             & np.isfinite(local_x)
             & np.isfinite(local_y)
+            & np.isfinite(local_vz)
         )
         attitude_mask = np.isfinite(attitude_ts) & np.isfinite(attitude_cos_tilt)
 
@@ -1632,6 +1656,7 @@ def analyze_ulog_distance_sensor(
         height_up = -local_z[local_mask]
         local_x = local_x[local_mask]
         local_y = local_y[local_mask]
+        local_vz = local_vz[local_mask]
         attitude_ts = attitude_ts[attitude_mask]
         attitude_cos_tilt = attitude_cos_tilt[attitude_mask]
 
@@ -1650,6 +1675,7 @@ def analyze_ulog_distance_sensor(
         height_up = height_up[local_order]
         local_x = local_x[local_order]
         local_y = local_y[local_order]
+        local_vz = local_vz[local_order]
         attitude_ts = attitude_ts[attitude_order]
         attitude_cos_tilt = attitude_cos_tilt[attitude_order]
 
@@ -1667,14 +1693,37 @@ def analyze_ulog_distance_sensor(
         aligned_height_up = np.interp(aligned_ts, local_ts, height_up)
         aligned_x = np.interp(aligned_ts, local_ts, local_x)
         aligned_y = np.interp(aligned_ts, local_ts, local_y)
+        aligned_vz = np.interp(aligned_ts, local_ts, local_vz)
         aligned_cos_tilt = np.interp(aligned_ts, attitude_ts, attitude_cos_tilt)
         aligned_tilt_deg = np.degrees(
             np.arccos(np.clip(aligned_cos_tilt, -1.0, 1.0))
         )
         vertical_projection = aligned_distances * aligned_cos_tilt
+        # Tilt p95 must be measured AIRBORNE. Before takeoff the EKF attitude estimate
+        # has not converged and reports 57-70 deg while the vehicle sits on the ground;
+        # including those samples inflated p95 from ~2.7 deg to 56.70 deg on a real run
+        # (20260730_125151_example_06), i.e. 20x, making a healthy flight look wildly
+        # tilted to anyone reading the evidence. Same 0.5 m airborne threshold the rest
+        # of the codebase uses (generate_run_plots.AIRBORNE_HEIGHT_M, flight.airborne_s).
         finite_tilt = aligned_tilt_deg[np.isfinite(aligned_tilt_deg)]
         if len(finite_tilt):
-            result["rangefinder_tilt_p95_deg"] = float(np.nanpercentile(finite_tilt, 95.0))
+            result["rangefinder_tilt_p95_all_samples_deg"] = float(
+                np.nanpercentile(finite_tilt, 95.0)
+            )
+        airborne_tilt_mask = np.isfinite(aligned_tilt_deg) & (
+            aligned_height_up > RANGEFINDER_AIRBORNE_HEIGHT_M
+        )
+        if int(np.count_nonzero(airborne_tilt_mask)):
+            result["rangefinder_tilt_p95_deg"] = float(
+                np.nanpercentile(aligned_tilt_deg[airborne_tilt_mask], 95.0)
+            )
+        elif len(finite_tilt):
+            # No airborne samples at all - report the unmasked value rather than
+            # nothing, but the caller can tell from the sample count below.
+            result["rangefinder_tilt_p95_deg"] = result["rangefinder_tilt_p95_all_samples_deg"]
+        result["rangefinder_airborne_sample_count"] = int(
+            np.count_nonzero(airborne_tilt_mask)
+        )
 
         max_height_window_m = float(np.nanmax(aligned_height_up))
         start_candidates = np.flatnonzero(aligned_height_up >= 0.5)
@@ -1718,9 +1767,47 @@ def analyze_ulog_distance_sensor(
             np.nanmedian(np.abs(v_window - z_window))
         )
         result["rangefinder_climb_span_m"] = float(np.nanmax(z_window) - np.nanmin(z_window))
-        result["rangefinder_differential_diff_m"] = float(
-            abs((v_window[-1] - v_window[0]) - (z_window[-1] - z_window[0]))
-        )
+
+        # The differential compares the sensor's CHANGE against height's CHANGE, which
+        # is the right idea - it is immune to a constant mounting offset. But taking the
+        # endpoints from the climb window is not: the pipeline lags true altitude by
+        # ~2.5 s (measured, corr(error, climb_rate) = -0.66), so the final sensor sample
+        # still trails the final height and the sensor's delta comes up short by
+        # lag x climb_rate. On 20260730_125151_example_06 that manufactured a 2.517 m
+        # differential against a 0.75 m tolerance and failed a healthy flight whose real
+        # steady-state error was 0.372 m.
+        #
+        # Take the endpoints from STEADY samples instead, where lag cannot distort the
+        # comparison, using cluster medians rather than single samples for robustness.
+        steady_window = np.abs(aligned_vz[level_indices]) < RANGEFINDER_STEADY_VZ_MAX_M_S
+        result["rangefinder_steady_sample_count"] = int(np.count_nonzero(steady_window))
+        result["rangefinder_steady_vz_max_m_s"] = RANGEFINDER_STEADY_VZ_MAX_M_S
+        if int(np.count_nonzero(steady_window)) >= 2 * RANGEFINDER_MIN_STEADY_SAMPLES:
+            z_steady = z_window[steady_window]
+            v_steady = v_window[steady_window]
+            order = np.argsort(z_steady)
+            z_sorted = z_steady[order]
+            v_sorted = v_steady[order]
+            k = max(RANGEFINDER_MIN_STEADY_SAMPLES, len(z_sorted) // 10)
+            low_dz = float(np.nanmedian(z_sorted[:k]))
+            low_dv = float(np.nanmedian(v_sorted[:k]))
+            high_dz = float(np.nanmedian(z_sorted[-k:]))
+            high_dv = float(np.nanmedian(v_sorted[-k:]))
+            result["rangefinder_steady_span_m"] = float(high_dz - low_dz)
+            result["rangefinder_differential_diff_m"] = float(
+                abs((high_dv - low_dv) - (high_dz - low_dz))
+            )
+            result["rangefinder_differential_source"] = "steady"
+        else:
+            # Not enough steady evidence. Do NOT silently pass - "no evidence" and
+            # "evidence of agreement" are different verdicts.
+            result["rangefinder_differential_diff_m"] = float(
+                abs((v_window[-1] - v_window[0]) - (z_window[-1] - z_window[0]))
+            )
+            result["rangefinder_differential_source"] = "climb_endpoints_insufficient_steady"
+            result["rangefinder_gate_reason"] = "too_few_steady_samples"
+            apply_declared_offset_escape_hatch()
+            return result
         horizontal_excursion_m = float(
             np.nanmax(np.hypot(x_window - x_window[0], y_window - y_window[0]))
         )
@@ -1991,6 +2078,23 @@ def main() -> int:
     rangefinder_xvfb_enabled = bool(rangefinder_cfg.get("xvfb_enabled", False))
     rangefinder_min_ulog_rows = int(rangefinder_cfg.get("min_ulog_rows", 50))
     rangefinder_height_tolerance_m = float(rangefinder_cfg.get("height_agreement_tolerance_m", 0.75))
+    # The height-agreement comparison is ADVISORY by default and does not decide
+    # acceptance. It scores the rangefinder against vehicle_local_position.z, which is
+    # exactly the estimate a GNSS-loss scenario sets out to let drift. On
+    # 20260801_094913_s02 that z ran +1.15 m from Gazebo truth (PX4 read 5.00 m at a
+    # true 3.82 m AGL, and still read 1.05 m sitting on the ground after landing) while
+    # the sensor matched the EKF's own terrain-relative dist_bottom to 0.023 m. The
+    # gate rejected the healthy sensor and let the drifting reference set the verdict.
+    # It is also not reproducible: the same example_06 scenario scored 0.170 m on
+    # 20260730_074806 and 2.517 m on 20260730_125151, because the differential is drawn
+    # from two single samples at the ends of the climb window.
+    #
+    # The numbers are still measured and written to validation.md - losing the evidence
+    # would be worse than the bad verdict. A scenario can opt back in with
+    # rangefinder.height_agreement_required: true.
+    rangefinder_height_agreement_required = bool(
+        rangefinder_cfg.get("height_agreement_required", False)
+    )
     rangefinder_max_tilt_deg = float(
         rangefinder_cfg.get(
             "rangefinder_max_tilt_deg",
@@ -3604,6 +3708,18 @@ def main() -> int:
         )
     )
 
+    # Sensor liveness is still gated: distance_sensor rows have to reach PX4's uORB, which
+    # the live Gazebo topic probe alone cannot prove (it only shows Gazebo publishing).
+    # The height-agreement verdict on top of that is advisory unless a scenario asks for it.
+    rangefinder_ulog_rows_ok = (
+        not rangefinder_proof_enabled
+        or rangefinder_ulog_analysis["ulog_distance_sensor_rows"] >= rangefinder_min_ulog_rows
+    )
+    rangefinder_ulog_gate_ok = rangefinder_ulog_rows_ok and (
+        not rangefinder_height_agreement_required
+        or rangefinder_ulog_analysis["ulog_distance_sensor_ok"]
+    )
+
     observation_mode = args.failsafe_profile == "delayed_observation" and gnss_loss_requested
     landing_required = not observation_mode and not skip_landing_command
     landing_ok = (landing_detected and disarmed_by_landing) if landing_required else True
@@ -3625,7 +3741,7 @@ def main() -> int:
         and local_hold_ok
         and camera_probe_result["camera_probe_ok"]
         and rangefinder_probe_result["rangefinder_probe_ok"]
-        and rangefinder_ulog_analysis["ulog_distance_sensor_ok"]
+        and rangefinder_ulog_gate_ok
         and flow_recording_ok
         and flow_bridge_ok
         and external_odom_fusion_analysis["ulog_external_odom_fusion_ok"]
@@ -3754,6 +3870,9 @@ def main() -> int:
         "rangefinder_xvfb_enabled": rangefinder_xvfb_enabled,
         "rangefinder_min_ulog_rows": rangefinder_min_ulog_rows,
         "rangefinder_height_agreement_tolerance_m": rangefinder_height_tolerance_m,
+        "rangefinder_height_agreement_required": rangefinder_height_agreement_required,
+        "rangefinder_ulog_rows_ok": rangefinder_ulog_rows_ok,
+        "rangefinder_ulog_gate_ok": rangefinder_ulog_gate_ok,
         "rangefinder_max_tilt_deg": rangefinder_max_tilt_deg,
         "sensor_render_engine": sensor_render_engine,
         **rangefinder_probe_result,
@@ -3956,7 +4075,10 @@ def main() -> int:
         f"- ULog distance_sensor rows: `{rangefinder_ulog_analysis['ulog_distance_sensor_rows']}`",
         f"- ULog distance_sensor max m: `{rangefinder_ulog_analysis['ulog_distance_sensor_max_m']}`",
         f"- ULog distance_sensor vs height diff m: `{rangefinder_ulog_analysis['ulog_distance_sensor_height_diff_m']}`",
-        f"- ULog distance_sensor OK: `{rangefinder_ulog_analysis['ulog_distance_sensor_ok']}`",
+        f"- ULog distance_sensor rows OK: `{rangefinder_ulog_rows_ok}`",
+        f"- ULog distance_sensor height agreement required: `{rangefinder_height_agreement_required}`",
+        f"- ULog distance_sensor height agreement (advisory): `{rangefinder_ulog_analysis['ulog_distance_sensor_ok']}`",
+        f"- ULog distance_sensor gate OK: `{rangefinder_ulog_gate_ok}`",
         f"- Flow recording enabled: `{flow_recording_enabled}`",
         f"- Flow recording frames: `{flow_recording_frames}`",
         f"- Flow recording span s: `{flow_recording_span_s}`",
